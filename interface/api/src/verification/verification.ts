@@ -1,5 +1,6 @@
 /** Règles de fusion d'une demande réalisée : fonctions pures. */
 import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
+import { estTitreConventionnel } from '../versions/conventionnel.js';
 
 export type EtatControle = 'en-attente' | 'en-cours' | 'reussi' | 'echec';
 
@@ -34,9 +35,16 @@ export function peutFusionner(
   etatPr: 'ouverte' | 'fusionnee' | 'fermee',
   sansConflit: boolean | null,
   controles: Controle[],
+  titre: string,
 ): { fusionnable: boolean; raison: string | null } {
   if (etatPr === 'fusionnee') return { fusionnable: false, raison: 'Déjà fusionnée' };
   if (etatPr === 'fermee') return { fusionnable: false, raison: 'La pull request a été fermée sans fusion' };
+  if (!estTitreConventionnel(titre)) {
+    return {
+      fusionnable: false,
+      raison: `Le titre « ${titre} » ne commence pas par « feat: » ou « fix: » : il décide du numéro de la prochaine version. Un développeur doit le corriger`,
+    };
+  }
   const echec = controles.find((c) => c.etat === 'echec');
   if (echec) return { fusionnable: false, raison: `Le contrôle « ${echec.nom} » a échoué : la demande doit être corrigée` };
   if (controles.some((c) => c.etat !== 'reussi')) return { fusionnable: false, raison: 'Contrôles en cours…' };

@@ -16,7 +16,8 @@
   "controlesRequis": [
     "Anti-fuite (gitleaks)",
     "API (lint, tests, compilation)",
-    "Front (lint, types, tests dont accessibilité, compilation)"
+    "Front (lint, types, tests dont accessibilité, compilation)",
+    "Titre de PR (Conventional Commits, semver)"
   ],
   "controles": [
     "cd /app/api && npm run lint && npm test && npm run test:e2e && npm run build",

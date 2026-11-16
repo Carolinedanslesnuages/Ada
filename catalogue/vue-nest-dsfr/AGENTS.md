@@ -67,9 +67,12 @@ alternative, un champ sans étiquette, un clic sans clavier… et chaque écran 
 | Compilation | `cd api && npm run build && cd ../front && npm run type-check` |
 
 ## Messages de commit (release-please)
-Conventional Commits : `feat: …` (nouvelle fonctionnalité), `fix: …` (correction),
-`test:`, `docs:`, `chore:`, `refactor:` (sans nouvelle version). Story issue d'une issue
-GitHub : `Closes #<numéro>` dans le corps. release-please tient la PR de version à jour.
+Conventional Commits, versions SemVer calculées par release-please (jamais à la main) :
+`fix: …` → correctif (0.2.0 → 0.2.1), `feat: …` → fonctionnalité (0.2.0 → 0.3.0),
+`feat!: …` ou `BREAKING CHANGE:` → changement incompatible (majeure ; mineure avant 1.0.0),
+`test:`, `docs:`, `chore:`, `refactor:` → sans nouvelle version. Fusion en squash : le
+**titre de la PR** devient le commit de `main` (contrôle « Titre de PR » en CI). Story issue
+d'une issue GitHub : `Closes #<numéro>` dans le corps.
 
 ## Règles absolues
 - Aucune donnée réelle, aucun secret dans le dépôt (gitleaks bloque en local et en CI ; `--no-verify` interdit).
