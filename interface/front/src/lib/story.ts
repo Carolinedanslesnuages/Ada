@@ -101,12 +101,49 @@ export interface Activite {
 
 export const MARQUEUR_ASSISTANT = '<!-- atelier-po:assistant -->'
 
+/** Question qui se tranche entre quelques options (api/src/agent/agent.ts, #35). */
+export interface QuestionAChoix {
+  question: string
+  choix: string[]
+  plusieurs: boolean
+}
+
+const DONNEES_CHOIX = /<!-- ada:choix (\S+) -->/
+const BLOC_CHOIX_LISIBLE = /\n*\*\*Choix proposés\*\* \(à cocher dans ADA\) :[\s\S]*$/
+
+/** Choix structurés joints par l'assistant à ses questions ; [] s'il n'y en a pas (ou illisibles). */
+export function lireChoix(texte: string): QuestionAChoix[] {
+  const donnees = DONNEES_CHOIX.exec(texte)?.[1]
+  if (!donnees) return []
+  try {
+    const octets = Uint8Array.from(atob(donnees), (caractere) => caractere.charCodeAt(0))
+    const choix = JSON.parse(new TextDecoder().decode(octets)) as QuestionAChoix[]
+    return Array.isArray(choix) ? choix.filter((question) => question.question && question.choix?.length >= 2) : []
+  } catch {
+    return []
+  }
+}
+
+/** Réponse envoyée à l'assistant (et enregistrée sur GitHub) : lisible, une question par paragraphe. */
+export function composerReponse(questions: QuestionAChoix[], reponses: { coches: string[]; precision: string }[]): string {
+  return questions
+    .map((question, rang) => {
+      const reponse = reponses[rang] ?? { coches: [], precision: '' }
+      const lignes = [`${rang + 1}. ${question.question}`]
+      if (reponse.coches.length) lignes.push(`→ ${reponse.coches.join(' ; ')}`)
+      if (reponse.precision.trim()) lignes.push(`Précision : ${reponse.precision.trim()}`)
+      return lignes.join('\n')
+    })
+    .join('\n\n')
+}
+
 /** Message affiché au PO : les messages de l'assistant sont signés « Assistant », sans marqueur. */
 export function presenterMessage(message: Message): { auteur: string; texte: string; assistant: boolean } {
   const assistant = message.texte.startsWith(MARQUEUR_ASSISTANT)
   return {
     auteur: assistant ? 'Assistant' : message.auteur,
-    texte: assistant ? message.texte.replace(MARQUEUR_ASSISTANT, '').trim() : message.texte,
+    // Les choix sont présentés dans le formulaire de réponse : on ne les répète pas dans le fil.
+    texte: assistant ? message.texte.replace(MARQUEUR_ASSISTANT, '').replace(DONNEES_CHOIX, '').replace(BLOC_CHOIX_LISIBLE, '').trim() : message.texte,
     assistant,
   }
 }

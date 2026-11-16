@@ -120,6 +120,19 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
+  it('questions à choix : réponse en cases à cocher au lieu du champ libre', async () => {
+    const octets = new TextEncoder().encode(JSON.stringify([{ question: 'Retour le jour même ?', choix: ['Oui', 'Non'], plusieurs: false }]))
+    const texte = `<!-- atelier-po:assistant -->\n🤖 **Questions de l’assistant**\n\nUne règle.\n\n<!-- ada:choix ${btoa(String.fromCharCode(...octets))} -->`
+    const wrapper = monterAvec({ story: { ...story, messages: [...story.messages, { id: 99, auteur: 'robot', avatar: null, le: '2026-11-16T10:00:00Z', texte }] } })
+    expect(wrapper.find('textarea').exists()).toBe(false)
+    expect(wrapper.findAll('input[type="radio"]')).toHaveLength(2)
+    expect(wrapper.text()).toContain('vos réponses sont enregistrées sur GitHub, en commentaire de la story n° 12')
+    await wrapper.find('#choix-0-0').trigger('click')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('repondre')?.[0]).toEqual(['1. Retour le jour même ?\n→ Oui'])
+    wrapper.unmount()
+  })
+
   it('permet de demander une modification du plan', async () => {
     const wrapper = monterAvec({ story: { ...story, statut: 'plan-a-valider' } })
     await bouton(wrapper, 'Demander une modification')!.trigger('click')

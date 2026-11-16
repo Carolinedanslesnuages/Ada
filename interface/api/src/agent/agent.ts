@@ -19,7 +19,18 @@ export interface Demande {
   echanges: { auteur: 'assistant' | 'po'; texte: string }[];
 }
 
-export type DecisionAnalyse = { decision: 'questions' | 'plan'; texte: string };
+/** Une question qui se tranche entre quelques options : le PO répond en cochant (#35). */
+export interface QuestionAChoix {
+  question: string;
+  choix: string[];
+  /** Vrai : plusieurs réponses possibles (cases à cocher) ; faux : une seule (boutons radio). */
+  plusieurs: boolean;
+}
+
+export type DecisionAnalyse = { decision: 'questions' | 'plan'; texte: string; choix?: QuestionAChoix[] };
+
+/** Marque, dans le commentaire GitHub, les choix structurés lus par ADA (invisibles sur GitHub). */
+export const MARQUEUR_CHOIX = 'ada:choix';
 export type ResultatRealisation = { resultat: 'ok'; resume: string } | { resultat: 'bloque'; raison: string };
 
 /** Commande pour exécuter une commande dans le conteneur de l'aperçu (depuis le dépôt cloné). */
@@ -161,6 +172,9 @@ ${decrireDemande(d)}
 Ta tâche :
 1. Vérifie que la demande est claire et complète. Ne devine jamais une règle métier : s'il en
    manque une, pose au plus TROIS questions numérotées, courtes, que le PO peut trancher.
+   Quand une question se tranche entre quelques options (2 à 6), donne-les aussi dans « choix » :
+   le PO répondra en cochant, avec une précision libre s'il le souhaite. « plusieurs » : vrai si
+   plusieurs options peuvent être retenues ensemble. Une question ouverte n'a pas de choix.
 2. Sinon, propose un plan en langage métier, sans noms de fichiers, avec ces rubriques :
    « Ce qui va changer pour l'utilisateur », « Comment je vérifie chaque critère » (un test par
    critère), « Accessibilité » (points RGAA concernés), « Point d'attention » (données, etc.).
@@ -172,7 +186,8 @@ Ta tâche :
    en petites demandes successives (ou en user stories), en suggérant par quoi commencer.
 
 Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
-{"decision":"questions","texte":"<tes questions>"}  ou  {"decision":"plan","texte":"<ton plan>"}`;
+{"decision":"questions","texte":"<tes questions>","choix":[{"question":"<question 1>","choix":["<option>","<option>"],"plusieurs":false}]}
+ou {"decision":"plan","texte":"<ton plan>"}  (« choix » est facultatif).`;
 }
 
 export function consigneRealisation(
@@ -218,29 +233,65 @@ ou {"resultat":"bloque","raison":"<ce qui bloque, simplement>"}`;
 }
 
 /** Extrait le dernier objet JSON d'une réponse (l'agent l'entoure parfois de ```json). */
-export function lireJson<T>(texte: string): T | null {
+export function lireJson<T>(texte: string, accepter: (valeur: Record<string, unknown>) => boolean = () => true): T | null {
   const nettoye = texte.replace(/```(?:json)?/g, '');
-  const debut = nettoye.lastIndexOf('{"');
-  if (debut < 0) return null;
-  for (let fin = nettoye.length; fin > debut; fin = nettoye.lastIndexOf('}', fin - 1)) {
-    try {
-      return JSON.parse(nettoye.slice(debut, fin + 1)) as T;
-    } catch {
-      if (fin <= debut) break;
+  // De la fin vers le début : le JSON final de l'agent, même s'il contient des objets imbriqués
+  // (ses choix) ou si du texte le précède.
+  for (let debut = nettoye.lastIndexOf('{"'); debut >= 0; debut = nettoye.lastIndexOf('{"', debut - 1)) {
+    for (let fin = nettoye.lastIndexOf('}'); fin > debut; fin = nettoye.lastIndexOf('}', fin - 1)) {
+      try {
+        const valeur = JSON.parse(nettoye.slice(debut, fin + 1)) as unknown;
+        if (valeur && typeof valeur === 'object' && !Array.isArray(valeur) && accepter(valeur as Record<string, unknown>)) return valeur as T;
+      } catch {
+        // pas un JSON complet : on essaie une fin plus courte
+      }
     }
+    if (debut === 0) break;
   }
   return null;
 }
 
 export function lireDecision(texte: string): DecisionAnalyse | null {
-  const r = lireJson<DecisionAnalyse>(texte);
-  return r && (r.decision === 'questions' || r.decision === 'plan') && typeof r.texte === 'string' && r.texte.trim()
-    ? r
-    : null;
+  const r = lireJson<DecisionAnalyse>(texte, (valeur) => 'decision' in valeur);
+  if (!(r && (r.decision === 'questions' || r.decision === 'plan') && typeof r.texte === 'string' && r.texte.trim())) return null;
+  const choix = r.decision === 'questions' ? nettoyerChoix(r.choix) : [];
+  return { decision: r.decision, texte: r.texte, ...(choix.length ? { choix } : {}) };
+}
+
+/** Ne garde que des questions à choix bien formées (au plus 3, 2 à 6 options courtes, sans doublon). */
+export function nettoyerChoix(brut: unknown): QuestionAChoix[] {
+  if (!Array.isArray(brut)) return [];
+  return brut
+    .map((element) => element as Partial<QuestionAChoix>)
+    .filter((element) => typeof element?.question === 'string' && element.question.trim() && Array.isArray(element.choix))
+    .map((element) => ({
+      question: element.question!.trim().slice(0, 300),
+      choix: [...new Set((element.choix as unknown[]).filter((option): option is string => typeof option === 'string' && option.trim() !== '').map((option) => option.trim().slice(0, 200)))].slice(0, 6),
+      plusieurs: element.plusieurs === true,
+    }))
+    .filter((element) => element.choix.length >= 2)
+    .slice(0, 3);
+}
+
+/**
+ * Texte du commentaire de questions : lisible sur GitHub (options en cases « - [ ] ») et, en fin,
+ * les choix structurés pour l'écran d'ADA, dans un commentaire HTML (encodés : aucun « -- »).
+ */
+export function texteQuestions(decision: DecisionAnalyse): string {
+  if (!decision.choix?.length) return decision.texte;
+  const lisible = decision.choix
+    .map(
+      (question, rang) =>
+        `${rang + 1}. ${question.question} (${question.plusieurs ? 'plusieurs réponses possibles' : 'une seule réponse'})\n` +
+        question.choix.map((option) => `   - [ ] ${option}`).join('\n'),
+    )
+    .join('\n');
+  const donnees = Buffer.from(JSON.stringify(decision.choix), 'utf8').toString('base64');
+  return `${decision.texte}\n\n**Choix proposés** (à cocher dans ADA) :\n${lisible}\n\n<!-- ${MARQUEUR_CHOIX} ${donnees} -->`;
 }
 
 export function lireResultat(texte: string): ResultatRealisation | null {
-  const r = lireJson<ResultatRealisation>(texte);
+  const r = lireJson<ResultatRealisation>(texte, (valeur) => 'resultat' in valeur);
   if (r?.resultat === 'ok' && typeof r.resume === 'string') return r;
   if (r?.resultat === 'bloque' && typeof r.raison === 'string') return r;
   return null;
