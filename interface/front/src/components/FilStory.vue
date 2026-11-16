@@ -43,6 +43,7 @@ const dernieresActions = computed(() => (props.activite?.journal ?? []).slice(-8
 
 /** Champ de texte : réponse aux questions, ou modification demandée sur le plan. */
 const modeModification = ref(false)
+const pourquoiOuvert = ref(-1)
 const texte = ref('')
 const erreur = ref('')
 const champVisible = computed(
@@ -140,6 +141,24 @@ function envoyer(): void {
 
     <section v-if="story.statut !== 'nouvelle'" aria-labelledby="titre-suivi">
       <h3 id="titre-suivi" class="fr-h6">Suivi</h3>
+      <DsfrAccordionsGroup v-model="pourquoiOuvert" class="fr-mb-2w">
+        <DsfrAccordion id="pourquoi-github" title="Pourquoi les échanges sont-ils enregistrés sur GitHub ?">
+          <p class="fr-text--sm fr-mb-1w">
+            Vos réponses, votre accord sur le plan et les questions de l’assistant sont des
+            commentaires {{ designation }}. C’est un choix volontaire :
+          </p>
+          <ul class="fr-text--sm">
+            <li><strong>Traçabilité</strong> : on sait qui a demandé quoi et qui a validé quel plan, quand. Important quand du code est écrit par une IA.</li>
+            <li><strong>L’assistant s’en sert</strong> : à chaque reprise, il relit tout l’échange ; rien ne se perd.</li>
+            <li><strong>Un développeur peut reprendre</strong> en cas de blocage : tout le contexte est au même endroit.</li>
+            <li><strong>L’historique appartient au projet</strong>, pas à ADA : il reste si l’outil change.</li>
+          </ul>
+          <p class="fr-text--sm fr-mb-0">
+            N’y écrivez donc rien de confidentiel. Vous pouvez modifier ou supprimer vos commentaires
+            sur GitHub ; l’assistant en tiendra compte à sa prochaine lecture.
+          </p>
+        </DsfrAccordion>
+      </DsfrAccordionsGroup>
 
       <div class="activite fr-mb-3w" role="status" aria-live="polite">
         <p v-if="travaille" class="fr-mb-1w">

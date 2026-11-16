@@ -107,6 +107,19 @@ describe('Fil d’une story', () => {
     signalement.unmount()
   })
 
+  it('explique pourquoi les échanges sont enregistrés sur GitHub (replié par défaut)', async () => {
+    const wrapper = monterAvec({})
+    const bouton = wrapper.find('button[aria-controls="pourquoi-github"], #pourquoi-github button, button[aria-expanded]')
+    expect(bouton.text()).toBe('Pourquoi les échanges sont-ils enregistrés sur GitHub ?')
+    expect(bouton.attributes('aria-expanded')).toBe('false')
+    await bouton.trigger('click')
+    expect(wrapper.text()).toContain('Traçabilité')
+    expect(wrapper.text()).toContain('commentaires de la story n° 12')
+    expect(wrapper.text()).toContain('N’y écrivez donc rien de confidentiel')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+
   it('permet de demander une modification du plan', async () => {
     const wrapper = monterAvec({ story: { ...story, statut: 'plan-a-valider' } })
     await bouton(wrapper, 'Demander une modification')!.trigger('click')
