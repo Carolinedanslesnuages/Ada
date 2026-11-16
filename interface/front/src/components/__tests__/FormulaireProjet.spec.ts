@@ -37,17 +37,20 @@ describe('Formulaire de nouveau projet', () => {
   it('regroupe les types par famille, sans afficher une famille vide', () => {
     const wrapper = monter()
     const legendes = wrapper.findAll('fieldset fieldset legend').map((legende) => legende.text())
-    expect(legendes).toEqual(['Un service pour les usagers ou les agents', 'Dans un outil déjà utilisé', 'Pour montrer une idée'])
-    expect(wrapper.findAll('input[name="type-projet"]')).toHaveLength(4)
+    // « Dans un outil déjà utilisé » n'a aucun modèle livré ici (extension absente) : famille masquée.
+    expect(legendes).toEqual(['Un service pour les usagers ou les agents', 'Pour montrer une idée'])
+    // « Formulaire » n'a que des modèles non livrés : il n'apparaît pas.
+    expect(wrapper.findAll('input[name="type-projet"]')).toHaveLength(2)
     wrapper.unmount()
   })
 
-  it('demande d’abord ce que l’on veut créer ; les types sans modèle publié sont grisés', () => {
+  it('demande d’abord ce que l’on veut créer ; rien n’est montré « en attente de développement »', () => {
     const wrapper = monter()
     expect(wrapper.text()).toContain('Que voulez-vous créer ?')
-    expect(wrapper.find('#type-service').attributes('disabled')).toBeUndefined()
-    expect(wrapper.find('#type-formulaire').attributes('disabled')).toBeDefined()
-    expect(wrapper.text()).toContain('Formulaire (bientôt disponible)')
+    expect(wrapper.find('#type-service').exists()).toBe(true)
+    expect(wrapper.find('#type-formulaire').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('bientôt disponible')
+    expect(wrapper.findAll('input[disabled]')).toHaveLength(0)
     expect(wrapper.find('#modele-vue-node').exists()).toBe(false)
     wrapper.unmount()
   })
@@ -57,7 +60,7 @@ describe('Formulaire de nouveau projet', () => {
     await wrapper.find('#type-service').setValue(true)
     expect(wrapper.find('#modele-vue-nest-dsfr').exists()).toBe(true)
     expect(wrapper.find('#modele-vue-node').exists()).toBe(true)
-    expect(wrapper.find('#modele-django').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('#modele-django').exists()).toBe(false)
     expect(wrapper.find('#modele-maquette').exists()).toBe(false)
     wrapper.unmount()
   })
