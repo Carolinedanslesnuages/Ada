@@ -1,9 +1,19 @@
 /** Règles partagées avec l'API (api/src/projets/projet.ts). */
+export type TypeProjet = 'service' | 'formulaire' | 'extension' | 'maquette'
+
+export interface TypeDeProjet {
+  id: TypeProjet
+  libelle: string
+  description: string
+}
+
 export interface Modele {
   id: string
+  type: TypeProjet
   libelle: string
   pourQuoi: string
-  depot: string | null
+  /** Modèle livré dans le catalogue d'ADA : on peut créer ce type de projet. */
+  disponible: boolean
 }
 
 export interface NouveauProjet {

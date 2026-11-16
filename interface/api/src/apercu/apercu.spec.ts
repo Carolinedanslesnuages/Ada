@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { attribuerPort, etatDepuisPs, genererCompose, NOM_DEPOT, PORT_MIN, SCRIPT_DEMARRAGE } from './apercu.js';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { lireAdaConfig } from '../ada/ada-config.js';
+import { attribuerPort, etatDepuisPs, genererCompose, genererScriptDemarrage, genererScriptTravail, NOM_DEPOT, PORT_MIN } from './apercu.js';
 
 describe('Ports des aperçus', () => {
   it('garde le port déjà attribué à un projet', () => {
@@ -26,14 +31,46 @@ describe('Conteneurs d’un aperçu', () => {
   it('limite la mémoire et le processeur, et isole les dépendances dans des volumes', () => {
     expect(compose).toContain('mem_limit: 1536m');
     expect(compose).toContain('cpus: 1');
-    expect(compose).toContain('modules_front:/app/front/node_modules');
+    expect(compose).toContain('modules_1:/app/front/node_modules');
     expect(compose).toContain('cache_npm:/home/node/.npm');
     expect(compose).toContain('name: atelier-po-cache-npm');
   });
 
-  it('réessaie l’installation sur une connexion instable', () => {
-    expect(SCRIPT_DEMARRAGE).toContain('--fetch-retries=5');
-    expect(SCRIPT_DEMARRAGE.match(/^\s*installer$/gm)).toHaveLength(2);
+  it('par défaut (projets existants) : PostgreSQL, API en arrière-plan, front au premier plan', () => {
+    expect(compose).toContain('  db:\n    image: postgres:16');
+    expect(compose).toContain('DATABASE_URL: postgresql://apercu:apercu@db:5432/apercu?schema=public');
+    const travail = genererScriptTravail();
+    expect(travail).toContain('--fetch-retries=5');
+    expect(travail).toContain('(cd /app/api && installer)');
+    expect(travail).toContain('(cd /app/front && installer)');
+    expect(travail).toContain('(cd /app/api && npm run start:dev) > /tmp/arriere-plan-0.log 2>&1 &');
+    expect(travail).toContain('exec bash -c "cd /app/front && npx vite --host 0.0.0.0 --port 5173 --strictPort"');
+    expect(genererScriptDemarrage()).toContain('chown node:node /app/api/node_modules /app/front/node_modules /home/node/.npm');
+  });
+
+  it('produit des scripts que bash accepte (par défaut et maquette)', () => {
+    const dossier = mkdtempSync(join(tmpdir(), 'scripts-'));
+    const maquette = lireAdaConfig(JSON.stringify({ type: 'maquette', controlesRequis: ['M'], controles: ['npm test'], apercu: { npm: ['.'], principal: "npx vite --base './'" } }));
+    for (const [nom, contenu] of Object.entries({
+      'demarrer-defaut.sh': genererScriptDemarrage(),
+      'travail-defaut.sh': genererScriptTravail(),
+      'demarrer-maquette.sh': genererScriptDemarrage(maquette),
+      'travail-maquette.sh': genererScriptTravail(maquette),
+    })) {
+      writeFileSync(join(dossier, nom), contenu);
+      expect(() => execFileSync('bash', ['-n', join(dossier, nom)])).not.toThrow();
+    }
+  });
+
+  it('maquette : ni base de données ni API, un seul dossier à la racine', () => {
+    const maquette = lireAdaConfig(JSON.stringify({ type: 'maquette', controlesRequis: ['M'], controles: ['npm test'], apercu: { npm: ['.'], principal: "cd /app && npx vite --host 0.0.0.0 --port 5173 --strictPort --base './'" } }));
+    const fichier = genererCompose('maquette', 5302, maquette);
+    expect(fichier).not.toContain('postgres');
+    expect(fichier).not.toContain('DATABASE_URL');
+    expect(fichier).not.toContain('depends_on');
+    expect(fichier).toContain('modules_0:/app/node_modules');
+    // Une commande avec des apostrophes ne casse pas le script (chaîne JSON, fichier séparé).
+    expect(genererScriptTravail(maquette)).toContain(`exec bash -c "cd /app && npx vite --host 0.0.0.0 --port 5173 --strictPort --base './'"`);
   });
 
   it('nomme le projet Docker d’après le dépôt', () => {

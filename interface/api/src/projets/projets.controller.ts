@@ -14,7 +14,7 @@ export class ProjetsController {
   }
 
   @Get('modeles')
-  modeles() {
+  modeles(@Req() req: Request) {
     return this.projets.modeles();
   }
 

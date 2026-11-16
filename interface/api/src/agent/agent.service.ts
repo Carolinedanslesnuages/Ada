@@ -417,7 +417,8 @@ export class AgentService {
       const reprise = travailRepris
         ? '\n\nReprise : une exécution précédente a été interrompue. Les fichiers modifiés ou non suivis de la branche (git status) sont ce travail en cours : vérifie-les et continue, sans repartir de zéro.'
         : '';
-      const consigne = consigneRealisation(demande, branche, await this.lireIndexRgaa(), skills.noms) + reprise;
+      const { controles } = await this.apercu.lireConfig(cwd);
+      const consigne = consigneRealisation(demande, branche, await this.lireIndexRgaa(), skills.noms, controles) + reprise;
       const reponse = await this.executer(depot, numero, 'realisation', consigne, cwd, skills.dossiers);
       const resultat = lireResultat(reponse);
       if (!resultat || resultat.resultat === 'bloque') {

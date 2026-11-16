@@ -171,6 +171,7 @@ onUnmounted(() => {
       <ResultatProjet v-if="resultatProjet" :resultat="resultatProjet" @fermer="fermerCreationProjet" />
       <FormulaireProjet
         v-else
+        :types="projets.types"
         :modeles="projets.modeles"
         :erreurs-serveur="erreursProjet"
         :envoi-en-cours="envoiEnCours"

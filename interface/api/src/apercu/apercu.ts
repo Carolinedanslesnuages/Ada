@@ -1,3 +1,5 @@
+import { ADA_PAR_DEFAUT, type AdaConfig } from '../ada/ada-config.js';
+
 /** Fichiers et règles de l'aperçu d'un projet : fonctions pures, testées sans Docker. */
 
 export const PORT_MIN = 5300;
@@ -15,86 +17,103 @@ export function attribuerPort(projet: string, attribues: Record<string, number>)
   throw new Error('Plus aucun port libre pour un aperçu : arrêtez des aperçus inutilisés');
 }
 
+const cheminDossier = (dossier: string) => (dossier === '.' ? '/app' : `/app/${dossier.replace(/^\.\//, '')}`);
+
 /**
- * Deux conteneurs : PostgreSQL et l'application (API + front en rechargement automatique).
- * Limités en mémoire et processeur ; dépendances dans des volumes (binaires Linux, jamais ceux du poste).
+ * Conteneurs de l'aperçu, d'après ada.json : l'application, plus PostgreSQL si le modèle en a
+ * besoin. Limités en mémoire et processeur ; dépendances dans des volumes (binaires Linux).
  */
-export function genererCompose(projet: string, port: number): string {
-  return `name: apercu-${projet}
-services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: apercu
-      POSTGRES_PASSWORD: apercu
-      POSTGRES_DB: apercu
-    volumes:
-      - donnees:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U apercu"]
-      interval: 3s
-      retries: 20
-    mem_limit: 256m
-  app:
-    image: node:24-bookworm
-    working_dir: /app
-    environment:
-      DATABASE_URL: postgresql://apercu:apercu@db:5432/apercu?schema=public
-      NODE_ENV: development
-    volumes:
-      - ./depot:/app
-      - ./demarrer.sh:/demarrer.sh:ro
-      - modules_api:/app/api/node_modules
-      - modules_front:/app/front/node_modules
-      - cache_npm:/home/node/.npm
-    command: ["bash", "/demarrer.sh"]
-    ports:
-      - "127.0.0.1:${port}:5173"
-    depends_on:
-      db:
-        condition: service_healthy
-    mem_limit: 1536m
-    cpus: 1
-volumes:
-  donnees: {}
-  modules_api: {}
-  modules_front: {}
-  cache_npm:
-    name: atelier-po-cache-npm
-    external: true
-`;
+export function genererCompose(projet: string, port: number, config: AdaConfig = ADA_PAR_DEFAUT): string {
+  const { apercu } = config;
+  const volumesModules = apercu.npm.map((dossier, index) => `      - modules_${index}:${cheminDossier(dossier)}/node_modules`);
+  const base = apercu.base === 'postgres';
+  const lignes = [
+    `name: apercu-${projet}`,
+    'services:',
+    ...(base
+      ? [
+          '  db:',
+          '    image: postgres:16',
+          '    environment:',
+          '      POSTGRES_USER: apercu',
+          '      POSTGRES_PASSWORD: apercu',
+          '      POSTGRES_DB: apercu',
+          '    volumes:',
+          '      - donnees:/var/lib/postgresql/data',
+          '    healthcheck:',
+          '      test: ["CMD-SHELL", "pg_isready -U apercu"]',
+          '      interval: 3s',
+          '      retries: 20',
+          '    mem_limit: 256m',
+        ]
+      : []),
+    '  app:',
+    `    image: ${apercu.image}`,
+    '    working_dir: /app',
+    '    environment:',
+    ...(base ? ['      DATABASE_URL: postgresql://apercu:apercu@db:5432/apercu?schema=public'] : []),
+    '      NODE_ENV: development',
+    '    volumes:',
+    '      - ./depot:/app',
+    '      - ./demarrer.sh:/demarrer.sh:ro',
+    '      - ./travail.sh:/travail.sh:ro',
+    ...volumesModules,
+    '      - cache_npm:/home/node/.npm',
+    '    command: ["bash", "/demarrer.sh"]',
+    '    ports:',
+    `      - "127.0.0.1:${port}:${apercu.port}"`,
+    ...(base ? ['    depends_on:', '      db:', '        condition: service_healthy'] : []),
+    '    mem_limit: 1536m',
+    '    cpus: 1',
+    'volumes:',
+    ...(base ? ['  donnees: {}'] : []),
+    ...apercu.npm.map((_, index) => `  modules_${index}: {}`),
+    '  cache_npm:',
+    `    name: ${VOLUME_CACHE_NPM}`,
+    '    external: true',
+  ];
+  return `${lignes.join('\n')}\n`;
 }
 
 /**
- * Lancé en root uniquement pour donner les volumes à l'utilisateur « node », puis tout tourne
- * en « node ». npm install (et non npm ci) : npm ci voudrait supprimer le point de montage.
+ * Lancé en root uniquement pour donner les volumes à l'utilisateur « node » (images Node), puis
+ * travail.sh tourne en « node ». npm install (et non npm ci) : npm ci voudrait supprimer le point
+ * de montage.
  */
-export const SCRIPT_DEMARRAGE = `#!/usr/bin/env bash
-set -euo pipefail
-chown node:node /app/api/node_modules /app/front/node_modules /home/node/.npm
-exec runuser -u node -- bash -euo pipefail -c '
-  # Connexion lente ou instable : délais longs et nouvelles tentatives.
-  installer() {
-    for essai in 1 2 3; do
-      npm install --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000 \\
-        --fetch-retry-maxtimeout=180000 --fetch-timeout=600000 && return 0
-      echo "[apercu] installation interrompue (essai $essai), nouvelle tentative"
-      sleep 10
-    done
-    return 1
-  }
-  cd /app/api
-  echo "[apercu] installation de l API"
-  installer
-  if [ -d prisma/migrations ]; then npx prisma migrate deploy; fi
-  (npm run start:dev > /tmp/api.log 2>&1 &)
-  cd /app/front
-  echo "[apercu] installation du front"
-  installer
-  echo "[apercu] demarrage du front"
-  exec npx vite --host 0.0.0.0 --port 5173 --strictPort
-'
-`;
+export function genererScriptDemarrage(config: AdaConfig = ADA_PAR_DEFAUT): string {
+  const imageNode = config.apercu.image.startsWith('node:');
+  const volumes = [...config.apercu.npm.map((dossier) => `${cheminDossier(dossier)}/node_modules`), '/home/node/.npm'];
+  return [
+    '#!/usr/bin/env bash',
+    'set -euo pipefail',
+    ...(imageNode ? [`chown node:node ${volumes.join(' ')}`, 'exec runuser -u node -- bash /travail.sh'] : ['exec bash /travail.sh']),
+    '',
+  ].join('\n');
+}
+
+/** Installation (avec nouvelles tentatives sur connexion lente), préalables, arrière-plan, page affichée. */
+export function genererScriptTravail(config: AdaConfig = ADA_PAR_DEFAUT): string {
+  const { apercu } = config;
+  return [
+    '#!/usr/bin/env bash',
+    'set -euo pipefail',
+    'installer() {',
+    '  for essai in 1 2 3; do',
+    '    npm install --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000 \\',
+    '      --fetch-retry-maxtimeout=180000 --fetch-timeout=600000 && return 0',
+    '    echo "[apercu] installation interrompue (essai $essai), nouvelle tentative"',
+    '    sleep 10',
+    '  done',
+    '  return 1',
+    '}',
+    ...apercu.npm.flatMap((dossier) => [`echo "[apercu] installation : ${dossier}"`, `(cd ${cheminDossier(dossier)} && installer)`]),
+    ...apercu.avant,
+    ...apercu.arrierePlan.map((commande, index) => `(${commande}) > /tmp/arriere-plan-${index}.log 2>&1 &`),
+    'echo "[apercu] demarrage"',
+    `exec bash -c ${JSON.stringify(apercu.principal)}`,
+    '',
+  ].join('\n');
+}
 
 export type EtatApercu = 'arrete' | 'demarrage' | 'pret' | 'erreur';
 

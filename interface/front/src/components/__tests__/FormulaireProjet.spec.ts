@@ -2,76 +2,91 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import VueDsfr from '@gouvminint/vue-dsfr'
 import FormulaireProjet from '../FormulaireProjet.vue'
+import type { Modele, TypeDeProjet } from '@/lib/projet'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
 
-const modeles = [
-  { id: 'vue-nest-dsfr', libelle: 'Vue 3 + NestJS + PostgreSQL, avec DSFR', pourQuoi: 'Application métier', depot: 'p/modele' },
-  { id: 'django', libelle: 'Python (Django)', pourQuoi: 'Back-office', depot: null },
+const types: TypeDeProjet[] = [
+  { id: 'service', libelle: 'Service en ligne', description: 'Une application' },
+  { id: 'formulaire', libelle: 'Formulaire', description: 'Recueillir des informations' },
+  { id: 'extension', libelle: 'Extension de navigateur', description: 'Un outil dans le navigateur' },
+  { id: 'maquette', libelle: 'Maquette', description: 'Un parcours cliquable' },
+]
+const modeles: Modele[] = [
+  { id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS', pourQuoi: 'Métier', disponible: true },
+  { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express)', pourQuoi: 'Petite application', disponible: true },
+  { id: 'django', type: 'service', libelle: 'Python (Django)', pourQuoi: 'Back-office', disponible: false },
+  { id: 'maquette', type: 'maquette', libelle: 'Maquette Vue 3', pourQuoi: 'Parcours cliquable', disponible: true },
+  { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR', pourQuoi: 'Réponses et export', disponible: false },
 ]
 
 const monter = () =>
-  mount(FormulaireProjet, { props: { modeles }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+  mount(FormulaireProjet, { props: { types, modeles }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+
+const remplir = async (wrapper: ReturnType<typeof monter>) => {
+  await wrapper.find('input:not([type="radio"])').setValue('Annuaire')
+  await wrapper.find('textarea').setValue('Trouver un collègue et son bureau')
+}
 
 describe('Formulaire de nouveau projet', () => {
-  it('montre l’adresse du dépôt calculée depuis le nom', async () => {
+  it('demande d’abord ce que l’on veut créer ; les types sans modèle publié sont grisés', () => {
     const wrapper = monter()
-    await wrapper.find('input[type="text"], input:not([type])').setValue("L'annuaire des agents")
-    expect(wrapper.text()).toContain('Adresse du dépôt : l-annuaire-des-agents')
+    expect(wrapper.text()).toContain('Que voulez-vous créer ?')
+    expect(wrapper.find('#type-service').attributes('disabled')).toBeUndefined()
+    expect(wrapper.find('#type-formulaire').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('Formulaire (bientôt disponible)')
+    expect(wrapper.find('#modele-vue-node').exists()).toBe(false)
     wrapper.unmount()
   })
 
-  it('n’autorise que les stacks dont le modèle existe', () => {
+  it('propose ensuite les stacks du type choisi', async () => {
     const wrapper = monter()
-    expect(wrapper.find('#modele-vue-nest-dsfr').attributes('disabled')).toBeUndefined()
+    await wrapper.find('#type-service').setValue(true)
+    expect(wrapper.find('#modele-vue-nest-dsfr').exists()).toBe(true)
+    expect(wrapper.find('#modele-vue-node').exists()).toBe(true)
     expect(wrapper.find('#modele-django').attributes('disabled')).toBeDefined()
-    expect(wrapper.text()).toContain('Python (Django) (bientôt disponible)')
+    expect(wrapper.find('#modele-maquette').exists()).toBe(false)
     wrapper.unmount()
   })
 
-  it('signale les champs manquants sans rien envoyer', async () => {
+  it('choisit d’office la seule stack disponible d’un type', async () => {
     const wrapper = monter()
+    await remplir(wrapper)
+    await wrapper.find('#type-maquette').setValue(true)
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('soumettre')?.[0]?.[0]).toMatchObject({ nom: 'Annuaire', modele: 'maquette' })
+    wrapper.unmount()
+  })
+
+  it('montre l’adresse du dépôt et exige un type', async () => {
+    const wrapper = monter()
+    await wrapper.find('input:not([type="radio"])').setValue("L'annuaire des agents")
+    expect(wrapper.text()).toContain('Adresse du dépôt : l-annuaire-des-agents')
     await wrapper.find('form').trigger('submit')
     expect(wrapper.emitted('soumettre')).toBeUndefined()
-    expect(wrapper.text()).toContain('Choisissez une stack')
-    expect(wrapper.text()).toContain('Décrivez l’objectif')
+    expect(wrapper.text()).toContain('Choisissez ce que vous voulez créer')
     wrapper.unmount()
   })
 
-  it('envoie le projet avec un nom sans apostrophe droite', async () => {
+  it('envoie le projet complet avec la stack choisie et la baseline', async () => {
     const wrapper = monter()
-    const champsTexte = wrapper.findAll('input:not([type="radio"])')
-    await champsTexte[0]!.setValue("  L'annuaire  ")
-    await champsTexte[1]!.setValue("Qui fait quoi dans l'équipe")
-    await wrapper.find('textarea').setValue('Trouver un collègue et son bureau')
-    await wrapper.find('#modele-vue-nest-dsfr').setValue(true)
+    await remplir(wrapper)
+    await wrapper.findAll('input:not([type="radio"])')[1]!.setValue("Qui fait quoi dans l'équipe")
+    await wrapper.find('#type-service').setValue(true)
+    await wrapper.find('#modele-vue-node').setValue(true)
     await wrapper.find('form').trigger('submit')
     expect(wrapper.emitted('soumettre')?.[0]?.[0]).toEqual({
-      nom: 'L’annuaire',
+      nom: 'Annuaire',
       objectif: 'Trouver un collègue et son bureau',
-      modele: 'vue-nest-dsfr',
+      modele: 'vue-node',
       baseline: 'Qui fait quoi dans l’équipe',
     })
-  })
-
-  it('accepte un projet sans baseline, mais refuse des guillemets', async () => {
-    const wrapper = monter()
-    const champsTexte = wrapper.findAll('input:not([type="radio"])')
-    await champsTexte[0]!.setValue('Annuaire')
-    await wrapper.find('textarea').setValue('Trouver un collègue et son bureau')
-    await wrapper.find('#modele-vue-nest-dsfr').setValue(true)
-    await champsTexte[1]!.setValue('Le "meilleur" annuaire')
-    await wrapper.find('form').trigger('submit')
-    expect(wrapper.emitted('soumettre')).toBeUndefined()
-    expect(wrapper.text()).toContain('ponctuation simple')
-    await champsTexte[1]!.setValue('')
-    await wrapper.find('form').trigger('submit')
-    expect(wrapper.emitted('soumettre')?.[0]?.[0]).toMatchObject({ nom: 'Annuaire', baseline: '' })
-    wrapper.unmount()
     wrapper.unmount()
   })
 
-  it('aucune violation d’accessibilité, à l’ouverture et avec les erreurs', async () => {
+  it('aucune violation d’accessibilité, à l’ouverture, après le choix du type et avec les erreurs', async () => {
     const wrapper = monter()
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    await wrapper.find('#type-service').setValue(true)
     expect(await violationsAccessibilite(document.body)).toEqual([])
     await wrapper.find('form').trigger('submit')
     expect(await violationsAccessibilite(document.body)).toEqual([])

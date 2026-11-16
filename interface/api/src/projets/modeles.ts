@@ -1,48 +1,41 @@
-import type { Config } from '../config.js';
+import type { TypeProjet } from '../ada/ada-config.js';
+
+/** Les types de projet proposés au PO, dans l'ordre d'affichage. */
+export const TYPES: { id: TypeProjet; libelle: string; description: string }[] = [
+  { id: 'service', libelle: 'Service en ligne', description: 'Une application avec des données et plusieurs écrans' },
+  { id: 'formulaire', libelle: 'Formulaire', description: 'Recueillir des informations : inscription, demande, enquête' },
+  { id: 'extension', libelle: 'Extension de navigateur', description: 'Un outil dans Chrome, Firefox ou Edge' },
+  { id: 'maquette', libelle: 'Maquette', description: 'Montrer un parcours avant de le développer, sans serveur' },
+];
 
 export interface Modele {
   id: string;
+  type: TypeProjet;
   libelle: string;
   pourQuoi: string;
-  /** « proprietaire/depot » du dépôt modèle GitHub, ou null si pas encore disponible. */
-  depot: string | null;
+  /** Vrai dès que le dossier `catalogue/<id>/` d'ADA contient le modèle (avec son ada.json). */
+  disponible: boolean;
 }
 
-/** Fichiers des modèles qui contiennent des marqueurs à remplacer. */
-export const FICHIERS_A_PERSONNALISER = [
-  'PROJET.md',
-  'README.md',
-  'AGENTS.md',
-  'api/README.md',
-  'docker-compose.yml',
-  'docs/adr/0001-choix-de-la-stack.md',
-  'docs/adr/README.md',
-  'front/index.html',
-  'front/src/App.vue',
-  'front/src/views/HomeView.vue',
-  'front/src/views/__tests__/HomeView.spec.ts',
-];
-
-/** Contrôles de la CI des modèles exigés par la protection de main (noms des jobs). */
-export const CONTROLES_REQUIS = [
-  'Anti-fuite (gitleaks)',
-  'API (lint, tests, compilation)',
-  'Front (lint, types, tests dont accessibilité, compilation)',
-];
-
-export function catalogue(config: Config): Modele[] {
+/**
+ * Tous les modèles prévus. Ils vivent dans le dépôt d'ADA (`catalogue/<id>/`), pas dans des dépôts
+ * modèles GitHub : un modèle est disponible dès que son dossier est livré (voir docs/adr).
+ */
+export function catalogue(): Omit<Modele, 'disponible'>[] {
   return [
     {
       id: 'vue-nest-dsfr',
+      type: 'service',
       libelle: 'Vue 3 + NestJS + PostgreSQL, avec DSFR',
       pourQuoi: 'Application métier structurée, nombreuses règles, durée de vie longue',
-      depot: config.MODELE_VUE_NEST_DSFR || `${config.GITHUB_PROPRIETAIRE}/modele-vue-nest-dsfr`,
     },
-    { id: 'vue-node', libelle: 'Vue 3 + Node.js (Express)', pourQuoi: 'Petite application ou API simple', depot: null },
-    { id: 'vue-fastapi', libelle: 'Vue 3 + Python (FastAPI) + PostgreSQL', pourQuoi: 'Données, calculs, IA, import/export de fichiers', depot: null },
-    { id: 'django', libelle: 'Python (Django)', pourQuoi: 'Back-office, formulaires, administration des données', depot: null },
-    { id: 'nuxt', libelle: 'Nuxt', pourQuoi: 'Site public bien référencé (SEO)', depot: null },
-    { id: 'vue-seul', libelle: 'Vue 3 seul', pourQuoi: 'Maquette ou prototype cliquable', depot: null },
+    { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express), avec DSFR', pourQuoi: 'Petite application ou API simple' },
+    { id: 'vue-fastapi', type: 'service', libelle: 'Vue 3 + Python (FastAPI) + PostgreSQL', pourQuoi: 'Données, calculs, IA, import/export de fichiers' },
+    { id: 'django', type: 'service', libelle: 'Python (Django)', pourQuoi: 'Back-office, formulaires, administration des données' },
+    { id: 'nuxt', type: 'service', libelle: 'Nuxt', pourQuoi: 'Site public bien référencé (SEO)' },
+    { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR', pourQuoi: 'Réponses enregistrées dans le projet, page « Réponses » et export CSV' },
+    { id: 'extension', type: 'extension', libelle: 'Extension de navigateur (Vue)', pourQuoi: 'Chrome, Firefox, Edge ; sans identité de l’État' },
+    { id: 'maquette', type: 'maquette', libelle: 'Maquette Vue 3, avec DSFR', pourQuoi: 'Parcours cliquable, données fictives, aucun serveur' },
   ];
 }
 
