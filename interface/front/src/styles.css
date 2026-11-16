@@ -1,0 +1,138 @@
+/* Mise en page « atelier » : conversation à gauche, aperçu à droite. */
+.atelier {
+  display: grid;
+  grid-template-columns: minmax(20rem, 2fr) 3fr;
+  gap: 1.5rem;
+  min-height: calc(100vh - 14rem);
+}
+
+@media (max-width: 62em) {
+  .atelier {
+    grid-template-columns: 1fr;
+  }
+}
+
+.atelier__panneau {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.liste-stories {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.liste-stories li {
+  padding: 0;
+}
+
+.liste-stories button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-default-grey);
+  background: none;
+  cursor: pointer;
+}
+
+.liste-stories button[aria-current='true'] {
+  background-color: var(--background-alt-blue-france);
+  box-shadow: inset 4px 0 0 var(--border-action-high-blue-france);
+}
+
+.fil {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.fil li {
+  padding: 0.75rem 1rem;
+  background-color: var(--background-alt-grey);
+  border-radius: 0.25rem;
+  white-space: pre-wrap;
+}
+
+.apercu {
+  flex: 1;
+  border: 1px dashed var(--border-default-grey);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  min-height: 24rem;
+}
+
+.fil-pre {
+  white-space: pre-wrap;
+}
+
+.apercu--cadre {
+  width: 100%;
+  min-height: 70vh;
+  border: 1px solid var(--border-default-grey);
+  padding: 0;
+  background: var(--background-default-grey);
+}
+
+.journal {
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  text-align: left;
+}
+
+.activite__journal {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.5rem 0;
+  border-left: 2px solid var(--border-default-blue-france);
+  padding-left: 0.75rem;
+}
+
+.activite__journal li {
+  padding: 0.1rem 0;
+}
+
+.activite__icone {
+  display: inline-block;
+  animation: tourner 1.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activite__icone {
+    animation: none;
+  }
+}
+
+@keyframes tourner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fil__assistant {
+  border-left: 4px solid var(--border-action-high-blue-france);
+}
+
+.controles {
+  list-style: none;
+  padding-left: 0;
+}
+
+.controle--ok {
+  color: var(--text-default-success);
+}
+
+.controle--ko {
+  color: var(--text-default-error);
+}

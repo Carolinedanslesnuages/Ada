@@ -1,6 +1,5 @@
 # Dépôts séparés, hébergés à part
 projets/
-interface/
 
 # --- Sorties locales sensibles — ne pas committer
 private/
