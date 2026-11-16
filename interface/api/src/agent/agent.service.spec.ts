@@ -67,7 +67,7 @@ describe('AgentService', () => {
       preparerDepot: vi.fn(async (_j: string, projet: string) => join(racine, projet, 'depot')),
       environnementGit: vi.fn(() => ({ GIT_CONFIG_VALUE_0: 'AUTHORIZATION: basic secret' })),
       executer: vi.fn(async (_c: string, args: string[]) => ({
-        stdout: args.includes('rev-list') ? `${commits}\n` : args.includes('status') || args.includes('--list') ? '' : '',
+        stdout: args.includes('rev-list') ? `${commits}\n` : args.includes('rev-parse') ? 'main\n' : '',
       })),
     };
     gh = { pulls: { create: vi.fn(async () => ({ data: { html_url: 'https://github.com/proprio/poc/pull/2' } })) } };
@@ -280,6 +280,34 @@ describe('AgentService', () => {
     await service.validerPlan(JETON, 'po1', 'poc', 1);
     await service.derniereTache;
     expect((await service.activite('poc', 1)).erreur).toMatch(/modifications non enregistrées/);
+  });
+
+  it('reprend le travail non enregistré d’une exécution interrompue sur la même branche', async () => {
+    statut = 'en-cours';
+    await (await import('node:fs/promises')).mkdir(join(racine, 'poc', 'agent'), { recursive: true });
+    await (await import('node:fs/promises')).writeFile(join(racine, 'poc', 'agent', '1.json'), JSON.stringify({ phase: 'realisation', enCours: false, journal: [], erreur: 'coupure', debut: null, pullRequest: null }));
+    apercu.executer.mockImplementation(async (_c: string, args: string[]) => ({
+      stdout: args.includes('rev-list') ? '1\n' : args.includes('status') ? '?? front/src/__tests__/Barre.spec.ts\n' : args.includes('rev-parse') ? 'story/1-page-d-accueil\n' : '',
+    }));
+    sortie = [resultat('{"resultat":"ok","resume":"Fait."}')];
+    await service.relancer(JETON, 'po1', 'poc', 1);
+    await service.derniereTache;
+    const consigne = lancer.mock.calls.at(-1)![0][1]!;
+    expect(consigne).toContain('Reprise : une exécution précédente a été interrompue');
+    expect(apercu.executer.mock.calls.some(([, a]) => (a as string[]).includes('-b'))).toBe(false);
+    expect(statut).toBe('en-verification');
+  });
+
+  it('refuse des modifications non enregistrées sur une autre branche (deux demandes mélangées)', async () => {
+    statut = 'plan-a-valider';
+    apercu.executer.mockImplementation(async (_c: string, args: string[]) => ({
+      stdout: args.includes('status') ? ' M front/src/App.vue\n' : args.includes('rev-parse') ? 'story/9-autre\n' : '',
+    }));
+    sortie = [resultat('{"resultat":"ok","resume":"Fait."}')];
+    await service.validerPlan(JETON, 'po1', 'poc', 1);
+    await service.derniereTache;
+    expect((await service.activite('poc', 1)).erreur).toMatch(/modifications non enregistrées/);
+    expect(lancer).not.toHaveBeenCalled();
   });
 
   it('ne relance pas une demande qui attend le PO', async () => {

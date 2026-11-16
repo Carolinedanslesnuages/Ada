@@ -276,10 +276,13 @@ export class AgentService {
     this.demarrerTache(depot, numero, 'realisation', async () => {
       const demande = await this.demande(jeton, depot, numero);
       const branche = brancheDe(demande);
-      const cwd = await this.preparerBranche(jeton, login, depot, branche);
+      const { cwd, travailRepris } = await this.preparerBranche(jeton, login, depot, branche);
       const skills = await this.equiperSkills(cwd);
-      await this.noter(depot, numero, `Travaille sur la branche ${branche}`);
-      const consigne = consigneRealisation(demande, branche, await this.lireIndexRgaa(), skills);
+      await this.noter(depot, numero, travailRepris ? `Reprend le travail interrompu sur ${branche}` : `Travaille sur la branche ${branche}`);
+      const reprise = travailRepris
+        ? '\n\nReprise : une exécution précédente a été interrompue. Les fichiers modifiés ou non suivis de la branche (git status) sont ce travail en cours : vérifie-les et continue, sans repartir de zéro.'
+        : '';
+      const consigne = consigneRealisation(demande, branche, await this.lireIndexRgaa(), skills) + reprise;
       const reponse = await this.executer(depot, numero, 'realisation', consigne, cwd);
       const resultat = lireResultat(reponse);
       if (!resultat || resultat.resultat === 'bloque') {
@@ -319,7 +322,18 @@ export class AgentService {
     this.analyser(jeton, depot, numero);
   }
 
-  private async preparerBranche(jeton: string, login: string, depot: string, branche: string): Promise<string> {
+  /**
+   * Met le dépôt de l'aperçu sur la branche de la demande. Déjà sur cette branche avec des
+   * modifications non enregistrées : c'est le travail d'une exécution interrompue de la même
+   * demande, on le garde pour que l'assistant le reprenne. Sur une autre branche, on refuse :
+   * on mélangerait deux demandes.
+   */
+  private async preparerBranche(
+    jeton: string,
+    login: string,
+    depot: string,
+    branche: string,
+  ): Promise<{ cwd: string; travailRepris: boolean }> {
     const cwd = await this.apercu.preparerDepot(jeton, depot);
     const git = (...args: string[]) => this.apercu.executer('git', ['-C', cwd, ...args]);
     await git('config', 'user.name', login);
@@ -327,18 +341,21 @@ export class AgentService {
     const { stdout: etat } = await git('status', '--porcelain');
     const modifies = etat
       .split('\n')
-      .map((l) => l.slice(3).trim())
+      .map((ligne) => ligne.slice(3).trim())
       .filter(Boolean);
     // npm install (au démarrage de l'aperçu) retouche parfois les package-lock.json : on les rétablit.
-    const verrous = modifies.filter((f) => f.endsWith('package-lock.json'));
+    const verrous = modifies.filter((fichier) => fichier.endsWith('package-lock.json'));
     if (verrous.length) await git('checkout', '--', ...verrous);
-    if (modifies.length > verrous.length) {
+    const autres = modifies.length - verrous.length;
+    const { stdout: courante } = await git('rev-parse', '--abbrev-ref', 'HEAD');
+    if (autres > 0) {
+      if (courante.trim() === branche) return { cwd, travailRepris: true };
       throw new Error('Le dépôt de l’aperçu contient des modifications non enregistrées');
     }
     const { stdout: existantes } = await git('branch', '--list', branche);
     if (existantes.trim()) await git('checkout', '--quiet', branche);
     else await git('checkout', '--quiet', '-b', branche, 'origin/main');
-    return cwd;
+    return { cwd, travailRepris: false };
   }
 
   private async ouvrirPullRequest(
