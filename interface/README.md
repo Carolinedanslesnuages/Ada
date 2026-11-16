@@ -82,3 +82,11 @@ cours de l'assistant. Elle a ses propres données et un port de la plage 5400-54
 
 Le lien s'ouvre sans compte : c'est acceptable parce qu'un projet ne contient que des données
 fictives (règle d'ADA). Un POC qui doit être protégé ajoute sa propre connexion.
+
+## Pourquoi les échanges sont dans GitHub
+
+Le prompt du mode libre devient une issue, et chaque échange avec l'assistant (questions,
+réponses du PO, accord sur le plan) un commentaire de l'issue, au nom du PO. C'est voulu : la
+trace de qui a demandé et validé quoi (du code est écrit par une IA), un historique que
+l'assistant relit à chaque reprise, un contexte complet pour un développeur qui reprend, et un
+historique qui appartient au projet plutôt qu'à l'outil. Détails : `docs/adr/0009`.
