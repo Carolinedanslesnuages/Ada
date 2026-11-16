@@ -135,6 +135,27 @@ describe('ProjetsService', () => {
     await expect(service.creer('jeton', 'po1', projetValide)).resolves.toBeDefined();
   });
 
+  it('reprend une création interrompue (dépôt issu du modèle, sans topic) au lieu de refuser', async () => {
+    preparerCreation();
+    gh.request.mockResolvedValue({});
+    gh.repos.get.mockResolvedValue({
+      data: { ...depot('l-annuaire', []), template_repository: { full_name: 'proprio/modele-vue-nest-dsfr' } },
+    });
+    const resultat = await service.creer('jeton', 'po1', projetValide);
+    expect(gh.repos.createUsingTemplate).not.toHaveBeenCalled();
+    expect(gh.git.updateRef).toHaveBeenCalled();
+    expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith(expect.objectContaining({ names: ['ada'] }));
+    expect(resultat.projet.nom).toBe('l-annuaire');
+  });
+
+  it('refuse toujours un dépôt existant qui n’est pas une création d’ADA en cours', async () => {
+    gh.repos.get.mockResolvedValue({ data: { ...depot('l-annuaire', ['ada']), template_repository: { full_name: 'proprio/modele-vue-nest-dsfr' } } });
+    await expect(service.creer('jeton', 'po1', projetValide)).rejects.toBeInstanceOf(ConflictException);
+    gh.repos.get.mockResolvedValue({ data: { ...depot('l-annuaire', []), template_repository: null } });
+    await expect(service.creer('jeton', 'po1', projetValide)).rejects.toBeInstanceOf(ConflictException);
+    expect(gh.repos.createUsingTemplate).not.toHaveBeenCalled();
+  });
+
   it('crée le projet même si GitHub refuse le réglage de fusion', async () => {
     preparerCreation();
     gh.request.mockResolvedValue({});

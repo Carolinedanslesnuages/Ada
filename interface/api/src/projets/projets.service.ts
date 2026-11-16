@@ -107,20 +107,30 @@ export class ProjetsService {
     const gh = this.github.client(jeton);
     const owner = this.proprietaire;
 
+    // Un dépôt du même nom : si c'est une création d'ADA interrompue (issu du modèle, sans topic),
+    // on la reprend ; sinon le nom est pris.
+    let existant: (DepotGithub & { template_repository?: { full_name?: string } | null }) | null = null;
     try {
-      await gh.repos.get({ owner, repo: slug });
-      throw new ConflictException({ erreurs: { nom: `Un projet « ${slug} » existe déjà : choisissez un autre nom` } });
+      ({ data: existant } = await gh.repos.get({ owner, repo: slug }));
     } catch (e) {
-      if (e instanceof ConflictException) throw e;
       if (statut(e) !== 404) traduireErreurGithub(e);
     }
+    const reprise =
+      existant !== null &&
+      existant.template_repository?.full_name === modele.depot &&
+      !existant.topics?.some((topic) => this.topics.includes(topic));
+    if (existant && !reprise) {
+      throw new ConflictException({ erreurs: { nom: `Un projet « ${slug} » existe déjà : choisissez un autre nom` } });
+    }
+    if (reprise) this.journal.log(`Reprise de la création interrompue de ${slug}`);
 
     let depot: DepotGithub;
     let versionsAutomatiques: Reglage['etat'];
     let protectionMain: Reglage['etat'];
     try {
       try {
-        ({ data: depot } = await gh.repos.createUsingTemplate({
+        if (existant && reprise) depot = existant;
+        else ({ data: depot } = await gh.repos.createUsingTemplate({
           template_owner: modeleProprietaire,
           template_repo: modeleDepot,
           owner,
@@ -128,6 +138,7 @@ export class ProjetsService {
           description: projet.objectif.slice(0, 350),
           private: true,
         }));
+        if (reprise) await gh.repos.update({ owner, repo: slug, description: projet.objectif.slice(0, 350) });
       } catch (e) {
         if (statut(e) === 404 || statut(e) === 403) {
           this.journal.warn(`Création depuis le modèle refusée : ${decrireErreurGithub(e)}`);
