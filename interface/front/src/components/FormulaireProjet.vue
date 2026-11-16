@@ -21,7 +21,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ soumettre: [projet: NouveauProjet]; annuler: [] }>()
 
-const projet = reactive<NouveauProjet>({ nom: '', objectif: '', modele: '', baseline: '' })
+const projet = reactive<NouveauProjet>({ nom: '', objectif: '', modele: '', baseline: '', deploye: false })
 const erreursLocales = ref<ErreursProjet>({})
 const erreurs = computed<ErreursProjet>(() => ({ ...erreursLocales.value, ...props.erreursServeur }))
 const adresse = computed(() => slugifier(normaliserNom(projet.nom)))
@@ -39,6 +39,11 @@ const typeDisponible = (type: TypeProjet) => props.modeles.some((modele) => mode
 watch(typeChoisi, () => {
   const disponibles = modelesDuType.value.filter((modele) => modele.disponible)
   projet.modele = disponibles.length === 1 ? disponibles[0]!.id : ''
+})
+
+const modeleChoisi = computed(() => props.modeles.find((modele) => modele.id === projet.modele) ?? null)
+watch(modeleChoisi, (modele) => {
+  if (!modele?.deployable) projet.deploye = false
 })
 
 function envoyer(): void {
@@ -141,6 +146,19 @@ function envoyer(): void {
       </p>
     </fieldset>
     <p v-else-if="erreurs.modele" class="fr-error-text" role="alert">Choisissez ce que vous voulez créer</p>
+
+    <div v-if="modeleChoisi?.deployable" class="fr-fieldset__element fr-mb-3w">
+      <div class="fr-checkbox-group">
+        <input id="projet-deploye" v-model="projet.deploye" type="checkbox" aria-describedby="projet-deploye-aide" />
+        <label class="fr-label" for="projet-deploye">
+          Ce projet sera déployé (mis en ligne)
+          <span id="projet-deploye-aide" class="fr-hint-text">
+            ADA ajoute de quoi l’héberger : un chart Helm, vérifié à chaque demande. L’équipe
+            infra fournit ensuite l’adresse et le registre. Modifiable plus tard par un développeur.
+          </span>
+        </label>
+      </div>
+    </div>
 
     <ul class="fr-btns-group fr-btns-group--inline-md">
       <li>

@@ -18,11 +18,11 @@ const types: TypeDeProjet[] = [
   { id: 'maquette', famille: 'idee', libelle: 'Maquette', description: 'Un parcours cliquable' },
 ]
 const modeles: Modele[] = [
-  { id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS', pourQuoi: 'Métier', disponible: true },
-  { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express)', pourQuoi: 'Petite application', disponible: true },
-  { id: 'django', type: 'service', libelle: 'Python (Django)', pourQuoi: 'Back-office', disponible: false },
-  { id: 'maquette', type: 'maquette', libelle: 'Maquette Vue 3', pourQuoi: 'Parcours cliquable', disponible: true },
-  { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR', pourQuoi: 'Réponses et export', disponible: false },
+  { id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS', pourQuoi: 'Métier', disponible: true, deployable: false },
+  { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express)', pourQuoi: 'Petite application', disponible: true, deployable: true },
+  { id: 'django', type: 'service', libelle: 'Python (Django)', pourQuoi: 'Back-office', disponible: false, deployable: false },
+  { id: 'maquette', type: 'maquette', libelle: 'Maquette Vue 3', pourQuoi: 'Parcours cliquable', disponible: true, deployable: false },
+  { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR', pourQuoi: 'Réponses et export', disponible: false, deployable: false },
 ]
 
 const monter = () =>
@@ -93,7 +93,22 @@ describe('Formulaire de nouveau projet', () => {
       objectif: 'Trouver un collègue et son bureau',
       modele: 'vue-node',
       baseline: 'Qui fait quoi dans l’équipe',
+      deploye: false,
     })
+    wrapper.unmount()
+  })
+
+  it('propose de déployer le projet seulement pour un modèle déployable', async () => {
+    const wrapper = monter()
+    await remplir(wrapper)
+    await wrapper.find('#type-service').setValue(true)
+    await wrapper.find('#modele-vue-nest-dsfr').setValue(true)
+    expect(wrapper.find('#projet-deploye').exists()).toBe(false)
+    await wrapper.find('#modele-vue-node').setValue(true)
+    await wrapper.find('#projet-deploye').setValue(true)
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('soumettre')?.[0]?.[0]).toMatchObject({ modele: 'vue-node', deploye: true })
     wrapper.unmount()
   })
 

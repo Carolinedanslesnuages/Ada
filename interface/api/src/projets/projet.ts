@@ -48,6 +48,8 @@ const schema = z.object({
     .pipe(z.string().min(10, 'Décrivez l’objectif en une ou deux phrases').max(300, '300 caractères au maximum'))
     .transform((o) => (/[.!?]$/.test(o) ? o : `${o}.`)),
   modele: z.string().min(1, 'Choisissez une stack'),
+  /** Le PO prévoit de déployer le projet : le chart Helm du modèle est ajouté. */
+  deploye: z.boolean().optional().default(false),
   baseline: z
     .string()
     .optional()

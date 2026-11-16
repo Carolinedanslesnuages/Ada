@@ -39,6 +39,8 @@ export interface Modele {
   pourQuoi: string;
   /** Vrai dès que le dossier `catalogue/<id>/` d'ADA contient le modèle (avec son ada.json). */
   disponible: boolean;
+  /** Le modèle sait être déployé (Dockerfile et chart Helm) : la création propose de l'ajouter. */
+  deployable: boolean;
 }
 
 /**
@@ -46,7 +48,7 @@ export interface Modele {
  * dans des dépôts modèles GitHub : une stack est disponible dès que son dossier est livré.
  * Vue 3 + NestJS d'abord ; Python quand le besoin l'appelle (données, IA, back-office).
  */
-export function catalogue(): Omit<Modele, 'disponible'>[] {
+export function catalogue(): Omit<Modele, 'disponible' | 'deployable'>[] {
   return [
     { id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS + PostgreSQL, avec DSFR', pourQuoi: 'Application métier structurée, nombreuses règles, durée de vie longue' },
     { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express), avec DSFR', pourQuoi: 'Petite application, peu de règles' },

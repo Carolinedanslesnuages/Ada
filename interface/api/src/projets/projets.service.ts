@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -94,11 +94,23 @@ export class ProjetsService {
 
   /** Catalogue : un modèle n'est proposé que si son dossier est livré avec son ada.json. */
   modeles(): { familles: typeof FAMILLES; types: typeof TYPES; modeles: Modele[] } {
-    const modeles = catalogue().map((modele) => ({
-      ...modele,
-      disponible: existsSync(join(this.dossierCatalogue, modele.id, 'ada.json')),
-    }));
+    const modeles = catalogue().map((modele) => {
+      const config = this.configCatalogue(modele.id);
+      return { ...modele, disponible: config !== null, deployable: Boolean(config?.deploiement) };
+    });
     return { familles: FAMILLES, types: TYPES, modeles };
+  }
+
+  /** ada.json d'un modèle du catalogue ; null si le modèle n'est pas livré (ou illisible). */
+  private configCatalogue(id: string): AdaConfig | null {
+    const chemin = join(this.dossierCatalogue, id, 'ada.json');
+    if (!existsSync(chemin)) return null;
+    try {
+      return lireAdaConfig(readFileSync(chemin, 'utf8'));
+    } catch (e) {
+      this.journal.warn(`Modèle ${id} écarté : ${(e as Error).message}`);
+      return null;
+    }
   }
 
   /** ada.json d'un dépôt (sur GitHub) ; absent → comportement Vue + NestJS. */
@@ -181,7 +193,9 @@ export class ProjetsService {
       // Réglages AVANT le premier push : ce push déclenche la CI et release-please.
       await this.imposerSquash(gh, owner, slug);
       versionsAutomatiques = await this.autoriserReleasePlease(gh, owner, slug);
-      await this.pousserModele(jeton, login, slug, dossierModele, configModele.personnaliser, {
+      // Chart de déploiement : seulement si le PO prévoit de déployer le projet.
+      const exclus = configModele.deploiement && !projet.deploye ? [configModele.deploiement.chart] : [];
+      await this.pousserModele(jeton, login, slug, dossierModele, configModele.personnaliser, exclus, {
         nom: projet.nom,
         baseline: projet.baseline,
         slug,
@@ -251,6 +265,7 @@ export class ProjetsService {
     slug: string,
     dossierModele: string,
     aPersonnaliser: string[],
+    exclus: string[],
     valeurs: ValeursProjet,
   ): Promise<void> {
     const travail = await mkdtemp(join(tmpdir(), 'ada-creation-'));
@@ -266,7 +281,10 @@ export class ProjetsService {
         ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '.'],
         { cwd: dossierModele },
       );
-      const fichiers = stdout.split('\0').filter(Boolean);
+      const fichiers = stdout
+        .split('\0')
+        .filter(Boolean)
+        .filter((fichier) => !exclus.some((dossier) => fichier === dossier || fichier.startsWith(`${dossier.replace(/\/$/, '')}/`)));
       if (!fichiers.includes('ada.json')) throw new Error(`Modèle incomplet : ${dossierModele}`);
       for (const fichier of fichiers) {
         const cible = join(copie, fichier);

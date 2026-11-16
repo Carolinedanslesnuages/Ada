@@ -51,6 +51,13 @@ const preparerCatalogue = () => {
     JSON.stringify({ type: 'maquette', personnaliser: ['index.html'], controlesRequis: ['Maquette (tests)'], controles: ['npm test'], apercu: { npm: ['.'], principal: 'npx vite' } }),
   );
   ecrire(join(dossierCatalogue, 'maquette', 'index.html'), '<title>__NOM_PROJET__</title>');
+  ecrire(
+    join(dossierCatalogue, 'vue-node', 'ada.json'),
+    JSON.stringify({ ...ADA_PAR_DEFAUT, personnaliser: ['charts/app/Chart.yaml'], deploiement: { chart: 'charts/app' } }),
+  );
+  ecrire(join(dossierCatalogue, 'vue-node', 'Dockerfile'), 'FROM node:24');
+  ecrire(join(dossierCatalogue, 'vue-node', 'charts', 'app', 'Chart.yaml'), 'name: __SLUG__');
+  ecrire(join(dossierCatalogue, 'vue-node', 'charts', 'app', 'templates', 'deployment.yaml'), 'kind: Deployment');
   git(dossierCatalogue, 'init', '--quiet');
 };
 
@@ -133,7 +140,8 @@ describe('ProjetsService', () => {
     for (const type of types) expect(familles.map((f) => f.id)).toContain(type.famille);
     for (const modele of modeles) expect(types.map((t) => t.id)).toContain(modele.type);
     for (const type of types) expect(modeles.some((m) => m.type === type.id)).toBe(true);
-    expect(modeles.filter((m) => m.disponible).map((m) => m.id)).toEqual(['vue-nest-dsfr', 'maquette']);
+    expect(modeles.filter((m) => m.disponible).map((m) => m.id)).toEqual(['vue-nest-dsfr', 'vue-node', 'maquette']);
+    expect(modeles.filter((m) => m.deployable).map((m) => m.id)).toEqual(['vue-node']);
     expect(modeles.find((m) => m.id === 'formulaire')).toMatchObject({ type: 'formulaire', disponible: false });
     expect(gh.repos.get).not.toHaveBeenCalled();
   });
@@ -269,5 +277,18 @@ describe('ProjetsService', () => {
     const avant = readFileSync(join(dossierCatalogue, 'vue-nest-dsfr', 'PROJET.md'), 'utf8');
     await service.creer('jeton', 'proprio', projetValide);
     expect(readFileSync(join(dossierCatalogue, 'vue-nest-dsfr', 'PROJET.md'), 'utf8')).toBe(avant);
+  });
+
+  it('n’ajoute le chart de déploiement que si le PO prévoit de déployer le projet', async () => {
+    preparerCreation();
+    await service.creer('jeton', 'proprio', { ...projetValide, modele: 'vue-node' });
+    expect(fichiersPousses(distant)).toEqual(['Dockerfile', 'ada.json']);
+  });
+
+  it('projet déployé : chart Helm ajouté et personnalisé', async () => {
+    preparerCreation();
+    await service.creer('jeton', 'proprio', { ...projetValide, modele: 'vue-node', deploye: true });
+    expect(fichiersPousses(distant)).toEqual(['Dockerfile', 'ada.json', 'charts/app/Chart.yaml', 'charts/app/templates/deployment.yaml']);
+    expect(lirePousse(distant, 'charts/app/Chart.yaml')).toBe('name: l-annuaire');
   });
 });
