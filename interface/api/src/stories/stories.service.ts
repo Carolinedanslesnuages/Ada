@@ -36,6 +36,8 @@ export interface ResumeStory {
   titre: string;
   statut: Statut;
   creeeLe: string;
+  /** Date de fermeture de l'issue (livraison), null tant qu'elle est ouverte. */
+  fermeeLe: string | null;
   url: string;
   /** Prête à être lancée (complète, assez petite) ; sinon la raison, à corriger sur GitHub. */
   prete: boolean;
@@ -64,6 +66,7 @@ type Issue = {
   title: string;
   state: string;
   created_at: string;
+  closed_at?: string | null;
   html_url: string;
   body?: string | null;
   pull_request?: unknown;
@@ -83,6 +86,7 @@ const resumer = (i: Issue): ResumeStory => {
     titre: i.title,
     statut: statutDepuis(i.state === 'closed' ? 'closed' : 'open', labels),
     creeeLe: i.created_at,
+    fermeeLe: i.closed_at ?? null,
     url: i.html_url,
     prete: verification.prete,
     raison: verification.prete ? null : verification.raison,

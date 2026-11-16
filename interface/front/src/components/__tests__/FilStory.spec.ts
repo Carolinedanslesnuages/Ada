@@ -12,6 +12,7 @@ const story: DetailStory = {
   prete: true,
   raison: null,
   creeeLe: '2026-11-16T10:00:00Z',
+  fermeeLe: null,
   url: 'https://github.com/proprio/poc/issues/12',
   type: 'story',
   texteBrut: '',

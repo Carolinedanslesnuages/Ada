@@ -20,6 +20,14 @@ export const useStoriesStore = defineStore('stories', () => {
   const erreurAction = ref<string | null>(null)
 
   /** La demande qui occupe le projet : tant qu'elle existe, on n'en lance pas d'autre. */
+  /** Liste principale : ce qui reste à faire ou est en cours. */
+  const aFaire = computed(() => liste.value.filter((story) => story.statut !== 'livree'))
+  /** Stories livrées, de la plus récente à la plus ancienne. */
+  const livrees = computed(() =>
+    liste.value
+      .filter((story) => story.statut === 'livree')
+      .sort((premiere, seconde) => (seconde.fermeeLe ?? '').localeCompare(premiere.fermeeLe ?? '')),
+  )
   const active = computed(() => liste.value.find((s) => STATUTS_ACTIFS.includes(s.statut)) ?? null)
 
   const chemin = (projet: string) => `/projets/${encodeURIComponent(projet)}/stories`
@@ -81,10 +89,22 @@ export const useStoriesStore = defineStore('stories', () => {
   }
 
   /** Fusionne la demande (contrôles verts) : elle devient livrée, la suivante peut être lancée. */
-  const fusionner = (projet: string, numero: number) =>
-    agir(projet, numero, async () => {
+  async function fusionner(projet: string, numero: number): Promise<void> {
+    erreurAction.value = null
+    try {
       verification.value = await api.envoyer<Verification>(`${chemin(projet)}/${numero}/fusionner`, {})
-    })
+      await charger(projet, true)
+      // Livrée : elle rejoint « Déjà livrées » et son détail se ferme.
+      if (liste.value.find((story) => story.numero === numero)?.statut === 'livree') {
+        fermer()
+        return
+      }
+      await ouvrir(projet, numero)
+      await chargerActivite(projet, numero)
+    } catch (e) {
+      erreurAction.value = (e as Error).message
+    }
+  }
 
   /** Relit la demande ouverte, son activité et la liste (statuts changés par l'assistant). */
   async function suivre(projet: string): Promise<void> {
@@ -142,6 +162,8 @@ export const useStoriesStore = defineStore('stories', () => {
 
   return {
     liste,
+    aFaire,
+    livrees,
     courante,
     active,
     chargement,
