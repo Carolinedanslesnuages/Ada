@@ -20,7 +20,8 @@ skills/<groupe>/<skill>/SKILL.md   une skill = un dossier ; le nom du DOSSIER es
 skills/<groupe>/index.json         catalogue GÉNÉRÉ : node scripts/skills-index.mjs
 .claude/skills/<skill>             lien vers skills/po/<skill> (Claude Code)
 .agents/skills/<skill>             lien vers skills/po/<skill> (Codex, OpenCode, Cursor, Copilot, Gemini CLI)
-scripts/                           vérification des skills et génération des catalogues
+scripts/                           vérification des skills, des modèles et génération des catalogues
+catalogue/<modele>/                modèles de projet (copiés à la création d'un projet, décrits par ada.json)
 projets/                           projets des PO (un dépôt git chacun, hors de ce dépôt)
 interface/                         interface web PO (dépôt git séparé)
 docs/                              documentation (sources externes reprises)
@@ -57,5 +58,6 @@ docs/                              documentation (sources externes reprises)
 ```bash
 node scripts/verifier-skills.mjs        # invariants des SKILL.md
 node scripts/skills-index.mjs --check   # catalogues à jour (sans --check pour régénérer)
+node scripts/verifier-modele.mjs <id>   # un modèle de catalogue/ passe tous ses contrôles
 ```
 Livraison : branche dédiée, PR, messages Conventional Commits (release-please).

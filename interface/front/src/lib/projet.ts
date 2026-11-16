@@ -12,7 +12,8 @@ export interface Modele {
   type: TypeProjet
   libelle: string
   pourQuoi: string
-  depot: string | null
+  /** Modèle livré dans le catalogue d'ADA : on peut créer ce type de projet. */
+  disponible: boolean
 }
 
 export interface NouveauProjet {

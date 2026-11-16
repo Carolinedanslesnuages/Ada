@@ -1,5 +1,3 @@
-import type { Config } from '../config.js';
-
 import type { TypeProjet } from '../ada/ada-config.js';
 
 /** Les types de projet proposés au PO, dans l'ordre d'affichage. */
@@ -15,28 +13,29 @@ export interface Modele {
   type: TypeProjet;
   libelle: string;
   pourQuoi: string;
-  /** « proprietaire/depot » du dépôt modèle GitHub, ou null tant qu'il n'est pas publié. */
-  depot: string | null;
+  /** Vrai dès que le dossier `catalogue/<id>/` d'ADA contient le modèle (avec son ada.json). */
+  disponible: boolean;
 }
 
-/** Tous les modèles prévus ; un modèle est disponible dès que son dépôt modèle existe sur GitHub. */
-export function catalogue(config: Config): Modele[] {
-  const depot = (nom: string) => `${config.GITHUB_PROPRIETAIRE}/${nom}`;
+/**
+ * Tous les modèles prévus. Ils vivent dans le dépôt d'ADA (`catalogue/<id>/`), pas dans des dépôts
+ * modèles GitHub : un modèle est disponible dès que son dossier est livré (voir docs/adr).
+ */
+export function catalogue(): Omit<Modele, 'disponible'>[] {
   return [
     {
       id: 'vue-nest-dsfr',
       type: 'service',
       libelle: 'Vue 3 + NestJS + PostgreSQL, avec DSFR',
       pourQuoi: 'Application métier structurée, nombreuses règles, durée de vie longue',
-      depot: config.MODELE_VUE_NEST_DSFR || depot('modele-vue-nest-dsfr'),
     },
-    { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express), avec DSFR', pourQuoi: 'Petite application ou API simple', depot: depot('modele-vue-node') },
-    { id: 'vue-fastapi', type: 'service', libelle: 'Vue 3 + Python (FastAPI) + PostgreSQL', pourQuoi: 'Données, calculs, IA, import/export de fichiers', depot: depot('modele-vue-fastapi') },
-    { id: 'django', type: 'service', libelle: 'Python (Django)', pourQuoi: 'Back-office, formulaires, administration des données', depot: depot('modele-django') },
-    { id: 'nuxt', type: 'service', libelle: 'Nuxt', pourQuoi: 'Site public bien référencé (SEO)', depot: depot('modele-nuxt') },
-    { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR', pourQuoi: 'Réponses enregistrées dans le projet, page « Réponses » et export CSV', depot: depot('modele-formulaire') },
-    { id: 'extension', type: 'extension', libelle: 'Extension de navigateur (Vue)', pourQuoi: 'Chrome, Firefox, Edge ; sans identité de l’État', depot: depot('modele-extension') },
-    { id: 'maquette', type: 'maquette', libelle: 'Maquette Vue 3, avec DSFR', pourQuoi: 'Parcours cliquable, données fictives, aucun serveur', depot: depot('modele-maquette') },
+    { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express), avec DSFR', pourQuoi: 'Petite application ou API simple' },
+    { id: 'vue-fastapi', type: 'service', libelle: 'Vue 3 + Python (FastAPI) + PostgreSQL', pourQuoi: 'Données, calculs, IA, import/export de fichiers' },
+    { id: 'django', type: 'service', libelle: 'Python (Django)', pourQuoi: 'Back-office, formulaires, administration des données' },
+    { id: 'nuxt', type: 'service', libelle: 'Nuxt', pourQuoi: 'Site public bien référencé (SEO)' },
+    { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR', pourQuoi: 'Réponses enregistrées dans le projet, page « Réponses » et export CSV' },
+    { id: 'extension', type: 'extension', libelle: 'Extension de navigateur (Vue)', pourQuoi: 'Chrome, Firefox, Edge ; sans identité de l’État' },
+    { id: 'maquette', type: 'maquette', libelle: 'Maquette Vue 3, avec DSFR', pourQuoi: 'Parcours cliquable, données fictives, aucun serveur' },
   ];
 }
 

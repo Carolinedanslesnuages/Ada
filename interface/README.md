@@ -19,13 +19,14 @@ Décisions : [docs/adr/](docs/adr/README.md).
    section *Private keys*). Les mettre dans `api/.env` (modèle : `api/.env.example`).
 3. **Installer l'App** — étape indispensable, distincte de l'autorisation : page de l'App →
    **Install App** → compte ou organisation → **All repositories**. Sans installation, l'App
-   est autorisée à agir au nom du PO mais ne voit aucun dépôt : la création de projet échoue
-   (404 sur `…/generate`).
-4. **Créer le dépôt modèle** de chaque stack et le marquer *template*
-   (`modele-vue-nest-dsfr` par défaut, voir `MODELE_VUE_NEST_DSFR`).
+   est autorisée à agir au nom du PO mais ne voit aucun dépôt : la création de projet échoue.
+
+Aucun dépôt modèle à créer sur GitHub : les modèles de projet vivent dans ce dépôt, dans
+`catalogue/<modèle>/` (voir `docs/adr/0006`). Un type de projet n'est proposé au PO que si son
+dossier est livré avec son `ada.json`.
 
 En cas de doute, une fois connecté : `http://localhost:5180/api/diagnostic` montre
-l'installation (`all` / `selected`), les permissions accordées et la visibilité des modèles,
+l'installation (`all` / `selected`), les permissions accordées et les modèles disponibles,
 sans aucun secret.
 
 ## Skills de l'assistant

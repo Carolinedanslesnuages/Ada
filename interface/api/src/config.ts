@@ -18,8 +18,8 @@ const schema = z.object({
     .string()
     .default('')
     .transform((v) => v.split(',').map((l) => l.trim().toLowerCase()).filter(Boolean)),
-  /** Dépôt modèle « proprietaire/depot » (défaut : <GITHUB_PROPRIETAIRE>/modele-vue-nest-dsfr). */
-  MODELE_VUE_NEST_DSFR: z.string().default(''),
+  /** Dossier des modèles de projet (défaut : `catalogue/` à la racine du dépôt d'ADA). */
+  CATALOGUE: z.string().default(''),
   /**
    * Commande de l'agent de code (mode non interactif, sortie stream-json). Vide : agent désactivé.
    * Démo : l'exécutable Claude Code. Remplaçable par un autre agent (voir src/agent/agent.ts).

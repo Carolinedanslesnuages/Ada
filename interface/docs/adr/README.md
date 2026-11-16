@@ -7,3 +7,4 @@
 | [0003](0003-connexion-github-app.md) | Connexion par GitHub App, au nom du PO, avec liste blanche | Accepted | 2026-11-16 |
 | [0004](0004-assistant-processus-travailleur.md) | L'assistant tourne dans un processus travailleur détaché | Accepted | 2026-11-16 |
 | [0005](0005-ci-des-versions.md) | Contrôles des PR de version : ni approbation automatique, ni clé dans les projets | Accepted | 2026-11-16 |
+| [0006](0006-modeles-dans-le-depot-ada.md) | Les modèles de projet vivent dans le dépôt d'ADA | Accepted | 2026-11-16 |

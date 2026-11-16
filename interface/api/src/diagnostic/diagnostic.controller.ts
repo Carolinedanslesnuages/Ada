@@ -4,11 +4,11 @@ import { ConnecteGuard } from '../auth/connecte.guard.js';
 import { CONFIG, type Config } from '../config.js';
 import { decrireErreurGithub } from '../github/erreurs.js';
 import { GithubService } from '../github/github.service.js';
-import { catalogue } from '../projets/modeles.js';
+import { ProjetsService } from '../projets/projets.service.js';
 
 /**
  * Ce que la GitHub App peut réellement faire au nom du PO connecté.
- * Aucun secret : comptes, type d'accès, permissions accordées, visibilité des modèles.
+ * Aucun secret : comptes, type d'accès, permissions accordées, modèles livrés dans le catalogue.
  */
 @Controller('diagnostic')
 @UseGuards(ConnecteGuard)
@@ -16,6 +16,7 @@ export class DiagnosticController {
   constructor(
     @Inject(CONFIG) private readonly config: Config,
     private readonly github: GithubService,
+    private readonly projets: ProjetsService,
   ) {}
 
   @Get()
@@ -31,17 +32,7 @@ export class DiagnosticController {
         })),
       )
       .catch((e: unknown) => ({ erreur: decrireErreurGithub(e) }));
-    const modeles = await Promise.all(
-      catalogue(this.config)
-        .filter((m) => m.depot)
-        .map(async (m) => {
-          const [owner, repo] = m.depot!.split('/') as [string, string];
-          return gh.repos
-            .get({ owner, repo })
-            .then(({ data }) => ({ depot: m.depot, visible: true, estUnModele: data.is_template, permissions: data.permissions }))
-            .catch((e: unknown) => ({ depot: m.depot, visible: false, erreur: decrireErreurGithub(e) }));
-        }),
-    );
+    const modeles = this.projets.modeles().modeles.map(({ id, disponible }) => ({ id, disponible }));
     return {
       utilisateur: req.session.utilisateur?.login,
       proprietaireDesProjets: this.config.GITHUB_PROPRIETAIRE,

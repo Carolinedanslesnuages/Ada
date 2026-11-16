@@ -27,9 +27,9 @@ const adresse = computed(() => slugifier(normaliserNom(projet.nom)))
 /** D'abord le type de projet, puis la stack de ce type (choisie d'office s'il n'y en a qu'une). */
 const typeChoisi = ref<TypeProjet | null>(null)
 const modelesDuType = computed(() => props.modeles.filter((modele) => modele.type === typeChoisi.value))
-const typeDisponible = (type: TypeProjet) => props.modeles.some((modele) => modele.type === type && modele.depot)
+const typeDisponible = (type: TypeProjet) => props.modeles.some((modele) => modele.type === type && modele.disponible)
 watch(typeChoisi, () => {
-  const disponibles = modelesDuType.value.filter((modele) => modele.depot)
+  const disponibles = modelesDuType.value.filter((modele) => modele.disponible)
   projet.modele = disponibles.length === 1 ? disponibles[0]!.id : ''
 })
 
@@ -113,10 +113,10 @@ function envoyer(): void {
             type="radio"
             name="modele"
             :value="modele.id"
-            :disabled="!modele.depot"
+            :disabled="!modele.disponible"
           />
           <label class="fr-label" :for="`modele-${modele.id}`">
-            {{ modele.libelle }}{{ modele.depot ? '' : ' (bientôt disponible)' }}
+            {{ modele.libelle }}{{ modele.disponible ? '' : ' (bientôt disponible)' }}
             <span class="fr-hint-text">{{ modele.pourQuoi }}</span>
           </label>
         </div>

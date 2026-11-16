@@ -6,7 +6,14 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
+import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { promisify } from 'node:util';
 import type { Octokit } from '@octokit/rest';
+import { ApercuService, type Executer } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
 import { decrireErreurGithub, traduireErreurGithub } from '../github/erreurs.js';
 import { GithubService } from '../github/github.service.js';
@@ -50,18 +57,23 @@ const versProjet = (d: DepotGithub): Projet => ({
   misAJourLe: d.updated_at ?? null,
 });
 
-const pause = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
+/** Topic posé le temps de la création : permet de reprendre une création interrompue. */
+const TOPIC_CREATION = 'ada-creation';
+const NOM_REGLE_MAIN = 'main protégée';
+const execFileAsync = promisify(execFile);
+const executerParDefaut: Executer = (commande, args, options) =>
+  execFileAsync(commande, args, { ...options, maxBuffer: 10 * 1024 * 1024 });
 const statut = (e: unknown) => (e as { status?: number }).status;
 
 @Injectable()
 export class ProjetsService {
   private readonly journal = new Logger(ProjetsService.name);
-  /** Attente entre deux vérifications pendant la génération du dépôt (réduite en test). */
-  attenteMs = 1500;
+  executer: Executer = executerParDefaut;
 
   constructor(
     @Inject(CONFIG) private readonly config: Config,
     private readonly github: GithubService,
+    private readonly apercu: ApercuService,
   ) {}
 
   /** Topic des projets, plus l'ancien nom de l'outil (projets créés avant le passage à ADA). */
@@ -73,29 +85,20 @@ export class ProjetsService {
     return this.config.GITHUB_PROPRIETAIRE;
   }
 
-  private cacheModeles: { le: number; modeles: Modele[] } | null = null;
+  /** Dossier `catalogue/` d'ADA : un sous-dossier par modèle (même chemin depuis src/ et dist/). */
+  get dossierCatalogue(): string {
+    return this.config.CATALOGUE
+      ? resolve(this.config.CATALOGUE)
+      : resolve(import.meta.dirname, '..', '..', '..', '..', 'catalogue');
+  }
 
-  /**
-   * Catalogue dont la disponibilité est constatée sur GitHub : un modèle n'est proposé que si son
-   * dépôt modèle existe et est marqué « template ». Mis en cache 5 minutes.
-   */
-  async modeles(jeton: string): Promise<{ types: typeof TYPES; modeles: Modele[] }> {
-    if (!this.cacheModeles || Date.now() - this.cacheModeles.le > 5 * 60 * 1000) {
-      const gh = this.github.client(jeton);
-      const modeles = await Promise.all(
-        catalogue(this.config).map(async (modele) => {
-          if (!modele.depot) return modele;
-          const [owner, repo] = modele.depot.split('/') as [string, string];
-          const disponible = await gh.repos
-            .get({ owner, repo })
-            .then(({ data }) => data.is_template === true)
-            .catch(() => false);
-          return { ...modele, depot: disponible ? modele.depot : null };
-        }),
-      );
-      this.cacheModeles = { le: Date.now(), modeles };
-    }
-    return { types: TYPES, modeles: this.cacheModeles.modeles };
+  /** Catalogue : un modèle n'est proposé que si son dossier est livré avec son ada.json. */
+  modeles(): { types: typeof TYPES; modeles: Modele[] } {
+    const modeles = catalogue().map((modele) => ({
+      ...modele,
+      disponible: existsSync(join(this.dossierCatalogue, modele.id, 'ada.json')),
+    }));
+    return { types: TYPES, modeles };
   }
 
   /** ada.json d'un dépôt (sur GitHub) ; absent → comportement Vue + NestJS. */
@@ -131,28 +134,34 @@ export class ProjetsService {
     }
   }
 
+  /**
+   * Création d'un projet depuis `catalogue/<modele>/` :
+   * 1. dépôt privé vide (topic provisoire « ada-creation », pour pouvoir reprendre) ;
+   * 2. réglages avant le premier push (squash seul, release-please autorisé) ;
+   * 3. copie du modèle personnalisée, poussée en un seul commit au nom du PO ;
+   * 4. protection de main, topic définitif, labels.
+   * Chaque étape est rejouable : une création interrompue est reprise avec le même nom.
+   */
   async creer(jeton: string, login: string, donnees: unknown): Promise<ResultatCreation> {
     const validation = validerProjet(donnees);
     if (!validation.ok) throw new BadRequestException({ erreurs: validation.erreurs });
     const { projet, slug } = validation;
-    const modele = (await this.modeles(jeton)).modeles.find((m) => m.id === projet.modele);
-    if (!modele?.depot) throw new BadRequestException({ erreurs: { modele: 'Cette stack n’est pas encore disponible' } });
-    const [modeleProprietaire, modeleDepot] = modele.depot.split('/') as [string, string];
+    const modele = this.modeles().modeles.find((m) => m.id === projet.modele);
+    if (!modele?.disponible) throw new BadRequestException({ erreurs: { modele: 'Ce type de projet n’est pas encore disponible' } });
+    const dossierModele = join(this.dossierCatalogue, modele.id);
+    const configModele = lireAdaConfig(await readFile(join(dossierModele, 'ada.json'), 'utf8'));
     const gh = this.github.client(jeton);
     const owner = this.proprietaire;
+    const description = projet.objectif.slice(0, 350);
 
-    // Un dépôt du même nom : si c'est une création d'ADA interrompue (issu du modèle, sans topic),
-    // on la reprend ; sinon le nom est pris.
-    let existant: (DepotGithub & { template_repository?: { full_name?: string } | null }) | null = null;
+    // Un dépôt du même nom : si c'est une création d'ADA interrompue, on la reprend ; sinon le nom est pris.
+    let existant: (DepotGithub & { template_repository?: { name?: string } | null }) | null = null;
     try {
       ({ data: existant } = await gh.repos.get({ owner, repo: slug }));
     } catch (e) {
       if (statut(e) !== 404) traduireErreurGithub(e);
     }
-    const reprise =
-      existant !== null &&
-      existant.template_repository?.full_name === modele.depot &&
-      !existant.topics?.some((topic) => this.topics.includes(topic));
+    const reprise = existant !== null && this.creationInterrompue(existant);
     if (existant && !reprise) {
       throw new ConflictException({ erreurs: { nom: `Un projet « ${slug} » existe déjà : choisissez un autre nom` } });
     }
@@ -162,35 +171,17 @@ export class ProjetsService {
     let versionsAutomatiques: Reglage['etat'];
     let protectionMain: Reglage['etat'];
     try {
-      try {
-        if (existant && reprise) depot = existant;
-        else ({ data: depot } = await gh.repos.createUsingTemplate({
-          template_owner: modeleProprietaire,
-          template_repo: modeleDepot,
-          owner,
-          name: slug,
-          description: projet.objectif.slice(0, 350),
-          private: true,
-        }));
-        if (reprise) await gh.repos.update({ owner, repo: slug, description: projet.objectif.slice(0, 350) });
-      } catch (e) {
-        if (statut(e) === 404 || statut(e) === 403) {
-          this.journal.warn(`Création depuis le modèle refusée : ${decrireErreurGithub(e)}`);
-          throw new ForbiddenException(
-            `L’application GitHub de l’atelier n’a pas accès au modèle « ${modele.depot} » ou ne peut pas créer de dépôt. ` +
-              'Dans GitHub : Settings → Applications → ADA → Configure → Repository access : « All repositories », ' +
-              'puis acceptez les permissions demandées s’il y a une demande en attente.',
-          );
-        }
-        throw e;
+      if (existant && reprise) {
+        depot = existant;
+        await gh.repos.update({ owner, repo: slug, description });
+      } else {
+        depot = await this.creerDepotVide(gh, login, slug, description);
+        await gh.repos.replaceAllTopics({ owner, repo: slug, names: [TOPIC_CREATION] });
       }
-      await this.attendreContenu(gh, owner, slug);
-      const configModele = await this.lireConfigDepot(gh, owner, slug);
-      // Réglages AVANT le commit de personnalisation : ce commit déclenche release-please.
+      // Réglages AVANT le premier push : ce push déclenche la CI et release-please.
       await this.imposerSquash(gh, owner, slug);
       versionsAutomatiques = await this.autoriserReleasePlease(gh, owner, slug);
-      protectionMain = await this.protegerMain(gh, owner, slug, configModele.controlesRequis);
-      await this.personnaliserDepot(gh, owner, slug, configModele.personnaliser, {
+      await this.pousserModele(jeton, login, slug, dossierModele, configModele.personnaliser, {
         nom: projet.nom,
         baseline: projet.baseline,
         slug,
@@ -198,6 +189,7 @@ export class ProjetsService {
         date: new Date().toISOString().slice(0, 10),
         po: login,
       });
+      protectionMain = await this.protegerMain(gh, owner, slug, configModele.controlesRequis);
       await gh.repos.replaceAllTopics({ owner, repo: slug, names: [this.config.TOPIC_ATELIER] });
       await this.poserLabels(gh, owner, slug);
     } catch (e) {
@@ -216,6 +208,89 @@ export class ProjetsService {
   }
 
   /**
+   * Création d'ADA restée en chemin : topic provisoire, ou (ancienne méthode) dépôt généré depuis
+   * un dépôt modèle « modele-… » sans le topic d'ADA.
+   */
+  private creationInterrompue(depot: DepotGithub & { template_repository?: { name?: string } | null }): boolean {
+    const topics = depot.topics ?? [];
+    if (topics.some((topic) => this.topics.includes(topic))) return false;
+    return topics.includes(TOPIC_CREATION) || (depot.template_repository?.name ?? '').startsWith('modele-');
+  }
+
+  private async creerDepotVide(gh: Octokit, login: string, slug: string, description: string): Promise<DepotGithub> {
+    const parametres = { name: slug, description, private: true, auto_init: false };
+    try {
+      const { data } =
+        this.proprietaire.toLowerCase() === login.toLowerCase()
+          ? await gh.repos.createForAuthenticatedUser(parametres)
+          : await gh.repos.createInOrg({ org: this.proprietaire, ...parametres });
+      return data;
+    } catch (e) {
+      if (statut(e) === 404 || statut(e) === 403) {
+        this.journal.warn(`Création de dépôt refusée : ${decrireErreurGithub(e)}`);
+        throw new ForbiddenException(
+          'L’application GitHub d’ADA ne peut pas créer de dépôt. ' +
+            'Dans GitHub : Settings → Applications → ADA → Configure → Repository access : « All repositories », ' +
+            'puis acceptez les permissions demandées s’il y a une demande en attente.',
+        );
+      }
+      throw e;
+    }
+  }
+
+  /** Adresse git du dépôt d'un projet (remplaçable en test par un dépôt local). */
+  urlDepot = (owner: string, repo: string) => `https://github.com/${owner}/${repo}.git`;
+
+  /**
+   * Copie du modèle (fichiers suivis par git uniquement : ni node_modules ni secrets locaux),
+   * marqueurs remplacés, un seul commit au nom du PO. Sans différence (reprise), rien n'est poussé.
+   */
+  private async pousserModele(
+    jeton: string,
+    login: string,
+    slug: string,
+    dossierModele: string,
+    aPersonnaliser: string[],
+    valeurs: ValeursProjet,
+  ): Promise<void> {
+    const travail = await mkdtemp(join(tmpdir(), 'ada-creation-'));
+    const copie = join(travail, 'depot');
+    const env = this.apercu.environnementGit(jeton);
+    const git = (...args: string[]) => this.executer('git', ['-C', copie, ...args], { env });
+    try {
+      await this.executer('git', ['clone', '--quiet', this.urlDepot(this.proprietaire, slug), copie], { env });
+      await git('symbolic-ref', 'HEAD', 'refs/heads/main');
+      await git('rm', '-r', '-q', '--ignore-unmatch', '--', '.');
+      const { stdout } = await this.executer(
+        'git',
+        ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '.'],
+        { cwd: dossierModele },
+      );
+      const fichiers = stdout.split('\0').filter(Boolean);
+      if (!fichiers.includes('ada.json')) throw new Error(`Modèle incomplet : ${dossierModele}`);
+      for (const fichier of fichiers) {
+        const cible = join(copie, fichier);
+        await mkdir(dirname(cible), { recursive: true });
+        await copyFile(join(dossierModele, fichier), cible);
+        if (aPersonnaliser.includes(fichier)) {
+          await writeFile(cible, personnaliser(await readFile(cible, 'utf8'), valeurs));
+        }
+      }
+      await git('add', '-A');
+      const { stdout: changements } = await git('status', '--porcelain');
+      if (!changements.trim()) return;
+      await git(
+        '-c', `user.name=${login}`,
+        '-c', `user.email=${login}@users.noreply.github.com`,
+        'commit', '--quiet', '-m', `chore: création du projet ${valeurs.nom}`,
+      );
+      await git('push', '--quiet', 'origin', 'main');
+    } finally {
+      await rm(travail, { recursive: true, force: true });
+    }
+  }
+
+  /**
    * Labels dont dépendent les formulaires d'issue (ils ne posent un label que s'il existe) et
    * les statuts de l'atelier. Un dépôt créé depuis un modèle n'hérite pas de ses labels.
    */
@@ -227,53 +302,6 @@ export class ProjetsService {
         if (statut(e) !== 422) throw e; // 422 : le label existe déjà (ex. « bug »)
       }
     }
-  }
-
-  /** La génération depuis un modèle est asynchrone : attendre que les fichiers soient là. */
-  private async attendreContenu(gh: Octokit, owner: string, repo: string): Promise<void> {
-    for (let essai = 0; essai < 20; essai++) {
-      try {
-        await gh.repos.getContent({ owner, repo, path: 'README.md' });
-        return;
-      } catch (e) {
-        if (statut(e) !== 404 && statut(e) !== 409) throw e;
-        await pause(this.attenteMs);
-      }
-    }
-    throw new Error('Le dépôt a été créé mais ses fichiers ne sont pas apparus à temps');
-  }
-
-  /** Un seul commit qui remplace les marqueurs dans tous les fichiers concernés. */
-  private async personnaliserDepot(
-    gh: Octokit,
-    owner: string,
-    repo: string,
-    fichiers: string[],
-    valeurs: ValeursProjet,
-  ): Promise<void> {
-    const { data: ref } = await gh.git.getRef({ owner, repo, ref: 'heads/main' });
-    const parent = ref.object.sha;
-    const { data: commitParent } = await gh.git.getCommit({ owner, repo, commit_sha: parent });
-    const entrees: { path: string; mode: '100644'; type: 'blob'; content: string }[] = [];
-    for (const path of fichiers) {
-      const { data } = await gh.repos.getContent({ owner, repo, path, ref: parent }).catch((e: unknown) => {
-        if (statut(e) === 404) return { data: [] as unknown[] }; // fichier listé mais absent du modèle
-        throw e;
-      });
-      if (Array.isArray(data) || data.type !== 'file' || !('content' in data)) continue;
-      const original = Buffer.from(data.content, 'base64').toString('utf8');
-      const nouveau = personnaliser(original, valeurs);
-      if (nouveau !== original) entrees.push({ path, mode: '100644', type: 'blob', content: nouveau });
-    }
-    const { data: arbre } = await gh.git.createTree({ owner, repo, base_tree: commitParent.tree.sha, tree: entrees });
-    const { data: commit } = await gh.git.createCommit({
-      owner,
-      repo,
-      message: `chore: personnalisation du projet ${valeurs.nom}`,
-      tree: arbre.sha,
-      parents: [parent],
-    });
-    await gh.git.updateRef({ owner, repo, ref: 'heads/main', sha: commit.sha });
   }
 
   /**
@@ -316,10 +344,13 @@ export class ProjetsService {
   /** Ruleset sur main : PR obligatoire, CI verte, ni suppression ni force push. */
   private async protegerMain(gh: Octokit, owner: string, repo: string, controlesRequis: string[]): Promise<Reglage['etat']> {
     try {
+      // Reprise d'une création : la règle peut déjà exister.
+      const { data: existantes } = await gh.request('GET /repos/{owner}/{repo}/rulesets', { owner, repo });
+      if ((existantes ?? []).some((regle: { name?: string }) => regle.name === NOM_REGLE_MAIN)) return 'fait';
       await gh.request('POST /repos/{owner}/{repo}/rulesets', {
         owner,
         repo,
-        name: 'main protégée',
+        name: NOM_REGLE_MAIN,
         target: 'branch',
         enforcement: 'active',
         conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } },

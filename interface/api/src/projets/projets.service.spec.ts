@@ -1,15 +1,25 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
 import { lireConfig } from '../config.js';
+import type { ApercuService } from '../apercu/apercu.service.js';
 import type { GithubService } from '../github/github.service.js';
 import { ProjetsService } from './projets.service.js';
 
-const config = lireConfig({
+const racine = mkdtempSync(join(tmpdir(), 'ada-test-projets-'));
+const dossierCatalogue = join(racine, 'catalogue');
+
+const variables = {
   GITHUB_PROPRIETAIRE: 'proprio',
   GITHUB_CLIENT_ID: 'Iv',
   GITHUB_CLIENT_SECRET: 's',
   SESSION_SECRET: 'x'.repeat(32),
-});
+};
+const config = lireConfig({ ...variables, CATALOGUE: dossierCatalogue });
 
 const depot = (name: string, topics: string[], updated_at = '2026-11-16T10:00:00Z') => ({
   name,
@@ -20,7 +30,39 @@ const depot = (name: string, topics: string[], updated_at = '2026-11-16T10:00:00
   html_url: `https://github.com/proprio/${name}`,
 });
 
-const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
+const git = (dossier: string, ...args: string[]) =>
+  execFileSync('git', [...(dossier.endsWith('.git') ? ['--git-dir', dossier] : ['-C', dossier]), ...args], { encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' } });
+
+const ecrire = (fichier: string, contenu: string) => {
+  mkdirSync(dirname(fichier), { recursive: true });
+  writeFileSync(fichier, contenu);
+};
+
+/** Catalogue de test : deux modèles livrés, dans un dépôt git (comme celui d'ADA). */
+const preparerCatalogue = () => {
+  rmSync(racine, { recursive: true, force: true });
+  ecrire(join(dossierCatalogue, '.gitignore'), 'node_modules/\n');
+  ecrire(join(dossierCatalogue, 'vue-nest-dsfr', 'ada.json'), JSON.stringify({ ...ADA_PAR_DEFAUT, personnaliser: ['PROJET.md'] }));
+  ecrire(join(dossierCatalogue, 'vue-nest-dsfr', 'PROJET.md'), '# __NOM_PROJET__\n__OBJECTIF__');
+  ecrire(join(dossierCatalogue, 'vue-nest-dsfr', 'front', 'src', 'App.vue'), 'sans marqueur __NOM_PROJET__');
+  ecrire(join(dossierCatalogue, 'vue-nest-dsfr', 'node_modules', 'lourd.js'), 'à ne pas copier');
+  ecrire(
+    join(dossierCatalogue, 'maquette', 'ada.json'),
+    JSON.stringify({ type: 'maquette', personnaliser: ['index.html'], controlesRequis: ['Maquette (tests)'], controles: ['npm test'], apercu: { npm: ['.'], principal: 'npx vite' } }),
+  );
+  ecrire(join(dossierCatalogue, 'maquette', 'index.html'), '<title>__NOM_PROJET__</title>');
+  git(dossierCatalogue, 'init', '--quiet');
+};
+
+/** Dépôt « GitHub » du projet : un dépôt nu local, vide comme après la création. */
+const depotDistant = () => {
+  const nu = join(racine, 'distant.git');
+  execFileSync('git', ['init', '--quiet', '--bare', '--initial-branch=main', nu]);
+  return nu;
+};
+
+const fichiersPousses = (nu: string) => git(nu, 'ls-tree', '-r', '--name-only', 'main').trim().split('\n');
+const lirePousse = (nu: string, fichier: string) => git(nu, 'show', `main:${fichier}`);
 
 describe('ProjetsService', () => {
   const gh = {
@@ -30,48 +72,43 @@ describe('ProjetsService', () => {
       listForAuthenticatedUser: vi.fn(),
       listForOrg: vi.fn(),
       get: vi.fn(),
-      createUsingTemplate: vi.fn(),
+      createForAuthenticatedUser: vi.fn(),
+      createInOrg: vi.fn(),
       getContent: vi.fn(),
       replaceAllTopics: vi.fn(),
       update: vi.fn(),
     },
     issues: { createLabel: vi.fn() },
-    git: { getRef: vi.fn(), getCommit: vi.fn(), createTree: vi.fn(), createCommit: vi.fn(), updateRef: vi.fn() },
   };
   const github = { client: vi.fn(() => gh) } as unknown as GithubService;
+  const apercu = { environnementGit: () => ({ ...process.env }) } as unknown as ApercuService;
   let service: ProjetsService;
+  let distant: string;
 
   const projetValide = { nom: "L'annuaire", objectif: 'Trouver un collègue et son bureau', modele: 'vue-nest-dsfr' };
 
-  /** Dépôts modèles : présents et « template » ; autres dépôts : selon le test (404 par défaut). */
-  const reposGet = (projet: () => Promise<unknown>) =>
-    gh.repos.get.mockImplementation(async ({ repo }: { repo: string }) =>
-      repo.startsWith('modele-') ? { data: { is_template: true } } : projet(),
-    );
-
   const preparerCreation = () => {
-    reposGet(() => Promise.reject({ status: 404 }));
-    gh.repos.createUsingTemplate.mockResolvedValue({ data: depot('l-annuaire', []) });
-    gh.repos.getContent.mockImplementation(async ({ path }: { path: string }) => {
-      if (path === 'ada.json') throw { status: 404 };
-      return { data: { type: 'file', content: b64(path === 'PROJET.md' ? '# __NOM_PROJET__\n__OBJECTIF__' : 'sans marqueur') } };
-    });
-    gh.git.getRef.mockResolvedValue({ data: { object: { sha: 'parent' } } });
-    gh.git.getCommit.mockResolvedValue({ data: { tree: { sha: 'arbre-parent' } } });
-    gh.git.createTree.mockResolvedValue({ data: { sha: 'arbre' } });
-    gh.git.createCommit.mockResolvedValue({ data: { sha: 'commit' } });
+    gh.repos.get.mockRejectedValue({ status: 404 });
+    gh.repos.createForAuthenticatedUser.mockResolvedValue({ data: depot('l-annuaire', []) });
+    gh.repos.createInOrg.mockResolvedValue({ data: depot('l-annuaire', []) });
+    gh.request.mockResolvedValue({ data: [] });
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new ProjetsService(config, github);
-    service.attenteMs = 0;
+    preparerCatalogue();
+    distant = depotDistant();
+    service = new ProjetsService(config, github, apercu);
+    service.urlDepot = () => distant;
   });
+
+  afterEach(() => rmSync(racine, { recursive: true, force: true }));
 
   it('liste les projets ADA et ceux créés avant le renommage (topic atelier-po), sans passer par la recherche', async () => {
     gh.paginate.mockResolvedValue([
       depot('ancien', ['atelier-po'], '2026-01-01T00:00:00Z'),
       depot('autre', ['perso']),
+      depot('en-creation', ['ada-creation']),
       depot('recent', ['ada'], '2026-11-16T00:00:00Z'),
     ]);
     const projets = await service.lister('jeton', 'Proprio');
@@ -87,133 +124,147 @@ describe('ProjetsService', () => {
 
   it('refuse un projet invalide sans rien créer', async () => {
     await expect(service.creer('jeton', 'po', { nom: 'x', objectif: '', modele: '' })).rejects.toBeInstanceOf(BadRequestException);
-    expect(gh.repos.createUsingTemplate).not.toHaveBeenCalled();
+    expect(gh.repos.createForAuthenticatedUser).not.toHaveBeenCalled();
   });
 
-  it('ne propose que les modèles publiés sur GitHub (dépôt « template »)', async () => {
-    gh.repos.get.mockImplementation(async ({ repo }: { repo: string }) => {
-      if (repo === 'modele-vue-nest-dsfr') return { data: { is_template: true } };
-      if (repo === 'modele-maquette') return { data: { is_template: false } };
-      throw { status: 404 };
-    });
-    const { types, modeles } = await service.modeles('jeton');
+  it('ne propose que les modèles livrés dans le catalogue d’ADA, sans dépôt modèle GitHub', () => {
+    const { types, modeles } = service.modeles();
     expect(types.map((t) => t.id)).toEqual(['service', 'formulaire', 'extension', 'maquette']);
-    expect(modeles.filter((m) => m.depot).map((m) => m.id)).toEqual(['vue-nest-dsfr']);
-    expect(modeles.find((m) => m.id === 'formulaire')).toMatchObject({ type: 'formulaire', depot: null });
+    expect(modeles.filter((m) => m.disponible).map((m) => m.id)).toEqual(['vue-nest-dsfr', 'maquette']);
+    expect(modeles.find((m) => m.id === 'formulaire')).toMatchObject({ type: 'formulaire', disponible: false });
+    expect(gh.repos.get).not.toHaveBeenCalled();
   });
 
-  it('refuse une stack dont le modèle n’existe pas encore', async () => {
-    gh.repos.get.mockImplementation(async ({ repo }: { repo: string }) => {
-      if (repo === 'modele-django' || !repo.startsWith('modele-')) throw { status: 404 };
-      return { data: { is_template: true } };
-    });
+  it('trouve par défaut le catalogue à la racine du dépôt d’ADA', () => {
+    const parDefaut = new ProjetsService(lireConfig(variables), github, apercu);
+    expect(parDefaut.dossierCatalogue).toMatch(/[/\\]catalogue$/);
+    expect(parDefaut.modeles().modeles.find((m) => m.id === 'vue-nest-dsfr')!.disponible).toBe(true);
+  });
+
+  it('refuse un type de projet dont le modèle n’est pas encore livré', async () => {
+    preparerCreation();
     await expect(service.creer('jeton', 'po', { ...projetValide, modele: 'django' })).rejects.toBeInstanceOf(BadRequestException);
-    expect(gh.repos.createUsingTemplate).not.toHaveBeenCalled();
+    expect(gh.repos.createForAuthenticatedUser).not.toHaveBeenCalled();
   });
 
   it('refuse un nom déjà pris', async () => {
-    reposGet(async () => ({ data: {} }));
+    gh.repos.get.mockResolvedValue({ data: depot('l-annuaire', []) });
     await expect(service.creer('jeton', 'po', projetValide)).rejects.toBeInstanceOf(ConflictException);
-    expect(gh.repos.createUsingTemplate).not.toHaveBeenCalled();
+    expect(gh.repos.createForAuthenticatedUser).not.toHaveBeenCalled();
   });
 
-  it('crée le dépôt privé depuis le modèle, le personnalise en un commit et pose le topic', async () => {
+  it('crée un dépôt privé vide, le règle, puis pousse le modèle personnalisé en un seul commit', async () => {
     preparerCreation();
-    gh.request.mockResolvedValue({});
-    const resultat = await service.creer('jeton', 'po1', projetValide);
+    const resultat = await service.creer('jeton', 'proprio', projetValide);
 
-    expect(gh.repos.createUsingTemplate).toHaveBeenCalledWith(
-      expect.objectContaining({ template_owner: 'proprio', template_repo: 'modele-vue-nest-dsfr', owner: 'proprio', name: 'l-annuaire', private: true }),
+    expect(gh.repos.createForAuthenticatedUser).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'l-annuaire', private: true, auto_init: false }),
     );
-    const arbre = gh.git.createTree.mock.calls[0][0];
-    expect(arbre.base_tree).toBe('arbre-parent');
-    expect(arbre.tree).toEqual([
-      expect.objectContaining({ path: 'PROJET.md', content: '# L’annuaire\nTrouver un collègue et son bureau.' }),
-    ]);
-    expect(gh.git.createCommit).toHaveBeenCalledWith(expect.objectContaining({ parents: ['parent'], message: 'chore: personnalisation du projet L’annuaire' }));
-    expect(gh.git.updateRef).toHaveBeenCalledWith(expect.objectContaining({ ref: 'heads/main', sha: 'commit' }));
-    expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith(expect.objectContaining({ names: ['ada'] }));
+    expect(fichiersPousses(distant)).toEqual(['PROJET.md', 'ada.json', 'front/src/App.vue']);
+    expect(lirePousse(distant, 'PROJET.md')).toBe('# L’annuaire\nTrouver un collègue et son bureau.');
+    expect(lirePousse(distant, 'front/src/App.vue')).toBe('sans marqueur __NOM_PROJET__');
+    expect(git(distant, 'log', '--format=%an|%s', 'main').trim()).toBe('proprio|chore: création du projet L’annuaire');
+
     expect(gh.repos.update).toHaveBeenCalledWith(
       expect.objectContaining({ repo: 'l-annuaire', allow_squash_merge: true, allow_merge_commit: false, allow_rebase_merge: false, delete_branch_on_merge: true }),
     );
+    const topics = gh.repos.replaceAllTopics.mock.calls.map((appel) => (appel[0] as { names: string[] }).names);
+    expect(topics).toEqual([['ada-creation'], ['ada']]);
     const labels = gh.issues.createLabel.mock.calls.map((appel) => (appel[0] as { name: string }).name);
     expect(labels).toEqual(expect.arrayContaining(['user-story', 'bug', 'story:en-cours', 'story:besoin-dev']));
-    expect(gh.request.mock.invocationCallOrder[0]).toBeLessThan(gh.git.createCommit.mock.invocationCallOrder[0]);
+    const routes = gh.request.mock.calls.map(([route]) => String(route));
+    expect(routes.indexOf('PUT /repos/{owner}/{repo}/actions/permissions/workflow')).toBeLessThan(routes.indexOf('POST /repos/{owner}/{repo}/rulesets'));
     expect(resultat.reglages.versionsAutomatiques.etat).toBe('fait');
     expect(resultat.reglages.protectionMain.etat).toBe('fait');
   });
 
-  it('explique au PO que l’App n’a pas accès au modèle (404 de GitHub)', async () => {
-    reposGet(() => Promise.reject({ status: 404 }));
-    gh.repos.createUsingTemplate.mockRejectedValue({ status: 404, request: { method: 'POST', url: 'x' } });
-    await expect(service.creer('jeton', 'po1', projetValide)).rejects.toThrow(/Repository access/);
+  it('crée le dépôt dans l’organisation quand le PO n’en est pas le propriétaire', async () => {
+    preparerCreation();
+    await service.creer('jeton', 'un-po', projetValide);
+    expect(gh.repos.createInOrg).toHaveBeenCalledWith(expect.objectContaining({ org: 'proprio', name: 'l-annuaire' }));
+  });
+
+  it('explique au PO que l’App ne peut pas créer de dépôt (403 de GitHub)', async () => {
+    preparerCreation();
+    gh.repos.createForAuthenticatedUser.mockRejectedValue({ status: 403, request: { method: 'POST', url: 'x' } });
+    await expect(service.creer('jeton', 'proprio', projetValide)).rejects.toThrow(/Repository access/);
   });
 
   it('tolère un label déjà présent dans le dépôt (« bug » existe par défaut)', async () => {
     preparerCreation();
-    gh.request.mockResolvedValue({});
     gh.issues.createLabel.mockImplementation(async ({ name }: { name: string }) => {
       if (name === 'bug') throw { status: 422 };
     });
-    await expect(service.creer('jeton', 'po1', projetValide)).resolves.toBeDefined();
+    await expect(service.creer('jeton', 'proprio', projetValide)).resolves.toBeDefined();
   });
 
-  it('reprend une création interrompue (dépôt issu du modèle, sans topic) au lieu de refuser', async () => {
+  it('reprend une création interrompue après le push sans rien repousser ni doubler la protection', async () => {
     preparerCreation();
-    gh.request.mockResolvedValue({});
-    reposGet(async () => ({ data: { ...depot('l-annuaire', []), template_repository: { full_name: 'proprio/modele-vue-nest-dsfr' } } }));
-    const resultat = await service.creer('jeton', 'po1', projetValide);
-    expect(gh.repos.createUsingTemplate).not.toHaveBeenCalled();
-    expect(gh.git.updateRef).toHaveBeenCalled();
+    await service.creer('jeton', 'proprio', projetValide);
+    vi.clearAllMocks();
+    gh.repos.get.mockResolvedValue({ data: depot('l-annuaire', ['ada-creation']) });
+    gh.request.mockImplementation(async (route: string) => (route.startsWith('GET') ? { data: [{ name: 'main protégée' }] } : {}));
+
+    const resultat = await service.creer('jeton', 'proprio', projetValide);
+    expect(gh.repos.createForAuthenticatedUser).not.toHaveBeenCalled();
+    expect(git(distant, 'rev-list', '--count', 'main').trim()).toBe('1');
+    expect(gh.request.mock.calls.some(([route]) => route === 'POST /repos/{owner}/{repo}/rulesets')).toBe(false);
     expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith(expect.objectContaining({ names: ['ada'] }));
-    expect(resultat.projet.nom).toBe('l-annuaire');
+    expect(resultat.reglages.protectionMain.etat).toBe('fait');
+  });
+
+  it('reprend une création lancée avec l’ancienne méthode (dépôt généré depuis un dépôt modèle)', async () => {
+    preparerCreation();
+    const ancien = join(racine, 'ancien');
+    git(racine, 'clone', '--quiet', distant, ancien);
+    ecrire(join(ancien, 'PROJET.md'), '# __NOM_PROJET__');
+    ecrire(join(ancien, 'obsolete.txt'), 'fichier de l’ancien modèle');
+    git(ancien, 'add', '-A');
+    git(ancien, 'commit', '--quiet', '-m', 'Initial commit');
+    git(ancien, 'push', '--quiet', 'origin', 'HEAD:main');
+    gh.repos.get.mockResolvedValue({ data: { ...depot('l-annuaire', []), template_repository: { name: 'modele-vue-nest-dsfr' } } });
+
+    await service.creer('jeton', 'proprio', projetValide);
+    expect(fichiersPousses(distant)).toEqual(['PROJET.md', 'ada.json', 'front/src/App.vue']);
+    expect(git(distant, 'rev-list', '--count', 'main').trim()).toBe('2');
   });
 
   it('refuse toujours un dépôt existant qui n’est pas une création d’ADA en cours', async () => {
-    reposGet(async () => ({ data: { ...depot('l-annuaire', ['ada']), template_repository: { full_name: 'proprio/modele-vue-nest-dsfr' } } }));
-    await expect(service.creer('jeton', 'po1', projetValide)).rejects.toBeInstanceOf(ConflictException);
-    reposGet(async () => ({ data: { ...depot('l-annuaire', []), template_repository: null } }));
-    await expect(service.creer('jeton', 'po1', projetValide)).rejects.toBeInstanceOf(ConflictException);
-    expect(gh.repos.createUsingTemplate).not.toHaveBeenCalled();
+    gh.repos.get.mockResolvedValue({ data: { ...depot('l-annuaire', ['ada']), template_repository: { name: 'modele-vue-nest-dsfr' } } });
+    await expect(service.creer('jeton', 'proprio', projetValide)).rejects.toBeInstanceOf(ConflictException);
+    gh.repos.get.mockResolvedValue({ data: { ...depot('l-annuaire', []), template_repository: null } });
+    await expect(service.creer('jeton', 'proprio', projetValide)).rejects.toBeInstanceOf(ConflictException);
+    expect(gh.repos.createForAuthenticatedUser).not.toHaveBeenCalled();
   });
 
   it('crée le projet même si GitHub refuse le réglage de fusion', async () => {
     preparerCreation();
-    gh.request.mockResolvedValue({});
     gh.repos.update.mockRejectedValueOnce({ status: 403 });
-    await expect(service.creer('jeton', 'po1', projetValide)).resolves.toBeDefined();
+    await expect(service.creer('jeton', 'proprio', projetValide)).resolves.toBeDefined();
   });
 
   it('personnalise et protège main selon l’ada.json du modèle', async () => {
     preparerCreation();
-    gh.request.mockResolvedValue({});
-    gh.repos.getContent.mockImplementation(async ({ path }: { path: string }) => {
-      if (path === 'ada.json')
-        return { data: { type: 'file', content: b64(JSON.stringify({ type: 'maquette', personnaliser: ['index.html'], controlesRequis: ['Maquette (tests)'], controles: ['npm test'], apercu: { npm: ['.'], principal: 'npx vite' } })) } };
-      return { data: { type: 'file', content: b64(path === 'index.html' ? '<title>__NOM_PROJET__</title>' : 'x') } };
-    });
-    await service.creer('jeton', 'po1', { ...projetValide, modele: 'maquette' });
-    expect(gh.git.createTree.mock.calls[0][0].tree).toEqual([expect.objectContaining({ path: 'index.html', content: '<title>L’annuaire</title>' })]);
-    const regles = gh.request.mock.calls.find(([route]) => String(route).includes('rulesets'))![1] as { rules: { type: string; parameters?: { required_status_checks?: { context: string }[] } }[] };
+    await service.creer('jeton', 'proprio', { ...projetValide, modele: 'maquette' });
+    expect(lirePousse(distant, 'index.html')).toBe('<title>L’annuaire</title>');
+    const regles = gh.request.mock.calls.find(([route]) => route === 'POST /repos/{owner}/{repo}/rulesets')![1] as { rules: { type: string; parameters?: { required_status_checks?: { context: string }[] } }[] };
     expect(regles.rules.find((r) => r.type === 'required_status_checks')!.parameters!.required_status_checks).toEqual([{ context: 'Maquette (tests)' }]);
-  });
-
-  it('attend que GitHub ait fini de copier le modèle', async () => {
-    preparerCreation();
-    gh.request.mockResolvedValue({});
-    const normal = gh.repos.getContent.getMockImplementation()!;
-    gh.repos.getContent.mockRejectedValueOnce({ status: 404 }).mockRejectedValueOnce({ status: 409 }).mockImplementation(normal);
-    await service.creer('jeton', 'po1', projetValide);
-    expect(gh.git.updateRef).toHaveBeenCalled();
   });
 
   it('signale au PO les réglages que GitHub refuse (compte gratuit, organisation)', async () => {
     preparerCreation();
     gh.request.mockRejectedValue({ status: 403 });
-    const resultat = await service.creer('jeton', 'po1', projetValide);
+    const resultat = await service.creer('jeton', 'proprio', projetValide);
     expect(resultat.reglages).toEqual({
       versionsAutomatiques: { etat: 'a-faire', lien: 'https://github.com/proprio/l-annuaire/settings/actions' },
       protectionMain: { etat: 'a-faire', lien: 'https://github.com/proprio/l-annuaire/settings/rules' },
     });
+  });
+
+  it('ne laisse aucune copie de travail derrière lui', async () => {
+    preparerCreation();
+    const avant = readFileSync(join(dossierCatalogue, 'vue-nest-dsfr', 'PROJET.md'), 'utf8');
+    await service.creer('jeton', 'proprio', projetValide);
+    expect(readFileSync(join(dossierCatalogue, 'vue-nest-dsfr', 'PROJET.md'), 'utf8')).toBe(avant);
   });
 });

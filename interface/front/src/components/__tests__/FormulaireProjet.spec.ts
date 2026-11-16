@@ -12,11 +12,11 @@ const types: TypeDeProjet[] = [
   { id: 'maquette', libelle: 'Maquette', description: 'Un parcours cliquable' },
 ]
 const modeles: Modele[] = [
-  { id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS', pourQuoi: 'Métier', depot: 'p/modele-vue-nest-dsfr' },
-  { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express)', pourQuoi: 'Petite application', depot: 'p/modele-vue-node' },
-  { id: 'django', type: 'service', libelle: 'Python (Django)', pourQuoi: 'Back-office', depot: null },
-  { id: 'maquette', type: 'maquette', libelle: 'Maquette Vue 3', pourQuoi: 'Parcours cliquable', depot: 'p/modele-maquette' },
-  { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR', pourQuoi: 'Réponses et export', depot: null },
+  { id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS', pourQuoi: 'Métier', disponible: true },
+  { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express)', pourQuoi: 'Petite application', disponible: true },
+  { id: 'django', type: 'service', libelle: 'Python (Django)', pourQuoi: 'Back-office', disponible: false },
+  { id: 'maquette', type: 'maquette', libelle: 'Maquette Vue 3', pourQuoi: 'Parcours cliquable', disponible: true },
+  { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR', pourQuoi: 'Réponses et export', disponible: false },
 ]
 
 const monter = () =>
