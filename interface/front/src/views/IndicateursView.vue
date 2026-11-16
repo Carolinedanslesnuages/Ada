@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { api } from '@/services/api'
-import { duree, pourcentage, type Indicateurs } from '@/lib/indicateurs'
+import { duree, type Indicateurs } from '@/lib/indicateurs'
 
 const indicateurs = ref<Indicateurs | null>(null)
 const erreur = ref<string | null>(null)
@@ -19,17 +19,15 @@ const chiffres = computed(() =>
     ? [
         { titre: 'Projets créés', valeur: String(indicateurs.value.projets) },
         { titre: 'Stories livrées', valeur: String(indicateurs.value.storiesLivrees) },
-        { titre: 'Livrées sans aide d’un développeur', valeur: pourcentage(indicateurs.value.partSansDev) },
         { titre: 'Temps moyen du lancement à la livraison', valeur: duree(indicateurs.value.dureeMoyenneMinutes) },
       ]
     : [],
 )
-const entetes = ['Projet', 'Stories livrées', 'Sans aide d’un développeur', 'Temps moyen de livraison']
+const entetes = ['Projet', 'Stories livrées', 'Temps moyen de livraison']
 const lignes = computed(() =>
   (indicateurs.value?.parProjet ?? []).map((projet) => [
     projet.nom,
     String(projet.storiesLivrees),
-    pourcentage(projet.partSansDev),
     duree(projet.dureeMoyenneMinutes),
   ]),
 )
@@ -46,7 +44,7 @@ const lignes = computed(() =>
   <template v-else>
     <h2 class="fr-h4">Sur l’ensemble des projets</h2>
     <ul class="fr-grid-row fr-grid-row--gutters indicateurs">
-      <li v-for="chiffre in chiffres" :key="chiffre.titre" class="fr-col-12 fr-col-sm-6 fr-col-lg-3">
+      <li v-for="chiffre in chiffres" :key="chiffre.titre" class="fr-col-12 fr-col-sm-6 fr-col-lg-4">
         <div class="fr-callout fr-mb-0 indicateurs__carte">
           <p class="fr-callout__title fr-h2 fr-mb-1w">{{ chiffre.valeur }}</p>
           <p class="fr-callout__text fr-text--sm">{{ chiffre.titre }}</p>
@@ -54,8 +52,7 @@ const lignes = computed(() =>
       </li>
     </ul>
     <p class="fr-text--xs fr-mt-2w">
-      Le temps de livraison ne compte que les stories lancées depuis ADA ; « sans aide » : la story
-      n’est jamais passée par le statut « Besoin d’un développeur ».
+      Le temps de livraison ne compte que les stories lancées depuis ADA.
     </p>
     <h2 class="fr-h4 fr-mt-4w">Par projet</h2>
     <DsfrTable v-if="lignes.length" title="Indicateurs par projet" :headers="entetes" :rows="lignes" />

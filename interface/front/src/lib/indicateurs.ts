@@ -1,7 +1,6 @@
 /** Indicateurs d'ADA (api/src/indicateurs/indicateurs.ts) et leur mise en forme. */
 export interface Mesures {
   storiesLivrees: number
-  partSansDev: number | null
   dureeMoyenneMinutes: number | null
 }
 
@@ -11,9 +10,6 @@ export interface Indicateurs extends Mesures {
 }
 
 const SANS_MESURE = 'Pas encore mesurable'
-
-export const pourcentage = (part: number | null) =>
-  part === null ? SANS_MESURE : `${Math.round(part * 100)} %`
 
 /** « 25 min », « 1 h 05 », « 2 j 3 h ». */
 export function duree(minutes: number | null): string {

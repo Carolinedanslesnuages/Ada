@@ -3,7 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import VueDsfr from '@gouvminint/vue-dsfr'
 import IndicateursView from '../IndicateursView.vue'
 import { api, ErreurApi } from '@/services/api'
-import { duree, pourcentage, type Indicateurs } from '@/lib/indicateurs'
+import { duree, type Indicateurs } from '@/lib/indicateurs'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
 
 vi.mock('@/services/api', async (original) => ({
@@ -15,11 +15,10 @@ const lire = vi.mocked(api.lire)
 const INDICATEURS: Indicateurs = {
   projets: 2,
   storiesLivrees: 5,
-  partSansDev: 0.8,
   dureeMoyenneMinutes: 25,
   parProjet: [
-    { nom: 'pret-de-materiel', storiesLivrees: 5, partSansDev: 0.8, dureeMoyenneMinutes: 25 },
-    { nom: 'annuaire', storiesLivrees: 0, partSansDev: null, dureeMoyenneMinutes: null },
+    { nom: 'pret-de-materiel', storiesLivrees: 5, dureeMoyenneMinutes: 25 },
+    { nom: 'annuaire', storiesLivrees: 0, dureeMoyenneMinutes: null },
   ],
 }
 
@@ -35,7 +34,7 @@ describe('Page « Indicateurs »', () => {
     document.body.innerHTML = ''
   })
 
-  it('montre projets, stories livrées, part sans développeur et temps moyen, sur l’ensemble', async () => {
+  it('montre projets, stories livrées et temps moyen, sur l’ensemble', async () => {
     lire.mockResolvedValue(INDICATEURS)
     const wrapper = await monter()
     expect(lire).toHaveBeenCalledWith('/indicateurs')
@@ -43,7 +42,6 @@ describe('Page « Indicateurs »', () => {
     expect(cartes).toEqual([
       ['2', 'Projets créés'],
       ['5', 'Stories livrées'],
-      ['80 %', 'Livrées sans aide d’un développeur'],
       ['25 min', 'Temps moyen du lancement à la livraison'],
     ])
     wrapper.unmount()
@@ -55,8 +53,8 @@ describe('Page « Indicateurs »', () => {
     expect(wrapper.find('caption').text()).toContain('Indicateurs par projet')
     const lignes = wrapper.findAll('tbody tr').map((ligne) => ligne.findAll('td').map((cellule) => cellule.text()))
     expect(lignes).toEqual([
-      ['pret-de-materiel', '5', '80 %', '25 min'],
-      ['annuaire', '0', 'Pas encore mesurable', 'Pas encore mesurable'],
+      ['pret-de-materiel', '5', '25 min'],
+      ['annuaire', '0', 'Pas encore mesurable'],
     ])
     wrapper.unmount()
   })
@@ -87,8 +85,4 @@ describe('Mise en forme des indicateurs', () => {
     expect(duree(minutes)).toBe(texte)
   })
 
-  it('pourcentage arrondi', () => {
-    expect(pourcentage(2 / 3)).toBe('67 %')
-    expect(pourcentage(null)).toBe('Pas encore mesurable')
-  })
 })

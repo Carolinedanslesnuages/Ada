@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { calculerIndicateurs, lireHistorique, type DemandeMesuree } from './indicateurs.js';
 
-const livree = (lanceeLe: string | null, fermeeLe: string, besoinDev = false): DemandeMesuree => ({ livree: true, lanceeLe, fermeeLe, besoinDev });
-const ouverte: DemandeMesuree = { livree: false, lanceeLe: '2026-11-16T10:00:00Z', fermeeLe: null, besoinDev: true };
+const livree = (lanceeLe: string | null, fermeeLe: string): DemandeMesuree => ({ livree: true, lanceeLe, fermeeLe });
+const ouverte: DemandeMesuree = { livree: false, lanceeLe: '2026-11-16T10:00:00Z', fermeeLe: null };
 
 describe('Indicateurs', () => {
   it('compte les projets et les stories livrées, sur l’ensemble et par projet', () => {
@@ -20,14 +20,6 @@ describe('Indicateurs', () => {
     ]);
   });
 
-  it('part des livrées sans passage par « Besoin d’un développeur » (les demandes en cours ne comptent pas)', () => {
-    const indicateurs = calculerIndicateurs([
-      { nom: 'pret', demandes: [livree(null, '2026-11-16T12:00:00Z'), livree(null, '2026-11-16T12:00:00Z', true), livree(null, '2026-11-16T12:00:00Z'), livree(null, '2026-11-16T12:00:00Z'), ouverte] },
-    ]);
-    expect(indicateurs.partSansDev).toBe(0.75);
-    expect(calculerIndicateurs([{ nom: 'vide', demandes: [ouverte] }]).partSansDev).toBeNull();
-  });
-
   it('temps moyen du lancement à la livraison, en minutes, sans les demandes jamais lancées depuis ADA', () => {
     const indicateurs = calculerIndicateurs([
       { nom: 'pret', demandes: [livree('2026-11-16T10:00:00Z', '2026-11-16T10:20:00Z'), livree('2026-11-16T11:00:00Z', '2026-11-16T11:40:00Z'), livree(null, '2026-11-16T12:00:00Z')] },
@@ -36,7 +28,7 @@ describe('Indicateurs', () => {
     expect(calculerIndicateurs([{ nom: 'ancien', demandes: [livree(null, '2026-11-16T12:00:00Z')] }]).dureeMoyenneMinutes).toBeNull();
   });
 
-  it('lit le lancement et le passage par « besoin d’un développeur » dans l’historique des labels', () => {
+  it('lit le lancement dans l’historique des labels', () => {
     const historique = lireHistorique(
       [
         { event: 'labeled', created_at: '2026-11-16T10:05:00Z', label: { name: 'user-story' } },
@@ -47,9 +39,8 @@ describe('Indicateurs', () => {
         { event: 'closed', created_at: '2026-11-16T12:00:00Z' },
       ],
       'story:en-cours',
-      'story:besoin-dev',
     );
-    expect(historique).toEqual({ lanceeLe: '2026-11-16T10:10:00Z', besoinDev: true });
-    expect(lireHistorique([], 'story:en-cours', 'story:besoin-dev')).toEqual({ lanceeLe: null, besoinDev: false });
+    expect(historique).toEqual({ lanceeLe: '2026-11-16T10:10:00Z' });
+    expect(lireHistorique([], 'story:en-cours')).toEqual({ lanceeLe: null });
   });
 });

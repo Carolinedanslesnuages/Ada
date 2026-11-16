@@ -43,7 +43,7 @@ export class IndicateursService {
               return {
                 livree: issue.state === 'closed',
                 fermeeLe: issue.closed_at ?? null,
-                ...lireHistorique(evenements as Parameters<typeof lireHistorique>[0], STATUTS['en-cours'], STATUTS['besoin-dev']),
+                ...lireHistorique(evenements as Parameters<typeof lireHistorique>[0], STATUTS['en-cours']),
               };
             }),
           );
