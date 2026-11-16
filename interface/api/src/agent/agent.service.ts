@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { ApercuService } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
 import { GithubService } from '../github/github.service.js';
@@ -68,6 +68,20 @@ export class AgentService {
     private readonly apercu: ApercuService,
   ) {
     this.lancerAgent = lancerParDefaut(config.AGENT_COMMANDE);
+  }
+
+  private indexRgaa: string | null | undefined;
+
+  /** Index RGAA lu une fois ; absent → l'assistant garde les bases (ACCESSIBILITE). */
+  private async lireIndexRgaa(): Promise<string | null> {
+    if (this.indexRgaa !== undefined) return this.indexRgaa;
+    try {
+      this.indexRgaa = await readFile(resolve(this.config.RGAA_INDEX), 'utf8');
+    } catch {
+      this.log.warn(`Index RGAA introuvable (${this.config.RGAA_INDEX}) : l'assistant n'aura que les bases`);
+      this.indexRgaa = null;
+    }
+    return this.indexRgaa;
   }
 
   private fichier(depot: string, numero: number): string {
@@ -206,7 +220,7 @@ export class AgentService {
       await this.noter(depot, numero, 'Prépare le projet');
       const cwd = await this.apercu.preparerDepot(jeton, depot);
       await this.noter(depot, numero, 'Lit la story et le projet');
-      const reponse = await this.executer(depot, numero, 'analyse', consigneAnalyse(await this.demande(jeton, depot, numero)), cwd);
+      const reponse = await this.executer(depot, numero, 'analyse', consigneAnalyse(await this.demande(jeton, depot, numero), await this.lireIndexRgaa()), cwd);
       const decision = lireDecision(reponse);
       if (!decision) {
         await this.bloquer(jeton, depot, numero, 'L’assistant n’a pas réussi à analyser la demande.');
@@ -235,7 +249,7 @@ export class AgentService {
       const branche = brancheDe(demande);
       const cwd = await this.preparerBranche(jeton, login, depot, branche);
       await this.noter(depot, numero, `Travaille sur la branche ${branche}`);
-      const reponse = await this.executer(depot, numero, 'realisation', consigneRealisation(demande, branche), cwd);
+      const reponse = await this.executer(depot, numero, 'realisation', consigneRealisation(demande, branche, await this.lireIndexRgaa()), cwd);
       const resultat = lireResultat(reponse);
       if (!resultat || resultat.resultat === 'bloque') {
         await this.bloquer(jeton, depot, numero, resultat?.resultat === 'bloque' ? resultat.raison : 'L’assistant n’a pas terminé la réalisation.');

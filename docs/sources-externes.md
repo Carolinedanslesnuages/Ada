@@ -12,6 +12,7 @@
 | release-please | [googleapis/release-please-action](https://github.com/googleapis/release-please-action) v5.0.0 | Action épinglée |
 | gitleaks | [gitleaks/gitleaks](https://github.com/gitleaks/gitleaks) v8.30.1 | Binaire épinglé, empreinte vérifiée |
 | axe-core | [dequelabs/axe-core](https://github.com/dequelabs/axe-core) | Bibliothèque de test d'accessibilité |
+| Référentiel RGAA 4.1.2 (`skills/po/po-story/references/rgaa-4.1.2/`, `ressources/rgaa/`) | DINUM, [accessibilite.numerique.gouv.fr](https://accessibilite.numerique.gouv.fr), fichier `RGAA/criteres.json` du dépôt [DISIC/accessibilite.numerique.gouv.fr](https://github.com/DISIC/accessibilite.numerique.gouv.fr) | Licence ouverte 2.0 ; Markdown généré par `scripts/rgaa-generer.mjs`, source citée en tête de chaque fichier |
 | DSFR / vue-dsfr | [@gouvfr/dsfr](https://www.systeme-de-design.gouv.fr/), [@gouvminint/vue-dsfr](https://github.com/dnum-mi/vue-dsfr) | Dépendances |
 
 Si l'atelier est versé dans agent-skills, les éléments « résumés » doivent céder la place à un

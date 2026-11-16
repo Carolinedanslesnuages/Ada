@@ -12,6 +12,12 @@ règle Pinia si la stack contient Vue, la section **« Accessibilité (RGAA) —
 (reprendre celle du dépôt modèle `modele-vue-nest-dsfr`), et : « Aucune donnée réelle, aucun
 secret dans le dépôt ».
 
+## 1 bis. Référentiel d'accessibilité
+
+Copier le référentiel RGAA complet de la skill sœur `po-story` (`references/rgaa-4.1.2/`) dans
+`docs/accessibilite/rgaa-4.1.2/` du projet, et citer cet emplacement dans la section
+« Accessibilité » d'`AGENTS.md`.
+
 ## 2. ADR-0001 — le choix de la stack
 
 `docs/adr/README.md` (index) et `docs/adr/0001-choix-de-la-stack.md`, au format des ADR

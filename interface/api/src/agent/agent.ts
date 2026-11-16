@@ -97,14 +97,25 @@ export const ACCESSIBILITE = `Accessibilité (RGAA, obligatoire) — toujours, �
 - jamais d'information par la couleur seule ; messages dynamiques annoncés (role="status") ;
 - tableaux avec titre et en-têtes ; animations qui respectent prefers-reduced-motion.`;
 
+/** Référentiel complet : l'index (106 critères) est joint ; le détail est dans le projet s'il existe. */
+function referentielRgaa(index: string | null): string {
+  if (!index) return '';
+  return `
+
+Référentiel RGAA complet (DINUM) — tu dois respecter TOUS ces critères. Pour les tests détaillés
+d'un thème, ouvre docs/accessibilite/rgaa-4.1.2/<thème>.md dans le projet s'il existe.
+
+${index}`;
+}
+
 const COMMUN = `Tu travailles pour un Product Owner (PO) non développeur, dans le dépôt de son projet
 (répertoire courant). Lis d'abord AGENTS.md et PROJET.md : ce sont les règles du projet.
 Tu écris au PO en français, en langage métier, sans jargon, sans noms de fichiers.
 
 ${ACCESSIBILITE}`;
 
-export function consigneAnalyse(d: Demande): string {
-  return `${COMMUN}
+export function consigneAnalyse(d: Demande, indexRgaa: string | null = null): string {
+  return `${COMMUN}${referentielRgaa(indexRgaa)}
 
 PHASE : ANALYSE (lecture seule — tu ne modifies rien).
 
@@ -127,8 +138,8 @@ Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
 {"decision":"questions","texte":"<tes questions>"}  ou  {"decision":"plan","texte":"<ton plan>"}`;
 }
 
-export function consigneRealisation(d: Demande, branche: string): string {
-  return `${COMMUN}
+export function consigneRealisation(d: Demande, branche: string, indexRgaa: string | null = null): string {
+  return `${COMMUN}${referentielRgaa(indexRgaa)}
 
 PHASE : RÉALISATION. Le PO a validé le plan qui figure dans les échanges ci-dessous. Tu es sur la
 branche ${branche}. L'application tourne dans un conteneur : le PO voit tes changements en direct.

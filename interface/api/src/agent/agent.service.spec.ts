@@ -118,6 +118,23 @@ describe('AgentService', () => {
     expect(consigne).not.toContain('Avant');
   });
 
+  it('joint à l’agent l’index RGAA officiel lu dans ADA', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const index = join(racine, 'rgaa-index.md');
+    await writeFile(index, '# RGAA 4.1.2 — les 106 critères\n- **12.7** Lien d’évitement présent ?');
+    const avecIndex = new AgentService(
+      lireConfig({ GITHUB_PROPRIETAIRE: 'proprio', GITHUB_CLIENT_ID: 'Iv', GITHUB_CLIENT_SECRET: 's', SESSION_SECRET: 'x'.repeat(32), AGENT_COMMANDE: '/bin/agent', RGAA_INDEX: index }),
+      { client: () => gh } as unknown as GithubService,
+      stories as unknown as StoriesService,
+      apercu as unknown as ApercuService,
+    );
+    avecIndex.lancerAgent = lancer;
+    sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
+    avecIndex.analyser(JETON, 'poc', 1);
+    await avecIndex.derniereTache;
+    expect(lancer.mock.calls[0]![0][1]).toContain('**12.7** Lien d’évitement présent ?');
+  });
+
   it('publie les questions de l’assistant quand la story est floue', async () => {
     sortie = [resultat('{"decision":"questions","texte":"1. Quel format de date ?"}')];
     service.analyser(JETON, 'poc', 1);

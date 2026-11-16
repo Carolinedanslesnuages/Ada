@@ -21,6 +21,10 @@ jobs:
         run: node scripts/verifier-skills.mjs
       - name: Catalogues index.json à jour (node scripts/skills-index.mjs pour les régénérer)
         run: node scripts/skills-index.mjs --check
+      - name: Référentiel RGAA à jour (node scripts/rgaa-generer.mjs pour le régénérer)
+        run: |
+          node scripts/rgaa-generer.mjs ressources/rgaa/4.1.2/criteres.json "$RUNNER_TEMP/rgaa" 4.1.2
+          diff -r "$RUNNER_TEMP/rgaa" skills/po/po-story/references/rgaa-4.1.2
       - name: Liens .claude/skills et .agents/skills vers chaque skill
         run: |
           for s in skills/po/*/; do

@@ -52,6 +52,16 @@ describe('Consignes données à l’agent', () => {
     expect(consigneRealisation(libre, 'libre/1-mets-le-titre-en-bleu')).toContain('Réalisé hors story, en mode libre');
   });
 
+  it('joint le référentiel RGAA complet quand il est fourni', () => {
+    const index = '# RGAA 4.1.2 — les 106 critères\n- **11.1** Chaque champ de formulaire a-t-il une étiquette ?';
+    for (const consigne of [consigneAnalyse(demande, index), consigneRealisation(demande, 'story/1-x', index)]) {
+      expect(consigne).toContain('tu dois respecter TOUS ces critères');
+      expect(consigne).toContain('**11.1** Chaque champ de formulaire a-t-il une étiquette ?');
+      expect(consigne).toContain('docs/accessibilite/rgaa-4.1.2/');
+    }
+    expect(consigneAnalyse(demande)).not.toContain('Référentiel RGAA complet');
+  });
+
   it('nomme la branche d’après le numéro et le titre', () => {
     expect(brancheDe(demande)).toBe('story/1-page-d-accueil-ma-journee');
     expect(brancheDe({ numero: 4, titre: 'Liste vide !', type: 'bug' })).toBe('fix/4-liste-vide');
