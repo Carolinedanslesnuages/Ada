@@ -117,6 +117,9 @@ Règles :
   ${DANS_CONTENEUR} "cd /app/front && npx vitest run src/views"
   ${DANS_CONTENEUR} "cd /app/api && npx vitest run"
   Pendant le travail, ne lance que les tests concernés.
+- Noms explicites partout : chaque variable, fonction, paramètre dit ce qu'il contient ou fait
+  (« salleLibre », « reservationsDuJour »), jamais « el », « x », « s », « tmp » ; seuls les noms
+  imposés par les bibliothèques restent tels quels (vi, expect…). Le lint le vérifie.
 - Reste dans le périmètre de la demande : aucun « refactor au passage », aucune dépendance non
   nécessaire. Un autre problème repéré : note-le dans la fiche, ne le corrige pas.
 - Contrôle final, une seule fois, en jugeant sur le code de retour de chaque commande :

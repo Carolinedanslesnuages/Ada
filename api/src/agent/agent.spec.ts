@@ -35,6 +35,7 @@ describe('Consignes données à l’agent', () => {
     const consigne = consigneRealisation(demande, 'story/1-page-d-accueil-ma-journee');
     expect(consigne).toContain('Closes #1');
     expect(consigne).toContain('Ne pousse pas');
+    expect(consigne).toContain('Noms explicites partout');
     expect(consigne).toContain('revues/story-1-page-d-accueil-ma-journee.md');
   });
 
