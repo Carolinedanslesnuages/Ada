@@ -1,7 +1,14 @@
-import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import type { Octokit } from '@octokit/rest';
 import { CONFIG, type Config } from '../config.js';
-import { traduireErreurGithub } from '../github/erreurs.js';
+import { decrireErreurGithub, traduireErreurGithub } from '../github/erreurs.js';
 import { GithubService } from '../github/github.service.js';
 import { catalogue, CONTROLES_REQUIS, FICHIERS_A_PERSONNALISER, type Modele } from './modeles.js';
 import { personnaliser, validerProjet, type ValeursProjet } from './projet.js';
@@ -107,14 +114,26 @@ export class ProjetsService {
     let versionsAutomatiques: Reglage['etat'];
     let protectionMain: Reglage['etat'];
     try {
-      ({ data: depot } = await gh.repos.createUsingTemplate({
-        template_owner: modeleProprietaire,
-        template_repo: modeleDepot,
-        owner,
-        name: slug,
-        description: projet.objectif.slice(0, 350),
-        private: true,
-      }));
+      try {
+        ({ data: depot } = await gh.repos.createUsingTemplate({
+          template_owner: modeleProprietaire,
+          template_repo: modeleDepot,
+          owner,
+          name: slug,
+          description: projet.objectif.slice(0, 350),
+          private: true,
+        }));
+      } catch (e) {
+        if (statut(e) === 404 || statut(e) === 403) {
+          this.journal.warn(`Création depuis le modèle refusée : ${decrireErreurGithub(e)}`);
+          throw new ForbiddenException(
+            `L’application GitHub de l’atelier n’a pas accès au modèle « ${modele.depot} » ou ne peut pas créer de dépôt. ` +
+              'Dans GitHub : Settings → Applications → Atelier PO → Configure → Repository access : « All repositories », ' +
+              'puis acceptez les permissions demandées s’il y a une demande en attente.',
+          );
+        }
+        throw e;
+      }
       await this.attendreContenu(gh, owner, slug);
       // Réglages AVANT le commit de personnalisation : ce commit déclenche release-please.
       versionsAutomatiques = await this.autoriserReleasePlease(gh, owner, slug);
@@ -128,6 +147,7 @@ export class ProjetsService {
       });
       await gh.repos.replaceAllTopics({ owner, repo: slug, names: [this.config.TOPIC_ATELIER] });
     } catch (e) {
+      if (e instanceof ForbiddenException) throw e;
       traduireErreurGithub(e);
     }
 

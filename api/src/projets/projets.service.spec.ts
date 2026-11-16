@@ -113,6 +113,12 @@ describe('ProjetsService', () => {
     expect(resultat.reglages.protectionMain.etat).toBe('fait');
   });
 
+  it('explique au PO que l’App n’a pas accès au modèle (404 de GitHub)', async () => {
+    gh.repos.get.mockRejectedValue({ status: 404 });
+    gh.repos.createUsingTemplate.mockRejectedValue({ status: 404, request: { method: 'POST', url: 'x' } });
+    await expect(service.creer('jeton', 'po1', projetValide)).rejects.toThrow(/Repository access/);
+  });
+
   it('attend que GitHub ait fini de copier le modèle', async () => {
     preparerCreation();
     gh.request.mockResolvedValue({});
