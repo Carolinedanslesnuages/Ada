@@ -5,12 +5,14 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { CONFIG, type Config } from '../config.js';
+import { lireAdaConfig, type AdaConfig } from '../ada/ada-config.js';
 import {
   attribuerPort,
   etatDepuisPs,
   genererCompose,
+  genererScriptDemarrage,
+  genererScriptTravail,
   NOM_DEPOT,
-  SCRIPT_DEMARRAGE,
   VOLUME_CACHE_NPM,
   type EtatApercu,
 } from './apercu.js';
@@ -87,6 +89,11 @@ export class ApercuService {
     return { etat, url: etat === 'pret' ? url : null, journal: etat === 'pret' ? null : await this.dernieresLignes(dossier) };
   }
 
+  /** ada.json du projet ; absent (projets d'avant ada.json) → comportement Vue + NestJS. */
+  async lireConfig(depot: string): Promise<AdaConfig> {
+    return lireAdaConfig(await readFile(join(depot, 'ada.json'), 'utf8').catch(() => null));
+  }
+
   cheminDepot(projet: string): string {
     this.verifier(projet);
     return join(this.racine, projet, 'depot');
@@ -151,9 +158,11 @@ export class ApercuService {
     this.enPreparation.add(projet);
     const dossier = join(this.racine, projet);
     try {
-      await this.preparerDepot(jeton, projet);
-      await writeFile(join(dossier, 'compose.yml'), genererCompose(projet, await this.port(projet)));
-      await writeFile(join(dossier, 'demarrer.sh'), SCRIPT_DEMARRAGE, { mode: 0o755 });
+      const depot = await this.preparerDepot(jeton, projet);
+      const config = await this.lireConfig(depot);
+      await writeFile(join(dossier, 'compose.yml'), genererCompose(projet, await this.port(projet), config));
+      await writeFile(join(dossier, 'demarrer.sh'), genererScriptDemarrage(config), { mode: 0o755 });
+      await writeFile(join(dossier, 'travail.sh'), genererScriptTravail(config), { mode: 0o755 });
       await this.executer('docker', ['volume', 'create', VOLUME_CACHE_NPM]);
       await this.executer('docker', ['compose', '-f', 'compose.yml', 'up', '-d', '--remove-orphans'], { cwd: dossier });
     } catch (e) {

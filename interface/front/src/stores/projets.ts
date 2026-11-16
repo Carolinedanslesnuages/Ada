@@ -1,7 +1,7 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api, ErreurApi } from '@/services/api'
-import type { ErreursProjet, Modele, NouveauProjet, ResultatCreation } from '@/lib/projet'
+import type { ErreursProjet, Modele, NouveauProjet, ResultatCreation, TypeDeProjet } from '@/lib/projet'
 
 export interface Projet {
   nom: string
@@ -18,6 +18,7 @@ export const useProjetsStore = defineStore('projets', () => {
   const erreur = ref<string | null>(null)
 
   const modeles = ref<Modele[]>([])
+  const types = ref<TypeDeProjet[]>([])
 
   const courant = computed(() => liste.value.find((p) => p.nom === nomCourant.value) ?? null)
 
@@ -35,7 +36,10 @@ export const useProjetsStore = defineStore('projets', () => {
   }
 
   async function chargerModeles(): Promise<void> {
-    if (modeles.value.length === 0) modeles.value = await api.lire<Modele[]>('/projets/modeles')
+    if (modeles.value.length > 0) return
+    const catalogue = await api.lire<{ types: TypeDeProjet[]; modeles: Modele[] }>('/projets/modeles')
+    types.value = catalogue.types
+    modeles.value = catalogue.modeles
   }
 
   /** Crée le projet, l'ajoute en tête et le sélectionne ; renvoie les erreurs de validation éventuelles. */
@@ -62,6 +66,7 @@ export const useProjetsStore = defineStore('projets', () => {
   return {
     liste,
     modeles,
+    types,
     nomCourant,
     courant,
     chargement,

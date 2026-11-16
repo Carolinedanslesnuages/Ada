@@ -10,7 +10,8 @@ import type { Octokit } from '@octokit/rest';
 import { CONFIG, type Config } from '../config.js';
 import { decrireErreurGithub, traduireErreurGithub } from '../github/erreurs.js';
 import { GithubService } from '../github/github.service.js';
-import { catalogue, CONTROLES_REQUIS, FICHIERS_A_PERSONNALISER, LABELS_ATELIER, type Modele } from './modeles.js';
+import { lireAdaConfig, type AdaConfig } from '../ada/ada-config.js';
+import { catalogue, LABELS_ATELIER, TYPES, type Modele } from './modeles.js';
 import { personnaliser, validerProjet, type ValeursProjet } from './projet.js';
 
 export interface Projet {
@@ -72,8 +73,41 @@ export class ProjetsService {
     return this.config.GITHUB_PROPRIETAIRE;
   }
 
-  modeles(): Modele[] {
-    return catalogue(this.config);
+  private cacheModeles: { le: number; modeles: Modele[] } | null = null;
+
+  /**
+   * Catalogue dont la disponibilité est constatée sur GitHub : un modèle n'est proposé que si son
+   * dépôt modèle existe et est marqué « template ». Mis en cache 5 minutes.
+   */
+  async modeles(jeton: string): Promise<{ types: typeof TYPES; modeles: Modele[] }> {
+    if (!this.cacheModeles || Date.now() - this.cacheModeles.le > 5 * 60 * 1000) {
+      const gh = this.github.client(jeton);
+      const modeles = await Promise.all(
+        catalogue(this.config).map(async (modele) => {
+          if (!modele.depot) return modele;
+          const [owner, repo] = modele.depot.split('/') as [string, string];
+          const disponible = await gh.repos
+            .get({ owner, repo })
+            .then(({ data }) => data.is_template === true)
+            .catch(() => false);
+          return { ...modele, depot: disponible ? modele.depot : null };
+        }),
+      );
+      this.cacheModeles = { le: Date.now(), modeles };
+    }
+    return { types: TYPES, modeles: this.cacheModeles.modeles };
+  }
+
+  /** ada.json d'un dépôt (sur GitHub) ; absent → comportement Vue + NestJS. */
+  async lireConfigDepot(gh: Octokit, owner: string, repo: string, ref?: string): Promise<AdaConfig> {
+    try {
+      const { data } = await gh.repos.getContent({ owner, repo, path: 'ada.json', ...(ref ? { ref } : {}) });
+      if (Array.isArray(data) || !('content' in data)) return lireAdaConfig(null);
+      return lireAdaConfig(Buffer.from(data.content, 'base64').toString('utf8'));
+    } catch (e) {
+      if (statut(e) === 404) return lireAdaConfig(null);
+      throw e;
+    }
   }
 
   /**
@@ -101,7 +135,7 @@ export class ProjetsService {
     const validation = validerProjet(donnees);
     if (!validation.ok) throw new BadRequestException({ erreurs: validation.erreurs });
     const { projet, slug } = validation;
-    const modele = this.modeles().find((m) => m.id === projet.modele);
+    const modele = (await this.modeles(jeton)).modeles.find((m) => m.id === projet.modele);
     if (!modele?.depot) throw new BadRequestException({ erreurs: { modele: 'Cette stack n’est pas encore disponible' } });
     const [modeleProprietaire, modeleDepot] = modele.depot.split('/') as [string, string];
     const gh = this.github.client(jeton);
@@ -151,11 +185,12 @@ export class ProjetsService {
         throw e;
       }
       await this.attendreContenu(gh, owner, slug);
+      const configModele = await this.lireConfigDepot(gh, owner, slug);
       // Réglages AVANT le commit de personnalisation : ce commit déclenche release-please.
       await this.imposerSquash(gh, owner, slug);
       versionsAutomatiques = await this.autoriserReleasePlease(gh, owner, slug);
-      protectionMain = await this.protegerMain(gh, owner, slug);
-      await this.personnaliserDepot(gh, owner, slug, {
+      protectionMain = await this.protegerMain(gh, owner, slug, configModele.controlesRequis);
+      await this.personnaliserDepot(gh, owner, slug, configModele.personnaliser, {
         nom: projet.nom,
         baseline: projet.baseline,
         slug,
@@ -198,7 +233,7 @@ export class ProjetsService {
   private async attendreContenu(gh: Octokit, owner: string, repo: string): Promise<void> {
     for (let essai = 0; essai < 20; essai++) {
       try {
-        await gh.repos.getContent({ owner, repo, path: 'PROJET.md' });
+        await gh.repos.getContent({ owner, repo, path: 'README.md' });
         return;
       } catch (e) {
         if (statut(e) !== 404 && statut(e) !== 409) throw e;
@@ -209,13 +244,22 @@ export class ProjetsService {
   }
 
   /** Un seul commit qui remplace les marqueurs dans tous les fichiers concernés. */
-  private async personnaliserDepot(gh: Octokit, owner: string, repo: string, valeurs: ValeursProjet): Promise<void> {
+  private async personnaliserDepot(
+    gh: Octokit,
+    owner: string,
+    repo: string,
+    fichiers: string[],
+    valeurs: ValeursProjet,
+  ): Promise<void> {
     const { data: ref } = await gh.git.getRef({ owner, repo, ref: 'heads/main' });
     const parent = ref.object.sha;
     const { data: commitParent } = await gh.git.getCommit({ owner, repo, commit_sha: parent });
     const entrees: { path: string; mode: '100644'; type: 'blob'; content: string }[] = [];
-    for (const path of FICHIERS_A_PERSONNALISER) {
-      const { data } = await gh.repos.getContent({ owner, repo, path, ref: parent });
+    for (const path of fichiers) {
+      const { data } = await gh.repos.getContent({ owner, repo, path, ref: parent }).catch((e: unknown) => {
+        if (statut(e) === 404) return { data: [] as unknown[] }; // fichier listé mais absent du modèle
+        throw e;
+      });
       if (Array.isArray(data) || data.type !== 'file' || !('content' in data)) continue;
       const original = Buffer.from(data.content, 'base64').toString('utf8');
       const nouveau = personnaliser(original, valeurs);
@@ -270,7 +314,7 @@ export class ProjetsService {
   }
 
   /** Ruleset sur main : PR obligatoire, CI verte, ni suppression ni force push. */
-  private async protegerMain(gh: Octokit, owner: string, repo: string): Promise<Reglage['etat']> {
+  private async protegerMain(gh: Octokit, owner: string, repo: string, controlesRequis: string[]): Promise<Reglage['etat']> {
     try {
       await gh.request('POST /repos/{owner}/{repo}/rulesets', {
         owner,
@@ -296,7 +340,7 @@ export class ProjetsService {
             type: 'required_status_checks',
             parameters: {
               strict_required_status_checks_policy: false,
-              required_status_checks: CONTROLES_REQUIS.map((context) => ({ context })),
+              required_status_checks: controlesRequis.map((context) => ({ context })),
             },
           },
         ],

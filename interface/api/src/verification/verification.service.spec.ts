@@ -6,6 +6,8 @@ import type { ApercuService } from '../apercu/apercu.service.js';
 import type { GithubService } from '../github/github.service.js';
 import type { StoriesService } from '../stories/stories.service.js';
 import { VerificationService } from './verification.service.js';
+import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
+import type { ProjetsService } from '../projets/projets.service.js';
 
 const config = lireConfig({ GITHUB_PROPRIETAIRE: 'proprio', GITHUB_CLIENT_ID: 'Iv', GITHUB_CLIENT_SECRET: 's', SESSION_SECRET: 'x'.repeat(32) });
 const NOMS = ['Anti-fuite (gitleaks)', 'API (lint, tests, compilation)', 'Front (lint, types, tests dont accessibilité, compilation)'];
@@ -38,6 +40,7 @@ describe('VerificationService', () => {
       agent as unknown as AgentService,
       stories as unknown as StoriesService,
       apercu as unknown as ApercuService,
+      { lireConfigDepot: async () => ADA_PAR_DEFAUT } as unknown as ProjetsService,
     );
   });
 

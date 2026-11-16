@@ -14,8 +14,8 @@ export class ProjetsController {
   }
 
   @Get('modeles')
-  modeles() {
-    return this.projets.modeles();
+  modeles(@Req() req: Request) {
+    return this.projets.modeles(req.session.jeton!);
   }
 
   @Post()

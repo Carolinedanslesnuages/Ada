@@ -1,5 +1,5 @@
 /** Règles de fusion d'une demande réalisée : fonctions pures. */
-import { CONTROLES_REQUIS } from '../projets/modeles.js';
+import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
 
 export type EtatControle = 'en-attente' | 'en-cours' | 'reussi' | 'echec';
 
@@ -19,7 +19,7 @@ export interface Verification {
 type CheckRun = { name: string; status: string; conclusion: string | null; html_url?: string | null };
 
 /** État des contrôles exigés, à partir des « check runs » GitHub du dernier commit de la PR. */
-export function etatControles(runs: CheckRun[], requis: string[] = CONTROLES_REQUIS): Controle[] {
+export function etatControles(runs: CheckRun[], requis: string[] = ADA_PAR_DEFAUT.controlesRequis): Controle[] {
   return requis.map((nom) => {
     const run = runs.filter((r) => r.name === nom).at(-1);
     if (!run) return { nom, etat: 'en-attente', lien: null };

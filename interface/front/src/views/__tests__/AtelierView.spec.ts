@@ -103,13 +103,17 @@ describe('Écran de l’atelier', () => {
       chemin === '/projets'
         ? []
         : chemin === '/projets/modeles'
-          ? [{ id: 'vue-nest-dsfr', libelle: 'Vue 3 + NestJS', pourQuoi: 'Métier', depot: 'p/m' }]
+          ? {
+              types: [{ id: 'service', libelle: 'Service en ligne', description: 'Une application' }],
+              modeles: [{ id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS', pourQuoi: 'Métier', depot: 'p/m' }],
+            }
           : undefined,
     )
     const wrapper = await monter()
     await wrapper.findAll('button').find((b) => b.text().includes('Nouveau projet'))!.trigger('click')
     await flushPromises()
     expect(wrapper.find('h2.fr-h4').text()).toBe('Nouveau projet')
+    expect(wrapper.text()).toContain('Que voulez-vous créer ?')
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })

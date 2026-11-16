@@ -49,6 +49,7 @@ describe('ApercuService', () => {
     await service.demarrer(JETON, 'poc-portail');
     expect(readFileSync(join(racine, 'poc-portail', 'compose.yml'), 'utf8')).toContain('"127.0.0.1:5300:5173"');
     expect(existsSync(join(racine, 'poc-portail', 'demarrer.sh'))).toBe(true);
+    expect(existsSync(join(racine, 'poc-portail', 'travail.sh'))).toBe(true);
     expect(executer).toHaveBeenCalledWith('docker', ['volume', 'create', 'atelier-po-cache-npm']);
     expect(executer).toHaveBeenCalledWith('docker', ['compose', '-f', 'compose.yml', 'up', '-d', '--remove-orphans'], {
       cwd: join(racine, 'poc-portail'),

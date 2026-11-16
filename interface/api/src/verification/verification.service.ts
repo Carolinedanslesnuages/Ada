@@ -4,6 +4,7 @@ import { ApercuService } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
 import { traduireErreurGithub } from '../github/erreurs.js';
 import { GithubService } from '../github/github.service.js';
+import { ProjetsService } from '../projets/projets.service.js';
 import { StoriesService } from '../stories/stories.service.js';
 import { etatControles, numeroDepuisUrl, peutFusionner, type Verification } from './verification.js';
 
@@ -17,6 +18,7 @@ export class VerificationService {
     private readonly agent: AgentService,
     private readonly stories: StoriesService,
     private readonly apercu: ApercuService,
+    private readonly projets: ProjetsService,
   ) {}
 
   /** La PR de la demande, l'état de ses contrôles, et si le PO peut fusionner. */
@@ -35,7 +37,8 @@ export class VerificationService {
       const { data: pr } = await gh.pulls.get({ owner, repo: depot, pull_number: numeroPr });
       const { data: runs } = await gh.checks.listForRef({ owner, repo: depot, ref: pr.head.sha, per_page: 100 });
       const etat = pr.merged ? 'fusionnee' : pr.state === 'closed' ? 'fermee' : 'ouverte';
-      const controles = etatControles(runs.check_runs);
+      const { controlesRequis } = await this.projets.lireConfigDepot(gh, owner, depot, pr.base.ref);
+      const controles = etatControles(runs.check_runs, controlesRequis);
       return {
         pullRequest: { numero: pr.number, url: pr.html_url, etat },
         controles,

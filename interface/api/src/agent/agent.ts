@@ -1,3 +1,4 @@
+import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
 /**
  * Consignes données à l'agent de code, lecture de ses réponses et traduction de son activité
  * en phrases pour le PO. Fonctions pures : testées sans lancer d'agent.
@@ -177,6 +178,7 @@ export function consigneRealisation(
   branche: string,
   indexRgaa: string | null = null,
   skills: string[] = [],
+  controles: string[] = ADA_PAR_DEFAUT.controles,
 ): string {
   return `${COMMUN}${consigneSkills(skills)}${referentielRgaa(indexRgaa)}
 
@@ -188,10 +190,10 @@ ${decrireDemande(d)}
 Règles :
 - Tests d'abord : au moins un test par critère d'acceptation, et pour chaque écran créé ou
   modifié un test d'accessibilité automatique (violationsAccessibilite, voir AGENTS.md).
-- Toute commande (tests, lint, types, npm, prisma) s'exécute DANS LE CONTENEUR, par exemple :
-  ${DANS_CONTENEUR} "cd /app/front && npx vitest run src/views"
-  ${DANS_CONTENEUR} "cd /app/api && npx vitest run"
-  Pendant le travail, ne lance que les tests concernés.
+- Toute commande (tests, lint, types, npm, migrations) s'exécute DANS LE CONTENEUR, par exemple :
+  ${DANS_CONTENEUR} "cd /app/<dossier> && npx vitest run <fichier de test>"
+  (dossiers et commandes du projet : section « Commandes » d'AGENTS.md). Pendant le travail, ne
+  lance que les tests concernés.
 - Noms explicites partout : chaque variable, fonction, paramètre dit ce qu'il contient ou fait
   (« salleLibre », « reservationsDuJour »), jamais « el », « x », « s », « tmp » ; seuls les noms
   imposés par les bibliothèques restent tels quels (vi, expect…). Le lint le vérifie.
@@ -200,8 +202,7 @@ Règles :
 - Reste dans le périmètre de la demande : aucun « refactor au passage », aucune dépendance non
   nécessaire. Un autre problème repéré : note-le dans la fiche, ne le corrige pas.
 - Contrôle final, une seule fois, en jugeant sur le code de retour de chaque commande :
-  ${DANS_CONTENEUR} "cd /app/api && npm run lint && npm test && npm run test:e2e && npm run build"
-  ${DANS_CONTENEUR} "cd /app/front && npx oxlint . && npx eslint . && npm run type-check && npm run test:unit -- --run && npm run build-only"
+${controles.map((commande) => `  ${DANS_CONTENEUR} ${JSON.stringify(commande)}`).join('\n')}
 - Écris la fiche revues/${branche.replace('/', '-')}.md${d.type === 'libre' ? ' (en tête : « Réalisé hors story, en mode libre »)' : ''} (critères et tests qui les prouvent,
   accessibilité dont ce qu'un humain doit vérifier, périmètre, résultat des contrôles), ajoute la
   demande à « Stories réalisées » de PROJET.md, puis commite au format Conventional Commits :
