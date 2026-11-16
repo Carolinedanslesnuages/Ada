@@ -22,6 +22,39 @@ describe('Écran de connexion', () => {
     wrapper.unmount()
   })
 
+  it('présente ADA comme un outil pour les non-développeurs', async () => {
+    const wrapper = await monter('/connexion')
+    expect(wrapper.findAll('h1')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Un outil pour les non-développeurs')
+    wrapper.unmount()
+  })
+
+  it('explique le parcours en cinq étapes, dans l’ordre', async () => {
+    const wrapper = await monter('/connexion')
+    const etapes = wrapper.findAll('ol li h3').map((h) => h.text())
+    expect(etapes).toEqual([
+      'Créez votre projet',
+      'Écrivez vos stories',
+      'Validez le plan',
+      'Regardez le résultat',
+      'Publiez la version',
+    ])
+    wrapper.unmount()
+  })
+
+  it('liste les garanties de qualité', async () => {
+    const wrapper = await monter('/connexion')
+    expect(wrapper.text()).toContain('Des tests à chaque story')
+    expect(wrapper.text()).toContain('L’accessibilité vérifiée')
+    wrapper.unmount()
+  })
+
+  it('propose aussi la connexion en bas de page', async () => {
+    const wrapper = await monter('/connexion')
+    expect(wrapper.findAll('a[href="/api/auth/github"]')).toHaveLength(2)
+    wrapper.unmount()
+  })
+
   it('affiche un message si la connexion a échoué', async () => {
     const wrapper = await monter('/connexion?erreur=etat')
     expect(wrapper.text()).toContain('La connexion n’a pas abouti')

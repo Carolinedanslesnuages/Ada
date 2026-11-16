@@ -1,10 +1,10 @@
 # ADA — Atelier de Développement Assisté
 
-Des **Product Owners** produisent des POC en autonomie avec un assistant de code : ils créent
-un projet, écrivent des user stories ou signalent des problèmes ; l'assistant pose ses
-questions, fait valider un plan, code avec tests et contrôle d'accessibilité, et livre une
-pull request que le PO fusionne quand la CI est verte. Un développeur n'intervient qu'en
-dernier recours.
+**Une interface de développement no-code.** ADA permet à des personnes qui ne codent pas de
+réaliser leurs POC avec un assistant de code. Elles créent un projet, décrivent leurs besoins
+sous forme de user stories ou signalent des problèmes. L'assistant pose ses questions, fait
+valider un plan, code avec tests et contrôle d'accessibilité, puis livre une pull request.
+Elle est fusionnée quand la CI est verte.
 
 Skills au format ouvert [Agent Skills](https://agentskills.io) : Claude Code, Codex, OpenCode,
 Cursor, Copilot, Gemini CLI. Conventions alignées sur
@@ -27,18 +27,18 @@ Toutes trois ont un effet de bord : elles ne se lancent que **sur demande explic
 
 | Élément | Rôle |
 |---|---|
-| CI (`ci.yml`) : anti-fuite, lint, types, tests (dont accessibilité), compilation | Le filet de sécurité qui remplace la relecture humaine |
+| CI (`ci.yml`) : anti-fuite, lint, types, tests (dont accessibilité), compilation | Vérifie automatiquement chaque changement |
 | gitleaks (pre-commit + CI), `.gitignore` durci, `private/` | Aucun secret, aucune donnée réelle |
 | release-please | Versions et journal des changements automatiques |
 | `AGENTS.md` (+ `CLAUDE.md` qui l'importe) | Le projet fonctionne avec n'importe quel agent |
-| ADR-0001 « Choix de la stack » | Trace du pourquoi, pour le développeur qui reprendra le POC |
-| Modèles d'issues (story, bug) et de PR | Même format que l'interface PO |
+| ADR-0001 « Choix de la stack » | Garde la trace des choix techniques |
+| Modèles d'issues (story, bug) et de PR | Même format que l'interface web |
 | `GET /__version__` (contrat `repo-version-json`) | Savoir quelle version tourne |
 
 ## Utiliser
 
 **Avec VS Code** : ouvrir `ada.code-workspace`, puis dans le panneau de l'assistant :
-`/po-projet-nouveau`, `/po-story …`, `/po-bug …`. Guide pour le PO : [GUIDE-PO.md](GUIDE-PO.md).
+`/po-projet-nouveau`, `/po-story …`, `/po-bug …`. Guide d'utilisation : [GUIDE-PO.md](GUIDE-PO.md).
 
 **Avec l'interface web** (`interface/`, dépôt séparé) : connexion GitHub, stories et
 signalements à gauche, aperçu du produit à droite.
