@@ -21,7 +21,7 @@ export class AgentController {
 
   @Post('relancer')
   async relancer(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
-    await this.agent.relancer(req.session.jeton!, depot, numero);
+    await this.agent.relancer(req.session.jeton!, req.session.utilisateur!.login, depot, numero);
     return { ok: true };
   }
 

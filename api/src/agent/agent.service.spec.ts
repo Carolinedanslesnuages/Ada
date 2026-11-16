@@ -178,14 +178,50 @@ describe('AgentService', () => {
   it('relance l’assistant sur une demande en cours sans agent actif', async () => {
     statut = 'en-cours';
     sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
-    await service.relancer(JETON, 'poc', 1);
+    await service.relancer(JETON, 'po1', 'poc', 1);
     await service.derniereTache;
     expect(statut).toBe('plan-a-valider');
   });
 
+  it('reprend la réalisation (sans nouvelle analyse) si le plan avait déjà été validé', async () => {
+    statut = 'plan-a-valider';
+    service.lancerAgent = async () => {
+      throw new Error('coupure');
+    };
+    await service.validerPlan(JETON, 'po1', 'poc', 1);
+    await service.derniereTache;
+    expect((await service.activite('poc', 1)).erreur).toBe('coupure');
+    service.lancerAgent = lancer;
+    sortie = [resultat('{"resultat":"ok","resume":"Fait."}')];
+    await service.relancer(JETON, 'po1', 'poc', 1);
+    await service.derniereTache;
+    const consigne = lancer.mock.calls.at(-1)![0][1]!;
+    expect(consigne).toContain('PHASE : RÉALISATION');
+    expect(statut).toBe('en-verification');
+  });
+
+  it('rétablit les package-lock.json retouchés par npm, mais refuse toute autre modification', async () => {
+    statut = 'plan-a-valider';
+    let etat = ' M api/package-lock.json\n';
+    apercu.executer.mockImplementation(async (_c: string, args: string[]) => ({
+      stdout: args.includes('rev-list') ? '1\n' : args.includes('status') ? etat : '',
+    }));
+    sortie = [resultat('{"resultat":"ok","resume":"Fait."}')];
+    await service.validerPlan(JETON, 'po1', 'poc', 1);
+    await service.derniereTache;
+    expect(apercu.executer).toHaveBeenCalledWith('git', expect.arrayContaining(['checkout', '--', 'api/package-lock.json']));
+    expect(statut).toBe('en-verification');
+
+    statut = 'plan-a-valider';
+    etat = ' M api/package-lock.json\n M front/src/App.vue\n';
+    await service.validerPlan(JETON, 'po1', 'poc', 1);
+    await service.derniereTache;
+    expect((await service.activite('poc', 1)).erreur).toMatch(/modifications non enregistrées/);
+  });
+
   it('ne relance pas une demande qui attend le PO', async () => {
     statut = 'plan-a-valider';
-    await expect(service.relancer(JETON, 'poc', 1)).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.relancer(JETON, 'po1', 'poc', 1)).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('n’affiche pas « en cours » pour une exécution interrompue (redémarrage)', async () => {

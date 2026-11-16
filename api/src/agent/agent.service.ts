@@ -88,8 +88,11 @@ export class AgentService {
     return { ...activite, enCours: activite.enCours && this.enCours.has(depot) };
   }
 
-  /** Demande en cours ou bloquée sans agent actif : l'assistant reprend depuis l'analyse. */
-  async relancer(jeton: string, depot: string, numero: number): Promise<void> {
+  /**
+   * Demande en cours ou bloquée sans agent actif. Plan déjà validé (dernière phase : réalisation)
+   * → on reprend la réalisation ; sinon → nouvelle analyse.
+   */
+  async relancer(jeton: string, login: string, depot: string, numero: number): Promise<void> {
     this.verifierDisponible();
     if (this.enCours.has(depot)) throw new ConflictException('L’assistant travaille déjà sur ce projet');
     const detail = await this.stories.detail(jeton, depot, numero);
@@ -97,7 +100,13 @@ export class AgentService {
       throw new ConflictException('Cette demande n’a pas besoin d’être relancée');
     }
     await this.stories.changerStatut(jeton, depot, numero, 'en-cours');
-    this.analyser(jeton, depot, numero);
+    const precedente = await this.lireActivite(depot, numero);
+    if (precedente.phase === 'realisation') {
+      await this.noter(depot, numero, 'Reprend la réalisation');
+      this.realiser(jeton, login, depot, numero);
+    } else {
+      this.analyser(jeton, depot, numero);
+    }
   }
 
   private async enregistrer(depot: string, numero: number, maj: Partial<Activite>): Promise<Activite> {
@@ -209,6 +218,10 @@ export class AgentService {
     if (detail.statut !== 'plan-a-valider') throw new ConflictException('Aucun plan n’attend votre validation');
     await this.stories.repondre(jeton, depot, numero, `✅ Plan validé par ${login}.`);
     await this.stories.changerStatut(jeton, depot, numero, 'en-cours');
+    this.realiser(jeton, login, depot, numero);
+  }
+
+  private realiser(jeton: string, login: string, depot: string, numero: number): void {
     this.demarrerTache(depot, numero, 'realisation', async () => {
       const demande = await this.demande(jeton, depot, numero);
       const branche = brancheDe(demande);
@@ -259,7 +272,16 @@ export class AgentService {
     await git('config', 'user.name', login);
     await git('config', 'user.email', `${login}@users.noreply.github.com`);
     const { stdout: etat } = await git('status', '--porcelain');
-    if (etat.trim()) throw new Error('Le dépôt de l’aperçu contient des modifications non enregistrées');
+    const modifies = etat
+      .split('\n')
+      .map((l) => l.slice(3).trim())
+      .filter(Boolean);
+    // npm install (au démarrage de l'aperçu) retouche parfois les package-lock.json : on les rétablit.
+    const verrous = modifies.filter((f) => f.endsWith('package-lock.json'));
+    if (verrous.length) await git('checkout', '--', ...verrous);
+    if (modifies.length > verrous.length) {
+      throw new Error('Le dépôt de l’aperçu contient des modifications non enregistrées');
+    }
     const { stdout: existantes } = await git('branch', '--list', branche);
     if (existantes.trim()) await git('checkout', '--quiet', branche);
     else await git('checkout', '--quiet', '-b', branche, 'origin/main');
