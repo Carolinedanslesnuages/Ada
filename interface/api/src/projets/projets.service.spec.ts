@@ -60,11 +60,11 @@ describe('ProjetsService', () => {
     service.attenteMs = 0;
   });
 
-  it('liste les dépôts du compte portant le topic de l’atelier, sans passer par la recherche', async () => {
+  it('liste les projets ADA et ceux créés avant le renommage (topic atelier-po), sans passer par la recherche', async () => {
     gh.paginate.mockResolvedValue([
       depot('ancien', ['atelier-po'], '2026-01-01T00:00:00Z'),
       depot('autre', ['perso']),
-      depot('recent', ['atelier-po'], '2026-11-16T00:00:00Z'),
+      depot('recent', ['ada'], '2026-11-16T00:00:00Z'),
     ]);
     const projets = await service.lister('jeton', 'Proprio');
     expect(gh.paginate).toHaveBeenCalledWith(gh.repos.listForAuthenticatedUser, expect.objectContaining({ affiliation: 'owner' }));
@@ -108,7 +108,7 @@ describe('ProjetsService', () => {
     ]);
     expect(gh.git.createCommit).toHaveBeenCalledWith(expect.objectContaining({ parents: ['parent'], message: 'chore: personnalisation du projet L’annuaire' }));
     expect(gh.git.updateRef).toHaveBeenCalledWith(expect.objectContaining({ ref: 'heads/main', sha: 'commit' }));
-    expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith(expect.objectContaining({ names: ['atelier-po'] }));
+    expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith(expect.objectContaining({ names: ['ada'] }));
     const labels = gh.issues.createLabel.mock.calls.map((appel) => (appel[0] as { name: string }).name);
     expect(labels).toEqual(expect.arrayContaining(['user-story', 'bug', 'story:en-cours', 'story:besoin-dev']));
     expect(gh.request.mock.invocationCallOrder[0]).toBeLessThan(gh.git.createCommit.mock.invocationCallOrder[0]);

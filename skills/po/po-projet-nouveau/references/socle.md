@@ -20,7 +20,7 @@ IA-Generative (skill `adr-new` si elle est installée) :
 
 - **Statut** : Accepted
 - **Date** : <date du jour>
-- **Décideurs** : <PO>, via l'atelier PO
+- **Décideurs** : <PO>, via ADA
 - **Sujet** : stack technique du projet <nom>
 
 ## Contexte

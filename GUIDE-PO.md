@@ -1,7 +1,7 @@
 # Guide du PO — Atelier
 
 ## Ouvrir l'atelier
-1. Double-cliquez sur le fichier **`atelier-po.code-workspace`**.
+1. Double-cliquez sur le fichier **`ada.code-workspace`**.
 2. Cliquez sur l'icône Claude (en haut à droite de l'éditeur) pour ouvrir le panneau de discussion.
 
 Vous n'avez besoin que de ce panneau. Vous n'avez pas à ouvrir ni à modifier de fichiers.

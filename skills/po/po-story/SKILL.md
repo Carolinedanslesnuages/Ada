@@ -1,7 +1,7 @@
 ---
 name: po-story
-description: Réalise une user story d'un Product Owner sur un projet de l'atelier PO — vérifie qu'elle est complète et courte, fait valider un plan, puis code sur une branche avec tests obligatoires, audit RGAA, contrôle de périmètre et fiche de relecture. Écrit du code et des commits ; à lancer uniquement sur demande explicite.
-when_to_use: user story, réaliser une story, implémenter une fonctionnalité pour le PO, story de l'atelier PO, issue user-story
+description: Réalise une user story d'un Product Owner sur un projet d'ADA — vérifie qu'elle est complète et courte, fait valider un plan, puis code sur une branche avec tests obligatoires, audit RGAA, contrôle de périmètre et fiche de relecture. Écrit du code et des commits ; à lancer uniquement sur demande explicite.
+when_to_use: user story, réaliser une story, implémenter une fonctionnalité pour le PO, story d'ADA, issue user-story
 argument-hint: "<texte de la user story, ou numéro d'issue GitHub>"
 disable-model-invocation: true
 ---

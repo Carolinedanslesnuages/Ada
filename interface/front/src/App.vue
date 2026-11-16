@@ -24,8 +24,8 @@ const liensRapides = computed(() =>
 
 <template>
   <DsfrHeader
-    service-title="Atelier PO"
-    service-description="Vos user stories, votre produit, au même endroit"
+    service-title="ADA"
+    service-description="Atelier de Développement Assisté"
     :logo-text="logoText"
     home-to="/"
     :quick-links="liensRapides"

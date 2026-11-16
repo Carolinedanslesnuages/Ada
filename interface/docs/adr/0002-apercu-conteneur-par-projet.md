@@ -2,7 +2,7 @@
 
 - **Statut** : Accepted
 - **Date** : 2026-11-16
-- **Décideurs** : équipe atelier PO
+- **Décideurs** : équipe ADA
 - **Sujet** : comment le PO voit son produit pendant que l'agent le construit
 
 ## Contexte

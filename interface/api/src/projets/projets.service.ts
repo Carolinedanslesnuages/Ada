@@ -63,6 +63,11 @@ export class ProjetsService {
     private readonly github: GithubService,
   ) {}
 
+  /** Topic des projets, plus l'ancien nom de l'outil (projets créés avant le passage à ADA). */
+  private get topics(): string[] {
+    return [this.config.TOPIC_ATELIER, 'atelier-po'];
+  }
+
   private get proprietaire(): string {
     return this.config.GITHUB_PROPRIETAIRE;
   }
@@ -84,7 +89,7 @@ export class ProjetsService {
           : await gh.paginate(gh.repos.listForOrg, { org: this.proprietaire, per_page: 100 })
       ) as DepotGithub[];
       return depots
-        .filter((d) => d.topics?.includes(this.config.TOPIC_ATELIER))
+        .filter((d) => d.topics?.some((topic) => this.topics.includes(topic)))
         .sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))
         .map(versProjet);
     } catch (e) {
@@ -128,7 +133,7 @@ export class ProjetsService {
           this.journal.warn(`Création depuis le modèle refusée : ${decrireErreurGithub(e)}`);
           throw new ForbiddenException(
             `L’application GitHub de l’atelier n’a pas accès au modèle « ${modele.depot} » ou ne peut pas créer de dépôt. ` +
-              'Dans GitHub : Settings → Applications → Atelier PO → Configure → Repository access : « All repositories », ' +
+              'Dans GitHub : Settings → Applications → ADA → Configure → Repository access : « All repositories », ' +
               'puis acceptez les permissions demandées s’il y a une demande en attente.',
           );
         }

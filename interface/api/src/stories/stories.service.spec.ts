@@ -89,7 +89,7 @@ describe('StoriesService', () => {
       expect.objectContaining({ issue_number: 2, labels: ['user-story', 'story:en-cours'] }),
     );
     expect(gh.issues.createComment).toHaveBeenCalledWith(
-      expect.objectContaining({ issue_number: 2, body: '▶️ Lancée depuis l’atelier PO par po1.' }),
+      expect.objectContaining({ issue_number: 2, body: '▶️ Lancée depuis ADA par po1.' }),
     );
     expect(lancee.statut).toBe('en-cours');
   });

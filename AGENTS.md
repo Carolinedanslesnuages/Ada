@@ -1,4 +1,4 @@
-# Instructions pour un agent travaillant dans l'atelier PO
+# Instructions pour un agent travaillant dans ADA
 
 Ce fichier est lu par Codex, OpenCode, Cursor, Copilot, Gemini CLI… ; `CLAUDE.md` l'importe
 pour Claude Code. **Une seule source : c'est ici qu'on écrit.**

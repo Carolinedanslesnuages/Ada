@@ -1,4 +1,4 @@
-# Atelier PO
+# ADA — Atelier de Développement Assisté
 
 Des **Product Owners** produisent des POC en autonomie avec un assistant de code : ils créent
 un projet, écrivent des user stories ou signalent des problèmes ; l'assistant pose ses
@@ -37,7 +37,7 @@ Toutes trois ont un effet de bord : elles ne se lancent que **sur demande explic
 
 ## Utiliser
 
-**Avec VS Code** : ouvrir `atelier-po.code-workspace`, puis dans le panneau de l'assistant :
+**Avec VS Code** : ouvrir `ada.code-workspace`, puis dans le panneau de l'assistant :
 `/po-projet-nouveau`, `/po-story …`, `/po-bug …`. Guide pour le PO : [GUIDE-PO.md](GUIDE-PO.md).
 
 **Avec l'interface web** (`interface/`, dépôt séparé) : connexion GitHub, stories et

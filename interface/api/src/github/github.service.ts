@@ -5,6 +5,6 @@ import { Octokit } from '@octokit/rest';
 @Injectable()
 export class GithubService {
   client(jeton: string): Octokit {
-    return new Octokit({ auth: jeton, userAgent: 'atelier-po' });
+    return new Octokit({ auth: jeton, userAgent: 'ada' });
   }
 }

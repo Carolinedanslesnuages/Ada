@@ -1,7 +1,7 @@
 ---
 name: po-bug
-description: Traite un problème signalé par un Product Owner sur un projet de l'atelier PO — reformule le constat, force deux ou trois hypothèses de cause, écrit un test qui reproduit le bug avant toute correction, corrige sur une branche et livre une fiche de relecture. Écrit du code et des commits ; à lancer uniquement sur demande explicite.
-when_to_use: bug signalé par le PO, ça ne marche pas, erreur à l'écran, régression, issue bug de l'atelier PO
+description: Traite un problème signalé par un Product Owner sur un projet d'ADA — reformule le constat, force deux ou trois hypothèses de cause, écrit un test qui reproduit le bug avant toute correction, corrige sur une branche et livre une fiche de relecture. Écrit du code et des commits ; à lancer uniquement sur demande explicite.
+when_to_use: bug signalé par le PO, ça ne marche pas, erreur à l'écran, régression, issue bug d'ADA
 argument-hint: "<description du problème, ou numéro d'issue GitHub>"
 disable-model-invocation: true
 ---

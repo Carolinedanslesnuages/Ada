@@ -22,7 +22,7 @@ router.beforeEach(async (vers) => {
 })
 
 router.afterEach((vers) => {
-  document.title = vers.name === 'connexion' ? 'Connexion — Atelier PO' : 'Atelier PO'
+  document.title = vers.name === 'connexion' ? 'Connexion — ADA' : 'ADA'
 })
 
 export default router

@@ -43,7 +43,7 @@ describe('AgentService', () => {
     contenuBug: null,
     messages: [
       { id: 1, auteur: 'po', texte: 'Discussion avant lancement', le: '' },
-      { id: 2, auteur: 'po', texte: '▶️ Lancée depuis l’atelier PO par po1.', le: '' },
+      { id: 2, auteur: 'po', texte: '▶️ Lancée depuis ADA par po1.', le: '' },
       { id: 3, auteur: 'po', texte: '<!-- atelier-po:assistant -->\n🤖 **Plan proposé**\n\nJe vais…', le: '' },
       { id: 4, auteur: 'po', texte: 'D’accord', le: '' },
     ],
@@ -98,6 +98,23 @@ describe('AgentService', () => {
     const activite = await service.activite('poc', 1);
     expect(activite.enCours).toBe(false);
     expect(activite.journal.map((j) => j.texte)).toContain('Lit x/AGENTS.md');
+  });
+
+  it('reconnaît aussi les lancements faits avant le renommage en ADA', async () => {
+    stories.detail.mockResolvedValueOnce({
+      ...detail(),
+      messages: [
+        { id: 1, auteur: 'po', texte: 'Avant', le: '' },
+        { id: 2, auteur: 'po', texte: '▶️ Lancée depuis l’atelier PO par po1.', le: '' },
+        { id: 3, auteur: 'po', texte: 'Après', le: '' },
+      ],
+    });
+    sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
+    service.analyser(JETON, 'poc', 1);
+    await service.derniereTache;
+    const consigne = lancer.mock.calls[0]![0][1]!;
+    expect(consigne).toContain('[PO] Après');
+    expect(consigne).not.toContain('Avant');
   });
 
   it('publie les questions de l’assistant quand la story est floue', async () => {

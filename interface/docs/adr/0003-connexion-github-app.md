@@ -2,7 +2,7 @@
 
 - **Statut** : Accepted
 - **Date** : 2026-11-16
-- **Décideurs** : équipe atelier PO
+- **Décideurs** : équipe ADA
 - **Sujet** : authentification et droits de l'interface
 
 ## Contexte

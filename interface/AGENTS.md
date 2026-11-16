@@ -1,4 +1,4 @@
-# Atelier PO — interface web — instructions pour les agents de code
+# ADA — interface web — instructions pour les agents de code
 
 Lu par Codex, OpenCode, Cursor, Copilot, Gemini CLI… ; `CLAUDE.md` l'importe pour Claude Code.
 

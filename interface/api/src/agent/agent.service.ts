@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { ApercuService } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
 import { GithubService } from '../github/github.service.js';
-import { MARQUEUR_ASSISTANT, MARQUEUR_LANCEMENT, StoriesService } from '../stories/stories.service.js';
+import { DEBUT_LANCEMENT, MARQUEUR_ASSISTANT, StoriesService } from '../stories/stories.service.js';
 import {
   brancheDe,
   consigneAnalyse,
@@ -131,7 +131,7 @@ export class AgentService {
   /** Reconstitue la demande et les échanges depuis l'issue. */
   private async demande(jeton: string, depot: string, numero: number): Promise<Demande> {
     const detail = await this.stories.detail(jeton, depot, numero);
-    const depart = detail.messages.findIndex((m) => m.texte.startsWith(MARQUEUR_LANCEMENT));
+    const depart = detail.messages.findIndex((m) => m.texte.startsWith(DEBUT_LANCEMENT));
     const echanges = detail.messages
       .slice(depart + 1)
       .map((m) =>

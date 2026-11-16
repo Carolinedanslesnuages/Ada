@@ -1,4 +1,4 @@
-# Atelier PO — interface web
+# ADA — interface web
 
 Les Product Owners créent leurs projets, écrivent leurs stories et signalent des problèmes ;
 l'aperçu du produit s'affiche à côté. Consignes pour les agents de code : [AGENTS.md](AGENTS.md).

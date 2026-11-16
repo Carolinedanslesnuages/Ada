@@ -30,7 +30,7 @@ const schema = z.object({
   /** Dossier de travail des aperçus (clones et conteneurs), hors de tout dépôt git. */
   DOSSIER_APERCUS: z.string().default('../apercus'),
   /** Topic GitHub qui distingue les dépôts créés par l'atelier. */
-  TOPIC_ATELIER: z.string().default('atelier-po'),
+  TOPIC_ATELIER: z.string().default('ada'),
 });
 
 export type Config = z.infer<typeof schema>;

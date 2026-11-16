@@ -21,7 +21,9 @@ import {
 /** Marque les commentaires écrits par l'assistant, pour reconstituer les échanges. */
 export const MARQUEUR_ASSISTANT = '<!-- atelier-po:assistant -->';
 /** Marque le commentaire de lancement : les échanges utiles à l'agent commencent après. */
-export const MARQUEUR_LANCEMENT = '▶️ Lancée depuis l’atelier PO';
+/** Début du commentaire de lancement (« depuis ADA », ou « depuis l’atelier PO » avant le renommage). */
+export const MARQUEUR_LANCEMENT = '▶️ Lancée depuis ADA';
+export const DEBUT_LANCEMENT = '▶️ Lancée depuis ';
 
 export interface ResumeStory {
   numero: number;
@@ -241,7 +243,7 @@ export class StoriesService {
         repo: depot,
         name: nom,
         color: '0063cb',
-        description: 'Statut géré par l’atelier PO',
+        description: 'Statut géré par ADA',
       });
     }
   }

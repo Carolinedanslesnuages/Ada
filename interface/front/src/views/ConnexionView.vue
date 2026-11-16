@@ -17,7 +17,8 @@ const message = computed(() =>
 <template>
   <div class="fr-grid-row fr-grid-row--center">
     <div class="fr-col-12 fr-col-md-8 fr-col-lg-6">
-      <h1>Atelier PO</h1>
+      <h1>ADA</h1>
+      <p class="fr-text--lg fr-mb-2w">Atelier de Développement Assisté</p>
       <p class="fr-text--lead">
         Décrivez vos besoins sous forme de user stories et voyez votre produit se construire,
         au même endroit.

@@ -15,7 +15,7 @@ process.env.GITHUB_CLIENT_SECRET = 'secret-test';
 process.env.SESSION_SECRET = 'x'.repeat(32);
 process.env.DOSSIER_SESSIONS = mkdtempSync(join(tmpdir(), 'sessions-e2e-'));
 
-describe('Atelier PO (e2e)', () => {
+describe('ADA (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {

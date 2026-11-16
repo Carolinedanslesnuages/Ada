@@ -1,5 +1,5 @@
 {
-  "folders": [{ "name": "Atelier PO", "path": "." }],
+  "folders": [{ "name": "ADA", "path": "." }],
   "settings": {
     "editor.minimap.enabled": false,
     "workbench.startupEditor": "none",
