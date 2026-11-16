@@ -141,3 +141,9 @@
   padding: 0.75rem 1rem;
   background-color: var(--background-alt-grey);
 }
+
+/* Le DSFR numérote les listes ordonnées par un marqueur : inutile pour le fil et le journal. */
+.fil li::marker,
+.activite__journal li::marker {
+  content: none;
+}

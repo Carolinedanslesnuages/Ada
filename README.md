@@ -6,6 +6,28 @@ sous forme de user stories ou signalent des problèmes. L'assistant pose ses que
 valider un plan, code avec tests et contrôle d'accessibilité, puis livre une pull request.
 Elle est fusionnée quand la CI est verte.
 
+## Aperçu
+
+*Captures réalisées avec des données de démonstration.*
+
+**Accueil** : ce qu'est ADA, et la connexion avec GitHub.
+
+![Page d'accueil d'ADA](docs/captures/accueil.png)
+
+**L'atelier** : les stories à gauche, l'aperçu du produit à droite. Ici, l'assistant a posé
+une question, obtenu la réponse, et attend qu'on valide son plan.
+
+![Atelier : plan à valider](docs/captures/atelier-plan.png)
+
+**La vérification** : la story est réalisée, tous les contrôles sont réussis ; il reste à
+regarder le résultat dans l'aperçu et à valider.
+
+![Atelier : story à vérifier, contrôles réussis](docs/captures/atelier-verification.png)
+
+**Nouveau projet** : un nom, un objectif, et le type de produit à créer.
+
+![Formulaire de création d'un projet](docs/captures/nouveau-projet.png)
+
 Skills au format ouvert [Agent Skills](https://agentskills.io) : Claude Code, Codex, OpenCode,
 Cursor, Copilot, Gemini CLI. Conventions alignées sur
 [IA-Generative/agent-skills](https://github.com/IA-Generative/agent-skills), pour pouvoir y
