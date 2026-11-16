@@ -34,9 +34,21 @@ export class StoriesController {
     return this.stories.lister(req.session.jeton!, this.depot(depot));
   }
 
+  /** Développeurs assignables (déclaré avant « :numero »). */
+  @Get('developpeurs')
+  developpeurs(@Req() req: Request, @Param('depot') depot: string) {
+    return this.stories.developpeurs(req.session.jeton!, this.depot(depot));
+  }
+
   @Get(':numero')
   detail(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
     return this.stories.detail(req.session.jeton!, this.depot(depot), numero);
+  }
+
+  /** Assigne (ou, avec `null`, retire) le développeur d'une demande bloquée. */
+  @Post(':numero/assigner')
+  assigner(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number, @Body('login') login: unknown) {
+    return this.stories.assigner(req.session.jeton!, this.depot(depot), numero, login === undefined ? null : login);
   }
 
   /** Mode sauvage : le prompt est enregistré comme issue et lancé ; l'assistant propose un plan. */

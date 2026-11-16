@@ -68,7 +68,15 @@ export interface Message {
   le: string
 }
 
+/** Développeur qui peut être assigné (accès au dépôt du projet). */
+export interface Personne {
+  login: string
+  avatar: string | null
+}
+
 export interface DetailStory extends ResumeStory {
+  /** Développeurs assignés sur GitHub. */
+  assignes: Personne[]
   contenu: ContenuStory | null
   contenuBug: ContenuBug | null
   contenuLibre: string | null

@@ -29,6 +29,7 @@ const resume = (numero: number, extra: Partial<ResumeStory> = {}): ResumeStory =
 
 const detail = (numero: number, extra: Partial<ResumeStory> = {}) => ({
   ...resume(numero, extra),
+  assignes: [],
   contenu: null,
   contenuBug: null,
   contenuLibre: null,
