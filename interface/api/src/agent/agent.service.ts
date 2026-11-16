@@ -4,6 +4,7 @@ import { openSync } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { appendFile, lstat, mkdir, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
+import { PREFIXE_LIBRE } from '../stories/story.js';
 import { ApercuService } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
 import { GithubService } from '../github/github.service.js';
@@ -441,6 +442,9 @@ export class AgentService {
         'Réalisation terminée',
         `${resultat.resume}\n\nLes contrôles automatiques tournent sur la pull request : ${pr}`,
       );
+      // L'aperçu doit montrer ce travail, API comprise, pour que le PO vérifie le vrai résultat.
+      await this.noter(depot, numero, 'Relance l’aperçu');
+      await this.apercu.relancerApplication(depot).catch((e: unknown) => this.log.warn(`Relance de l’aperçu de ${depot} : ${(e as Error).message.split('\n')[0]}`));
       await this.stories.changerStatut(jeton, depot, numero, 'en-verification');
       await this.noter(depot, numero, 'Terminé : à vous de vérifier');
     }
@@ -513,7 +517,8 @@ export class AgentService {
       repo: depot,
       head: branche,
       base: 'main',
-      title: `${demande.type === 'bug' ? 'fix' : 'feat'}: ${demande.titre}`,
+      // Mode libre : sans le préfixe « Demande libre : », pour des notes de version lisibles.
+      title: `${demande.type === 'bug' ? 'fix' : 'feat'}: ${demande.titre.replace(PREFIXE_LIBRE, '')}`,
       body: `${resume}\n\nCloses #${demande.numero}\n\n${fiche}`.trim(),
     });
     return data.html_url;

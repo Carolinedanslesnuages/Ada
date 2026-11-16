@@ -134,7 +134,18 @@ describe('Mode sauvage : demande libre', () => {
     expect(titrePrompt('Ajoute un lien vers le guide dans le pied de page')).toBe(
       'Demande libre : Ajoute un lien vers le guide dans le pied de page',
     );
-    expect(titrePrompt('a'.repeat(80)).length).toBeLessThanOrEqual('Demande libre : '.length + 58);
+    expect(titrePrompt('a'.repeat(80)).length).toBeLessThanOrEqual('Demande libre : '.length + 72);
+  });
+
+  it('garde la première proposition du prompt, sans la couper au milieu d’un mot', () => {
+    expect(
+      titrePrompt('Ajoute un filtre par catégorie au-dessus de la liste du matériel : Tous, Ordinateurs, Vidéoprojecteurs, Casques. Le filtre « Tous » est choisi par défaut.'),
+    ).toBe('Demande libre : Ajoute un filtre par catégorie au-dessus de la liste du matériel');
+    expect(titrePrompt('Mets le titre en bleu. Et agrandis-le.')).toBe('Demande libre : Mets le titre en bleu');
+    const long = titrePrompt(`Ajoute ${'un très long morceau de phrase '.repeat(5)}`);
+    expect(long.endsWith('…')).toBe(true);
+    expect(long).not.toMatch(/\s…$/);
+    expect(long.length).toBeLessThanOrEqual('Demande libre : '.length + 72);
   });
 
   it('refuse un prompt vide ou démesuré (une application entière s’écrit en stories)', () => {

@@ -24,7 +24,7 @@ describe('VerificationService', () => {
   };
   const agent = { activite: vi.fn(async (): Promise<{ pullRequest: string | null }> => ({ pullRequest: 'https://github.com/proprio/poc/pull/3' })) };
   const stories = { retirerStatut: vi.fn() };
-  const apercu = { revenirSurMain: vi.fn() };
+  const apercu = { revenirSurMain: vi.fn(), relancerApplication: vi.fn() };
   let service: VerificationService;
 
   beforeEach(() => {
@@ -74,6 +74,9 @@ describe('VerificationService', () => {
     expect(gh.issues.update).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 1, state: 'closed' }));
     expect(stories.retirerStatut).toHaveBeenCalledWith('jeton', 'poc', 1);
     expect(apercu.revenirSurMain).toHaveBeenCalledWith('jeton', 'poc');
+    // L'API de l'aperçu est relancée : elle sert le code fusionné, pas une ancienne version.
+    expect(apercu.relancerApplication).toHaveBeenCalledWith('poc');
+    expect(apercu.revenirSurMain.mock.invocationCallOrder[0]).toBeLessThan(apercu.relancerApplication.mock.invocationCallOrder[0]!);
   });
 
   it('ne refait pas la fermeture si « Closes #n » a déjà fermé l’issue (pas d’erreur 500)', async () => {

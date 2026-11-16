@@ -109,6 +109,7 @@ export class VerificationService {
       ],
       ['retrait du statut', () => this.stories.retirerStatut(jeton, depot, numero)],
       ['retour de l’aperçu sur main', () => this.apercu.revenirSurMain(jeton, depot)],
+      ['relance de l’application de l’aperçu', () => this.apercu.relancerApplication(depot)],
     ];
     for (const [etape, action] of etapes) {
       try {

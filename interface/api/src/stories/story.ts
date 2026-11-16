@@ -82,9 +82,25 @@ export function lirePrompt(corps: string): string | null {
 }
 
 /** Titre de l'issue : le début du prompt, coupé proprement. */
-export function titrePrompt(texte: string): string {
+export const PREFIXE_LIBRE = 'Demande libre : ';
+const TITRE_LIBRE_MAX = 72;
+
+/**
+ * Titre court d'un prompt : sa première proposition (jusqu'au premier « . », « ! », « ? », « ; »
+ * ou « : »), coupée entre deux mots si elle reste trop longue. Il devient le titre de l'issue puis,
+ * sans le préfixe, celui de la PR et la ligne des notes de version.
+ */
+export function resumerPrompt(texte: string, max = TITRE_LIBRE_MAX): string {
   const ligne = texte.trim().split('\n')[0]!.replace(/\s+/g, ' ');
-  return `Demande libre : ${ligne.length > 60 ? `${ligne.slice(0, 57).trimEnd()}…` : ligne}`;
+  const proposition = (ligne.split(/(?<=[.!?;])\s|\s:\s|\s?:\s/)[0] ?? ligne).replace(/[.;:]$/, '').trim() || ligne;
+  if (proposition.length <= max) return proposition;
+  const coupe = proposition.slice(0, max - 1);
+  const dernierEspace = coupe.lastIndexOf(' ');
+  return `${(dernierEspace > max / 2 ? coupe.slice(0, dernierEspace) : coupe).trimEnd()}…`;
+}
+
+export function titrePrompt(texte: string): string {
+  return `${PREFIXE_LIBRE}${resumerPrompt(texte)}`;
 }
 
 export function verifierPrompt(texte: unknown): { ok: true; texte: string } | { ok: false; erreur: string } {
