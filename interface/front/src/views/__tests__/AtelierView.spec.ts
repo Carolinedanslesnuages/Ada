@@ -106,7 +106,7 @@ describe('Écran de l’atelier', () => {
           ? {
               familles: [{ id: 'service', libelle: 'Un service' }],
               types: [{ id: 'service', famille: 'service', libelle: 'Service en ligne', description: 'Une application' }],
-              modeles: [{ id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS', pourQuoi: 'Métier', disponible: true }],
+              modeles: [{ id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS', pourQuoi: 'Métier', disponible: true, deployable: false }],
             }
           : undefined,
     )

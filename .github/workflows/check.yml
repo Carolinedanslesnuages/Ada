@@ -39,6 +39,35 @@ jobs:
             test -f ".agents/skills/$n/SKILL.md" || { echo "lien manquant .agents/skills/$n"; exit 1; }
           done
 
+  images:
+    name: Image et chart du modèle ${{ matrix.modele }} (construction, démarrage, helm lint)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        modele: [vue-node, formulaire]
+    defaults:
+      run:
+        working-directory: catalogue/${{ matrix.modele }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Image de production
+        run: docker build -t modele .
+      - name: L'image démarre et répond
+        run: |
+          docker run -d --name modele -p 8080:8080 modele
+          for _ in $(seq 1 30); do curl -sf http://localhost:8080/api && exit 0; sleep 1; done
+          docker logs modele; exit 1
+      - name: Chart Helm, personnalisé comme à la création d'un projet
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/helm.tgz" https://get.helm.sh/helm-v4.2.3-linux-amd64.tar.gz
+          echo "e9b88b4ee95b18c706839c28d3a0220e5bc470e9cd9262410c90793c45ff8b7c  $RUNNER_TEMP/helm.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/helm.tgz" -C "$RUNNER_TEMP" linux-amd64/helm
+          cp -R charts/app "$RUNNER_TEMP/app"
+          sed -i 's/__SLUG__/projet-essai/g; s/__NOM_PROJET__/Projet essai/g' "$RUNNER_TEMP/app/Chart.yaml" "$RUNNER_TEMP/app/values.yaml"
+          "$RUNNER_TEMP/linux-amd64/helm" lint --strict "$RUNNER_TEMP/app"
+          "$RUNNER_TEMP/linux-amd64/helm" template essai "$RUNNER_TEMP/app" --set ingress.enabled=true --set ingress.host=exemple.gouv.fr > /dev/null
+
   modeles:
     name: Modèle ${{ matrix.modele }} (installation, lint, types, tests, compilation)
     runs-on: ubuntu-latest

@@ -26,7 +26,7 @@ describe('Nom d’un nouveau projet', () => {
     expect(resultat).toEqual({
       ok: true,
       slug: 'l-annuaire-des-agents',
-      projet: { nom: 'L’annuaire des agents', objectif: 'Trouver un collègue et son bureau.', modele: 'vue-nest-dsfr', baseline: '' },
+      projet: { nom: 'L’annuaire des agents', objectif: 'Trouver un collègue et son bureau.', modele: 'vue-nest-dsfr', baseline: '', deploye: false },
     });
   });
 

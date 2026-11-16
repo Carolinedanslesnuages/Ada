@@ -76,9 +76,9 @@ describe('Consignes données à l’agent', () => {
     expect(realisation).not.toContain('Write');
   });
 
-  it('interdit toujours de modifier les workflows GitHub, et le dit dans la consigne', () => {
-    expect(OUTILS_INTERDITS).toEqual(['Edit(./.github/**)', 'Write(./.github/**)']);
-    expect(consigneRealisation(demande, 'story/1-x')).toContain('Ne modifie jamais le dossier .github/');
+  it('interdit toujours de modifier les workflows GitHub et le chart de déploiement, et le dit dans la consigne', () => {
+    expect(OUTILS_INTERDITS).toEqual(['Edit(./.github/**)', 'Write(./.github/**)', 'Edit(./charts/**)', 'Write(./charts/**)']);
+    expect(consigneRealisation(demande, 'story/1-x')).toContain('Ne modifie jamais les dossiers .github/ (CI, versions) et charts/ (déploiement)');
   });
 
   it('écarte une skill qui pré-autorise des outils ou exécute des commandes', () => {

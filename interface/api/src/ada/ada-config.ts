@@ -35,6 +35,8 @@ const schema = z.object({
   controlesRequis: z.array(z.string()).min(1),
   /** Commandes du contrôle final, exécutées dans le conteneur de l'aperçu (une par partie du projet). */
   controles: z.array(z.string()).min(1),
+  /** Modèle déployable : dossier du chart Helm, ajouté au projet seulement si le PO le demande. */
+  deploiement: z.object({ chart: z.string().min(1) }).nullable().default(null),
   apercu: z.object({
     image: z.string().default('node:24-bookworm'),
     /** Base de données de l'aperçu : PostgreSQL, ou aucune. */
@@ -56,6 +58,7 @@ export type AdaConfig = z.output<typeof schema>;
 /** Comportement des projets créés avant ada.json (modèle Vue + NestJS + PostgreSQL). */
 export const ADA_PAR_DEFAUT: AdaConfig = {
   type: 'service',
+  deploiement: null,
   personnaliser: [
     'PROJET.md',
     'README.md',

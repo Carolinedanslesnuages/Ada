@@ -33,6 +33,14 @@ Objectif : __OBJECTIF__
   quand un composant existe. Un seul `h1` par page.
 - Tout critère d'acceptation se traduit par au moins un test (Vitest côté API et côté front).
 
+## Déploiement
+- `Dockerfile` : image de production unique (l'API sert aussi le front construit, `src/front.ts`).
+  Elle est construite et démarrée par la CI à chaque demande (« Image et chart »). Un nouveau
+  dossier lu par l'application à l'exécution doit y être copié.
+- `charts/app/` (présent si le projet est déployé) : chart Helm générique. **Réservé aux
+  développeurs et à l'équipe infra : ne pas le modifier.** Les valeurs d'un environnement
+  (registre, adresse, stockage) sont fournies hors du dépôt.
+
 ## Accessibilité (RGAA) — les bases, toujours
 
 Le service doit être utilisable par tous (RGAA 4, obligatoire dans l'administration). À chaque
@@ -80,6 +88,7 @@ Conventional Commits, versions SemVer calculées par release-please (jamais à l
 d'une issue GitHub : `Closes #<numéro>` dans le corps.
 
 ## Règles absolues
+- Ne jamais modifier `.github/` ni `charts/`.
 - Aucune donnée réelle, aucun secret dans le dépôt (gitleaks bloque en local et en CI ; `--no-verify` interdit).
 - Une branche par story (`story/…`) ou par bug (`fix/…`) ; jamais de fusion par l'agent.
 - Les décisions d'architecture sont tracées dans `docs/adr/`.

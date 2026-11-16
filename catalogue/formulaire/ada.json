@@ -9,12 +9,15 @@
     "front/index.html",
     "front/src/App.vue",
     "front/src/router/index.ts",
-    "api/src/formulaire/definition.ts"
+    "api/src/formulaire/definition.ts",
+    "charts/app/Chart.yaml",
+    "charts/app/values.yaml"
   ],
   "controlesRequis": [
     "Anti-fuite (gitleaks)",
     "API (lint, tests, compilation)",
     "Front (lint, types, tests dont accessibilité, compilation)",
+    "Image et chart (construction, helm lint)",
     "Titre de PR (Conventional Commits, semver)"
   ],
   "controles": [
@@ -34,5 +37,8 @@
     ],
     "principal": "cd /app/front && npx vite --host 0.0.0.0 --port 5173 --strictPort",
     "port": 5173
+  },
+  "deploiement": {
+    "chart": "charts/app"
   }
 }

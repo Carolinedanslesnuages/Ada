@@ -21,6 +21,8 @@ export interface Modele {
   pourQuoi: string
   /** Modèle livré dans le catalogue d'ADA : on peut créer ce type de projet. */
   disponible: boolean
+  /** Le modèle sait être déployé (image Docker et chart Helm). */
+  deployable: boolean
 }
 
 export interface NouveauProjet {
@@ -29,6 +31,8 @@ export interface NouveauProjet {
   modele: string
   /** Facultative : phrase courte sous le nom du service dans l'en-tête DSFR. */
   baseline: string
+  /** Le projet sera déployé : ADA ajoute le chart Helm du modèle. */
+  deploye: boolean
 }
 
 export type ErreursProjet = Partial<Record<keyof NouveauProjet, string>>
