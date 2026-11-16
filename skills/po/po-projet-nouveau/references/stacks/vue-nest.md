@@ -102,6 +102,10 @@ Si Docker est disponible : `docker compose up -d`, puis vérifier que l'API
 se connecte (`SELECT 1` via Prisma).
 
 ## Conventions
+- **Noms explicites** : règle ESLint `id-length` (3 caractères minimum, propriétés exclues,
+  exceptions `vi`, `id`, `ok`, `fs`, `db`, `ui`, `to`, `_`). Front : dans `eslint.config.ts`.
+  API : `npm i -D eslint@9 typescript-eslint`, un `eslint.config.mjs` limité à cette règle, et
+  `"lint": "oxlint --type-aware src/ test/ && eslint ."` (oxlint ne sait pas la contrôler).
 - API : NestJS en modules ESM (imports avec suffixe `.js`). Un module par domaine métier.
 - Validation des entrées sur des DTO (`class-validator`) ou un schéma Zod
   (`StandardSchemaValidationPipe`). Jamais de `any`.

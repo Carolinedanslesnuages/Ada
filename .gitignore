@@ -24,3 +24,6 @@ secrets/
 .vscode/*.local
 *.swp
 node_modules/
+
+# Dépôts modèles (hébergés à part sur GitHub)
+modeles/

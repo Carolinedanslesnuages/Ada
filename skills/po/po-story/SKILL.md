@@ -48,7 +48,8 @@ Rien n'est écrit avant « oui » (sous Claude Code : présenter le plan et atte
 1. `git status` propre, sinon arrêter. Branche `story/<slug-court>` depuis `main`.
 2. **Tests d'abord** : un par critère, et un test d'accessibilité automatique par écran créé
    ou modifié (`references/rgaa.md`).
-3. Implémenter selon `AGENTS.md`. Pendant le travail, ne lancer **que les tests touchés**.
+3. Implémenter selon `AGENTS.md`, avec des **noms explicites** (jamais `el`, `x`, `tmp` ; les noms
+   imposés par les bibliothèques restent). Pendant le travail, ne lancer **que les tests touchés**.
 4. Trois échecs sur le même problème → arrêter, l'expliquer simplement au PO, et proposer
    de demander un développeur (label `story:besoin-dev` si l'issue existe).
 
