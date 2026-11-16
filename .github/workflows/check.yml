@@ -25,6 +25,12 @@ jobs:
         run: |
           node scripts/rgaa-generer.mjs ressources/rgaa/4.1.2/criteres.json "$RUNNER_TEMP/rgaa" 4.1.2
           diff -r "$RUNNER_TEMP/rgaa" skills/po/po-story/references/rgaa-4.1.2
+      - name: Versions par le workflow commun fabnum-cicd, épinglé à un SHA, identique dans ADA et chaque modèle
+        run: |
+          grep -Eq 'uses: dnum-mi/fabnum-cicd/\.github/workflows/release-app\.yml@[0-9a-f]{40} # v[0-9.]+$' .github/workflows/release-please.yml
+          for modele in catalogue/*/; do
+            diff -u .github/workflows/release-please.yml "$modele.github/workflows/release-please.yml"
+          done
       - name: Liens .claude/skills et .agents/skills vers chaque skill
         run: |
           for s in skills/po/*/; do
