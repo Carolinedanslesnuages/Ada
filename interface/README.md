@@ -1,7 +1,7 @@
 # ADA — interface web
 
-Les Product Owners créent leurs projets, écrivent leurs stories et signalent des problèmes ;
-l'aperçu du produit s'affiche à côté. Consignes pour les agents de code : [AGENTS.md](AGENTS.md).
+L'interface de développement no-code d'ADA : sans écrire de code, l'utilisateur crée ses
+projets, écrit ses stories et signale des problèmes ; l'aperçu du produit s'affiche à côté. Consignes pour les agents de code : [AGENTS.md](AGENTS.md).
 Décisions : [docs/adr/](docs/adr/README.md).
 
 ## Mise en place de la GitHub App (une fois)
@@ -19,10 +19,10 @@ Décisions : [docs/adr/](docs/adr/README.md).
    section *Private keys*). Les mettre dans `api/.env` (modèle : `api/.env.example`).
 3. **Installer l'App** — étape indispensable, distincte de l'autorisation : page de l'App →
    **Install App** → compte ou organisation → **All repositories**. Sans installation, l'App
-   est autorisée à agir au nom du PO mais ne voit aucun dépôt : la création de projet échoue.
+   est autorisée à agir au nom de l'utilisateur mais ne voit aucun dépôt : la création de projet échoue.
 
 Aucun dépôt modèle à créer sur GitHub : les modèles de projet vivent dans ce dépôt, dans
-`catalogue/<modèle>/` (voir `docs/adr/0006`). Un type de projet n'est proposé au PO que si son
+`catalogue/<modèle>/` (voir `docs/adr/0006`). Un type de projet n'est proposé à l'utilisateur que si son
 dossier est livré avec son `ada.json`.
 
 En cas de doute, une fois connecté : `http://localhost:5180/api/diagnostic` montre
@@ -61,7 +61,7 @@ des outils (`allowed-tools`) ou exécute des commandes au chargement (c'est le c
 ## Limites connues
 
 - Compte personnel gratuit + dépôt privé : la protection de `main` est refusée par GitHub ;
-  l'interface le signale au PO.
+  l'interface le signale à l'utilisateur.
 - PR de version (release-please) : leurs contrôles attendent une approbation manuelle sur GitHub,
   car ouvertes par le robot GitHub. Sans conséquence : ADA ne publie une version que si la PR
   ne touche que les fichiers de version. Décision et montage prévu en organisation : ADR-0005.

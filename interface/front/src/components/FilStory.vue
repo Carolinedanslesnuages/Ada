@@ -205,7 +205,7 @@ function envoyer(): void {
 
       <div v-if="story.statut === 'plan-a-valider' && !travaille && !modeModification" class="fr-mt-2w">
         <DsfrAlert type="info" small class="fr-mb-2w" description="L’assistant attend votre accord sur le plan ci-dessus avant de commencer." />
-        <ul class="fr-btns-group fr-btns-group--inline-md">
+        <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
           <li>
             <DsfrButton icon="fr-icon-check-line" label="Valider le plan" :disabled="actionEnCours" @click="emit('valider')" />
           </li>

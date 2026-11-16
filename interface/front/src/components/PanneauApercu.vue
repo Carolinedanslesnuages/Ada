@@ -70,7 +70,7 @@ onUnmounted(arreterSuivi)
     <div class="fr-grid-row fr-grid-row--middle fr-grid-row--gutters">
       <h2 id="titre-apercu" class="fr-h4 fr-mb-0 fr-col">Aperçu</h2>
       <div v-if="apercu?.etat === 'pret' && apercu.url" class="fr-col-auto">
-        <ul class="fr-btns-group fr-btns-group--inline fr-btns-group--sm">
+        <ul class="fr-btns-group fr-btns-group--inline fr-btns-group--sm fr-btns-group--icon-left">
           <li>
             <DsfrButton size="sm" tertiary icon="fr-icon-refresh-line" label="Recharger" @click="recharger" />
           </li>
