@@ -28,17 +28,22 @@ const adresse = computed(() => slugifier(normaliserNom(projet.nom)))
 
 /** D'abord le type de projet, puis la stack de ce type (choisie d'office s'il n'y en a qu'une). */
 const typeChoisi = ref<TypeProjet | null>(null)
-const modelesDuType = computed(() => props.modeles.filter((modele) => modele.type === typeChoisi.value))
-/** Types regroupés par famille (familles sans type omises). */
+/** Seuls les modèles livrés sont proposés : rien « en attente de développement » à l'écran. */
+const modelesDisponibles = computed(() => props.modeles.filter((modele) => modele.disponible))
+const modelesDuType = computed(() => modelesDisponibles.value.filter((modele) => modele.type === typeChoisi.value))
+/** Types qui ont au moins un modèle livré, regroupés par famille (familles vides omises). */
 const famillesAvecTypes = computed(() =>
   props.familles
-    .map((famille) => ({ ...famille, types: props.types.filter((type) => type.famille === famille.id) }))
+    .map((famille) => ({
+      ...famille,
+      types: props.types.filter(
+        (type) => type.famille === famille.id && modelesDisponibles.value.some((modele) => modele.type === type.id),
+      ),
+    }))
     .filter((famille) => famille.types.length > 0),
 )
-const typeDisponible = (type: TypeProjet) => props.modeles.some((modele) => modele.type === type && modele.disponible)
 watch(typeChoisi, () => {
-  const disponibles = modelesDuType.value.filter((modele) => modele.disponible)
-  projet.modele = disponibles.length === 1 ? disponibles[0]!.id : ''
+  projet.modele = modelesDuType.value.length === 1 ? modelesDuType.value[0]!.id : ''
 })
 
 const modeleChoisi = computed(() => props.modeles.find((modele) => modele.id === projet.modele) ?? null)
@@ -103,10 +108,9 @@ function envoyer(): void {
                 type="radio"
                 name="type-projet"
                 :value="type.id"
-                :disabled="!typeDisponible(type.id)"
               />
               <label class="fr-label" :for="`type-${type.id}`">
-                {{ type.libelle }}{{ typeDisponible(type.id) ? '' : ' (bientôt disponible)' }}
+                {{ type.libelle }}
                 <span class="fr-hint-text">{{ type.description }}</span>
               </label>
             </div>
@@ -133,10 +137,9 @@ function envoyer(): void {
             type="radio"
             name="modele"
             :value="modele.id"
-            :disabled="!modele.disponible"
           />
           <label class="fr-label" :for="`modele-${modele.id}`">
-            {{ modele.libelle }}{{ modele.disponible ? '' : ' (bientôt disponible)' }}
+            {{ modele.libelle }}
             <span class="fr-hint-text">{{ modele.pourQuoi }}</span>
           </label>
         </div>
