@@ -4,6 +4,7 @@ import { ApercuService } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
 import { traduireErreurGithub } from '../github/erreurs.js';
 import { GithubService } from '../github/github.service.js';
+import { DemoService } from '../demo/demo.service.js';
 import { ProjetsService } from '../projets/projets.service.js';
 import { StoriesService } from '../stories/stories.service.js';
 import { etatControles, numeroDepuisUrl, peutFusionner, type Verification } from './verification.js';
@@ -19,6 +20,7 @@ export class VerificationService {
     private readonly stories: StoriesService,
     private readonly apercu: ApercuService,
     private readonly projets: ProjetsService,
+    private readonly demo: DemoService,
   ) {}
 
   /** La PR de la demande, l'état de ses contrôles, et si le PO peut fusionner. */
@@ -110,6 +112,7 @@ export class VerificationService {
       ['retrait du statut', () => this.stories.retirerStatut(jeton, depot, numero)],
       ['retour de l’aperçu sur main', () => this.apercu.revenirSurMain(jeton, depot)],
       ['relance de l’application de l’aperçu', () => this.apercu.relancerApplication(depot)],
+      ['mise à jour du lien de démonstration', () => this.demo.mettreAJour(jeton, depot)],
     ];
     for (const [etape, action] of etapes) {
       try {

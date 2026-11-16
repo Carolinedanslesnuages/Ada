@@ -94,6 +94,17 @@ export class ApercuService {
     return lireAdaConfig(await readFile(join(depot, 'ada.json'), 'utf8').catch(() => null));
   }
 
+  /** Dossier de travail d'un projet (aperçu, démo, assistant). */
+  dossierProjet(projet: string): string {
+    this.verifier(projet);
+    return join(this.racine, projet);
+  }
+
+  /** L'aperçu de travail a été démarré (ses conteneurs existent). */
+  apercuDemarre(projet: string): boolean {
+    return existsSync(join(this.dossierProjet(projet), 'compose.yml'));
+  }
+
   cheminDepot(projet: string): string {
     this.verifier(projet);
     return join(this.racine, projet, 'depot');

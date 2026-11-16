@@ -11,6 +11,8 @@ import { GithubService } from './github/github.service.js';
 import { ProjetsController } from './projets/projets.controller.js';
 import { IndicateursController } from './indicateurs/indicateurs.controller.js';
 import { IndicateursService } from './indicateurs/indicateurs.service.js';
+import { DemoController } from './demo/demo.controller.js';
+import { DemoService } from './demo/demo.service.js';
 import { ProjetsService } from './projets/projets.service.js';
 import { StoriesController } from './stories/stories.controller.js';
 import { StoriesService } from './stories/stories.service.js';
@@ -21,11 +23,12 @@ import { VersionsController } from './versions/versions.controller.js';
 import { VersionsService } from './versions/versions.service.js';
 
 @Module({
-  controllers: [AgentController, IndicateursController, ApercuController, AuthController, DiagnosticController, ProjetsController, StoriesController, VerificationController, VersionController, VersionsController],
+  controllers: [AgentController, DemoController, IndicateursController, ApercuController, AuthController, DiagnosticController, ProjetsController, StoriesController, VerificationController, VersionController, VersionsController],
   providers: [
     { provide: CONFIG, useFactory: () => lireConfig() },
     AgentService,
     ApercuService,
+    DemoService,
     GithubService,
     GithubOAuthService,
     IndicateursService,

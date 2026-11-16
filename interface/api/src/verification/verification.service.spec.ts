@@ -5,6 +5,7 @@ import type { AgentService } from '../agent/agent.service.js';
 import type { ApercuService } from '../apercu/apercu.service.js';
 import type { GithubService } from '../github/github.service.js';
 import type { StoriesService } from '../stories/stories.service.js';
+import type { DemoService } from '../demo/demo.service.js';
 import { VerificationService } from './verification.service.js';
 import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
 import type { ProjetsService } from '../projets/projets.service.js';
@@ -25,6 +26,7 @@ describe('VerificationService', () => {
   const agent = { activite: vi.fn(async (): Promise<{ pullRequest: string | null }> => ({ pullRequest: 'https://github.com/proprio/poc/pull/3' })) };
   const stories = { retirerStatut: vi.fn() };
   const apercu = { revenirSurMain: vi.fn(), relancerApplication: vi.fn() };
+  const demo = { mettreAJour: vi.fn() };
   let service: VerificationService;
 
   beforeEach(() => {
@@ -41,6 +43,7 @@ describe('VerificationService', () => {
       stories as unknown as StoriesService,
       apercu as unknown as ApercuService,
       { lireConfigDepot: async () => ADA_PAR_DEFAUT } as unknown as ProjetsService,
+      demo as unknown as DemoService,
     );
   });
 
@@ -76,6 +79,8 @@ describe('VerificationService', () => {
     expect(apercu.revenirSurMain).toHaveBeenCalledWith('jeton', 'poc');
     // L'API de l'aperçu est relancée : elle sert le code fusionné, pas une ancienne version.
     expect(apercu.relancerApplication).toHaveBeenCalledWith('poc');
+    // Le lien de démonstration passe à la version qui vient d'être validée.
+    expect(demo.mettreAJour).toHaveBeenCalledWith('jeton', 'poc');
     expect(apercu.revenirSurMain.mock.invocationCallOrder[0]).toBeLessThan(apercu.relancerApplication.mock.invocationCallOrder[0]!);
   });
 
