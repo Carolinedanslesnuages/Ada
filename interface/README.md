@@ -65,3 +65,20 @@ des outils (`allowed-tools`) ou exécute des commandes au chargement (c'est le c
 - PR de version (release-please) : leurs contrôles attendent une approbation manuelle sur GitHub,
   car ouvertes par le robot GitHub. Sans conséquence : ADA ne publie une version que si la PR
   ne touche que les fichiers de version. Décision et montage prévu en organisation : ADR-0005.
+
+## Liens de démonstration (ADA en ligne)
+
+Le bouton « Copier le lien de démonstration » (panneau Aperçu) démarre, à la demande, une seconde
+instance du projet sur sa **dernière version validée** (branche `main`), jamais sur le travail en
+cours de l'assistant. Elle a ses propres données et un port de la plage 5400-5499, sur
+127.0.0.1. Elle est mise à jour après chaque « Valider et fusionner ».
+
+`URL_DEMO` (`api/.env`) donne l'adresse publique partagée, `{projet}` et `{port}` remplacés :
+
+- en local (par défaut) : `http://localhost:{port}` ;
+- en ligne : par exemple `https://{projet}.demo.ada.gouv.fr`, avec un proxy (domaine générique
+  `*.demo.ada.gouv.fr`, certificat compris) qui renvoie chaque sous-domaine vers le port de sa démo.
+  ADA autorise cet hôte dans le serveur de l'application ; les autres restent refusés.
+
+Le lien s'ouvre sans compte : c'est acceptable parce qu'un projet ne contient que des données
+fictives (règle d'ADA). Un POC qui doit être protégé ajoute sa propre connexion.

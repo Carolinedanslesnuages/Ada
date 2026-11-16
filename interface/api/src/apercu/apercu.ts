@@ -4,16 +4,22 @@ import { ADA_PAR_DEFAUT, type AdaConfig } from '../ada/ada-config.js';
 
 export const PORT_MIN = 5300;
 export const PORT_MAX = 5399;
+/** Liens de démonstration : une autre plage, pour ne jamais confondre démo et aperçu de travail. */
+export const PLAGE_DEMO = { min: 5400, max: 5499 };
 export const NOM_DEPOT = /^[a-z0-9][a-z0-9._-]{0,99}$/;
 
 /** Cache npm commun à tous les aperçus (créé une fois) : seuls les premiers téléchargements sont lents. */
 export const VOLUME_CACHE_NPM = 'atelier-po-cache-npm';
 
 /** Premier port libre de la plage, ou celui déjà attribué au projet. */
-export function attribuerPort(projet: string, attribues: Record<string, number>): number {
+export function attribuerPort(
+  projet: string,
+  attribues: Record<string, number>,
+  plage: { min: number; max: number } = { min: PORT_MIN, max: PORT_MAX },
+): number {
   if (attribues[projet]) return attribues[projet];
   const pris = new Set(Object.values(attribues));
-  for (let port = PORT_MIN; port <= PORT_MAX; port++) if (!pris.has(port)) return port;
+  for (let port = plage.min; port <= plage.max; port++) if (!pris.has(port)) return port;
   throw new Error('Plus aucun port libre pour un aperçu : arrêtez des aperçus inutilisés');
 }
 
@@ -23,12 +29,18 @@ const cheminDossier = (dossier: string) => (dossier === '.' ? '/app' : `/app/${d
  * Conteneurs de l'aperçu, d'après ada.json : l'application, plus PostgreSQL si le modèle en a
  * besoin. Limités en mémoire et processeur ; dépendances dans des volumes (binaires Linux).
  */
-export function genererCompose(projet: string, port: number, config: AdaConfig = ADA_PAR_DEFAUT): string {
+export function genererCompose(
+  projet: string,
+  port: number,
+  config: AdaConfig = ADA_PAR_DEFAUT,
+  options: { nom?: string; hotesAutorises?: string[] } = {},
+): string {
   const { apercu } = config;
+  const hotes = (options.hotesAutorises ?? []).filter((hote) => /^[a-z0-9.-]+$/i.test(hote));
   const volumesModules = apercu.npm.map((dossier, index) => `      - modules_${index}:${cheminDossier(dossier)}/node_modules`);
   const base = apercu.base === 'postgres';
   const lignes = [
-    `name: apercu-${projet}`,
+    `name: ${options.nom ?? `apercu-${projet}`}`,
     'services:',
     ...(base
       ? [
@@ -53,6 +65,8 @@ export function genererCompose(projet: string, port: number, config: AdaConfig =
     '    environment:',
     ...(base ? ['      DATABASE_URL: postgresql://apercu:apercu@db:5432/apercu?schema=public'] : []),
     '      NODE_ENV: development',
+    // Adresse publique (lien de démonstration) : le serveur de Vite refuse sinon un autre hôte.
+    ...(hotes.length ? [`      __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: ${hotes.join(',')}`] : []),
     '    volumes:',
     '      - ./depot:/app',
     '      - ./demarrer.sh:/demarrer.sh:ro',
@@ -129,4 +143,12 @@ export function etatDepuisPs(sortie: string, repond: boolean): EtatApercu {
   if (app.State === 'running') return repond ? 'pret' : 'demarrage';
   if (app.State === 'created' || app.State === 'restarting') return 'demarrage';
   return 'erreur';
+}
+
+/**
+ * Adresse publique d'un lien de démonstration, d'après le modèle `URL_DEMO` : `{projet}` et
+ * `{port}` y sont remplacés (ex. https://{projet}.demo.ada.gouv.fr, ou http://localhost:{port}).
+ */
+export function adresseDemo(modele: string, projet: string, port: number): string {
+  return modele.replaceAll('{projet}', projet).replaceAll('{port}', String(port));
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onUnmounted, ref, watch } from 'vue'
 import { api } from '@/services/api'
+import LienDemo from '@/components/LienDemo.vue'
 
 interface Apercu {
   etat: 'arrete' | 'demarrage' | 'pret' | 'erreur'
@@ -82,6 +83,8 @@ onUnmounted(arreterSuivi)
         </ul>
       </div>
     </div>
+
+    <LienDemo v-if="projet" :projet="projet" :apercu-pret="apercu?.etat === 'pret'" />
 
     <iframe
       v-if="apercu?.etat === 'pret' && apercu.url"
