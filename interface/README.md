@@ -39,9 +39,13 @@ git clone https://github.com/numerique-gouv/dsfr-skill.git ~/.local/share/dsfr-s
 git clone https://github.com/IA-Generative/agent-skills.git ~/.local/share/agent-skills  # IA-Generative
 ```
 
-Skills utilisées par défaut : `dsfr-skill` (composants et pages DSFR), `bug-investigate`
-(problèmes signalés), `repo-perimetre` (avant de livrer), `controle-qualite-code` (relecture),
-`adr-new` (décisions d'architecture). Mise à jour : `git -C ~/.local/share/<catalogue> pull`.
+Skills utilisées : `dsfr-skill` (composants et pages DSFR), `bug-investigate` (problèmes
+signalés), `repo-perimetre` (avant de livrer), `controle-qualite-code` (relecture). Mise à jour :
+`git -C ~/.local/share/<catalogue> pull`.
+
+**Cloisonnement** : l'agent ne lit et n'écrit que dans le projet (règles `Read(./**)`,
+`Edit(./**)`…), plus la lecture des dossiers des skills. ADA écarte toute skill qui pré-autorise
+des outils (`allowed-tools`) ou exécute des commandes au chargement (c'est le cas d'`adr-new`).
 
 ## Limites connues
 

@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { appendFile, lstat, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
+import { appendFile, lstat, mkdir, readFile, realpath, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { ApercuService } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
@@ -14,7 +14,8 @@ import {
   decrireEvenement,
   lireDecision,
   lireResultat,
-  OUTILS,
+  outilsAutorises,
+  skillSure,
   type Demande,
   type Phase,
 } from './agent.js';
@@ -90,9 +91,18 @@ export class AgentService {
    * pour les autres agents), exclues localement de git : rien n'est commité, le dépôt reste propre.
    * Renvoie les noms des skills disponibles.
    */
-  async equiperSkills(cwd: string): Promise<string[]> {
-    const disponibles = this.config.AGENT_SKILLS.filter((dossier) => existsSync(join(dossier, 'SKILL.md')));
-    if (!disponibles.length) return [];
+  async equiperSkills(cwd: string): Promise<{ noms: string[]; dossiers: string[] }> {
+    const disponibles: string[] = [];
+    for (const dossier of this.config.AGENT_SKILLS) {
+      const contenu = await readFile(join(dossier, 'SKILL.md'), 'utf8').catch(() => null);
+      if (contenu === null) continue;
+      if (!skillSure(contenu)) {
+        this.log.warn(`Skill ${basename(dossier)} écartée : elle pré-autorise des outils ou exécute des commandes`);
+        continue;
+      }
+      disponibles.push(dossier);
+    }
+    if (!disponibles.length) return { noms: [], dossiers: [] };
     const exclusion = join(cwd, '.git', 'info', 'exclude');
     const exclus = await readFile(exclusion, 'utf8').catch(() => '');
     const aAjouter = ['/.claude/skills/', '/.agents/skills/'].filter((motif) => !exclus.split('\n').includes(motif));
@@ -108,7 +118,11 @@ export class AgentService {
         if (!existant) await symlink(resolve(dossier), lien);
       }
     }
-    return disponibles.map((dossier) => basename(dossier));
+    return {
+      noms: disponibles.map((dossier) => basename(dossier)),
+      // Chemins réels : l'agent lit la skill via le lien, mais la permission porte sur la cible.
+      dossiers: await Promise.all(disponibles.map((dossier) => realpath(dossier))),
+    };
   }
 
   private fichier(depot: string, numero: number): string {
@@ -192,7 +206,14 @@ export class AgentService {
   }
 
   /** Exécute une phase de l'agent et renvoie sa réponse finale (texte). */
-  private async executer(depot: string, numero: number, phase: Phase, consigne: string, cwd: string): Promise<string> {
+  private async executer(
+    depot: string,
+    numero: number,
+    phase: Phase,
+    consigne: string,
+    cwd: string,
+    dossiersLisibles: string[] = [],
+  ): Promise<string> {
     let resultat = '';
     const args = [
       '-p',
@@ -204,7 +225,7 @@ export class AgentService {
       String(this.tours[phase]),
       '--no-session-persistence',
       '--allowedTools',
-      ...OUTILS[phase],
+      ...outilsAutorises(phase, dossiersLisibles),
     ];
     const notes: Promise<void>[] = [];
     const code = await this.lancerAgent(args, cwd, (ligne) => {
@@ -248,8 +269,8 @@ export class AgentService {
       const cwd = await this.apercu.preparerDepot(jeton, depot);
       const skills = await this.equiperSkills(cwd);
       await this.noter(depot, numero, 'Lit la story et le projet');
-      const consigne = consigneAnalyse(await this.demande(jeton, depot, numero), await this.lireIndexRgaa(), skills);
-      const reponse = await this.executer(depot, numero, 'analyse', consigne, cwd);
+      const consigne = consigneAnalyse(await this.demande(jeton, depot, numero), await this.lireIndexRgaa(), skills.noms);
+      const reponse = await this.executer(depot, numero, 'analyse', consigne, cwd, skills.dossiers);
       const decision = lireDecision(reponse);
       if (!decision) {
         await this.bloquer(jeton, depot, numero, 'L’assistant n’a pas réussi à analyser la demande.');
@@ -282,8 +303,8 @@ export class AgentService {
       const reprise = travailRepris
         ? '\n\nReprise : une exécution précédente a été interrompue. Les fichiers modifiés ou non suivis de la branche (git status) sont ce travail en cours : vérifie-les et continue, sans repartir de zéro.'
         : '';
-      const consigne = consigneRealisation(demande, branche, await this.lireIndexRgaa(), skills) + reprise;
-      const reponse = await this.executer(depot, numero, 'realisation', consigne, cwd);
+      const consigne = consigneRealisation(demande, branche, await this.lireIndexRgaa(), skills.noms) + reprise;
+      const reponse = await this.executer(depot, numero, 'realisation', consigne, cwd, skills.dossiers);
       const resultat = lireResultat(reponse);
       if (!resultat || resultat.resultat === 'bloque') {
         await this.bloquer(jeton, depot, numero, resultat?.resultat === 'bloque' ? resultat.raison : 'L’assistant n’a pas terminé la réalisation.');

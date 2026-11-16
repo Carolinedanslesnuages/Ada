@@ -24,24 +24,33 @@ export type ResultatRealisation = { resultat: 'ok'; resume: string } | { resulta
 /** Commande pour exécuter une commande dans le conteneur de l'aperçu (depuis le dépôt cloné). */
 export const DANS_CONTENEUR = 'docker compose -f ../compose.yml exec -T -u node app bash -lc';
 
-/** Outils autorisés par phase : lecture seule pour l'analyse ; ni push ni commande hors conteneur. */
-export const OUTILS: Record<Phase, string[]> = {
-  analyse: ['Read', 'Glob', 'Grep', 'Skill'],
-  realisation: [
+/**
+ * Outils autorisés par phase, limités au projet (répertoire courant) : l'agent ne peut ni lire
+ * ni écrire ailleurs sur le poste. Seuls les dossiers des skills sont lisibles en plus (chemins
+ * réels, préfixe « // » = chemin absolu). Ni push, ni commande hors du conteneur.
+ */
+export function outilsAutorises(phase: Phase, dossiersLisibles: string[] = []): string[] {
+  const lecture = ['Read(./**)', 'Glob(./**)', 'Grep(./**)', ...dossiersLisibles.map((dossier) => `Read(/${dossier}/**)`)];
+  if (phase === 'analyse') return ['Skill', ...lecture];
+  return [
     'Skill',
-    'Read',
-    'Glob',
-    'Grep',
-    'Edit',
-    'Write',
+    ...lecture,
+    'Edit(./**)',
+    'Write(./**)',
     `Bash(${DANS_CONTENEUR} *)`,
     'Bash(git status*)',
     'Bash(git diff*)',
     'Bash(git add *)',
     'Bash(git commit *)',
     'Bash(git log*)',
-  ],
-};
+  ];
+}
+
+/** Une skill qui pré-autorise des outils ou exécute des commandes au chargement casserait ce cloisonnement. */
+export function skillSure(contenuSkill: string): boolean {
+  const entete = contenuSkill.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
+  return !/^allowed-tools:/m.test(entete) && !/!`/.test(contenuSkill);
+}
 
 export function brancheDe(demande: Pick<Demande, 'numero' | 'titre' | 'type'>): string {
   const slug = demande.titre

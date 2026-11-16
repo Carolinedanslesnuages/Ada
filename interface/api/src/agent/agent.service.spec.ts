@@ -90,7 +90,7 @@ describe('AgentService', () => {
     service.analyser(JETON, 'poc', 1);
     await service.derniereTache;
     const args = lancer.mock.calls[0]![0];
-    expect(args.slice(args.indexOf('--allowedTools') + 1)).toEqual(['Read', 'Glob', 'Grep', 'Skill']);
+    expect(args.slice(args.indexOf('--allowedTools') + 1)).toEqual(['Skill', 'Read(./**)', 'Glob(./**)', 'Grep(./**)']);
     expect(args.join(' ')).not.toContain(JETON);
     expect(args[1]).toContain('[Assistant] 🤖 **Plan proposé**');
     expect(args[1]).not.toContain('Discussion avant lancement');
@@ -136,7 +136,7 @@ describe('AgentService', () => {
   });
 
   it('équipe le projet des skills configurées, sans rien laisser à commiter', async () => {
-    const { mkdirSync, writeFileSync, readFileSync, lstatSync, readlinkSync } = await import('node:fs');
+    const { mkdirSync, writeFileSync, readFileSync, lstatSync, readlinkSync, realpathSync, existsSync } = await import('node:fs');
     const catalogue = join(racine, 'catalogue');
     for (const nom of ['dsfr-skill', 'repo-perimetre']) {
       mkdirSync(join(catalogue, nom), { recursive: true });
@@ -146,13 +146,17 @@ describe('AgentService', () => {
     mkdirSync(join(projet, '.git', 'info'), { recursive: true });
     writeFileSync(join(projet, '.git', 'info', 'exclude'), '# exclusions locales\n');
     const equipe = new AgentService(
-      lireConfig({ GITHUB_PROPRIETAIRE: 'proprio', GITHUB_CLIENT_ID: 'Iv', GITHUB_CLIENT_SECRET: 's', SESSION_SECRET: 'x'.repeat(32), AGENT_COMMANDE: '/bin/agent', AGENT_SKILLS: `${join(catalogue, 'dsfr-skill')}, ${join(catalogue, 'repo-perimetre')}, ${join(catalogue, 'absente')}` }),
+      lireConfig({ GITHUB_PROPRIETAIRE: 'proprio', GITHUB_CLIENT_ID: 'Iv', GITHUB_CLIENT_SECRET: 's', SESSION_SECRET: 'x'.repeat(32), AGENT_COMMANDE: '/bin/agent', AGENT_SKILLS: `${join(catalogue, 'dsfr-skill')}, ${join(catalogue, 'repo-perimetre')}, ${join(catalogue, 'absente')}, ${join(catalogue, 'adr-new')}` }),
       {} as GithubService,
       stories as unknown as StoriesService,
       apercu as unknown as ApercuService,
     );
-    expect(await equipe.equiperSkills(projet)).toEqual(['dsfr-skill', 'repo-perimetre']);
-    expect(await equipe.equiperSkills(projet)).toEqual(['dsfr-skill', 'repo-perimetre']);
+    mkdirSync(join(catalogue, 'adr-new'), { recursive: true });
+    writeFileSync(join(catalogue, 'adr-new', 'SKILL.md'), '---\nname: adr-new\nallowed-tools: Read Write\n---\n');
+    const attendu = { noms: ['dsfr-skill', 'repo-perimetre'], dossiers: [realpathSync(join(catalogue, 'dsfr-skill')), realpathSync(join(catalogue, 'repo-perimetre'))] };
+    expect(await equipe.equiperSkills(projet)).toEqual(attendu);
+    expect(await equipe.equiperSkills(projet)).toEqual(attendu);
+    expect(existsSync(join(projet, '.claude/skills/adr-new'))).toBe(false);
     for (const racineSkills of ['.claude/skills', '.agents/skills']) {
       const lien = join(projet, racineSkills, 'dsfr-skill');
       expect(lstatSync(lien).isSymbolicLink()).toBe(true);

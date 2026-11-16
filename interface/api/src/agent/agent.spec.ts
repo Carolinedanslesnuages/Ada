@@ -7,7 +7,8 @@ import {
   decrireEvenement,
   lireDecision,
   lireResultat,
-  OUTILS,
+  outilsAutorises,
+  skillSure,
   type Demande,
 } from './agent.js';
 
@@ -23,7 +24,7 @@ const demande: Demande = {
 
 describe('Consignes données à l’agent', () => {
   it('l’analyse est en lecture seule et demande une réponse JSON', () => {
-    expect(OUTILS.analyse).toEqual(['Read', 'Glob', 'Grep', 'Skill']);
+    expect(outilsAutorises('analyse')).toEqual(['Skill', 'Read(./**)', 'Glob(./**)', 'Grep(./**)']);
     const consigne = consigneAnalyse(demande);
     expect(consigne).toContain('PHASE : ANALYSE (lecture seule');
     expect(consigne).toContain('- titre « Ma journée »');
@@ -33,8 +34,9 @@ describe('Consignes données à l’agent', () => {
   });
 
   it('la réalisation n’autorise ni push ni commande hors du conteneur', () => {
-    expect(OUTILS.realisation.some((o) => o.includes('push'))).toBe(false);
-    expect(OUTILS.realisation.filter((o) => o.startsWith('Bash(')).every((o) => /^Bash\((docker compose -f \.\.\/compose\.yml exec|git (status|diff|add|commit|log))/.test(o))).toBe(true);
+    const realisation = outilsAutorises('realisation');
+    expect(realisation.some((o) => o.includes('push'))).toBe(false);
+    expect(realisation.filter((o) => o.startsWith('Bash(')).every((o) => /^Bash\((docker compose -f \.\.\/compose\.yml exec|git (status|diff|add|commit|log))/.test(o))).toBe(true);
     const consigne = consigneRealisation(demande, 'story/1-page-d-accueil-ma-journee');
     expect(consigne).toContain('Closes #1');
     expect(consigne).toContain('Ne pousse pas');
@@ -61,6 +63,22 @@ describe('Consignes données à l’agent', () => {
       expect(consigne).toContain('docs/accessibilite/rgaa-4.1.2/');
     }
     expect(consigneAnalyse(demande)).not.toContain('Référentiel RGAA complet');
+  });
+
+  it('limite lecture et écriture au projet, plus la lecture des dossiers de skills', () => {
+    const realisation = outilsAutorises('realisation', ['/Users/x/.local/share/dsfr-skill/skills/dsfr-skill']);
+    expect(realisation).toContain('Edit(./**)');
+    expect(realisation).toContain('Write(./**)');
+    expect(realisation).toContain('Read(//Users/x/.local/share/dsfr-skill/skills/dsfr-skill/**)');
+    expect(realisation).not.toContain('Read');
+    expect(realisation).not.toContain('Edit');
+    expect(realisation).not.toContain('Write');
+  });
+
+  it('écarte une skill qui pré-autorise des outils ou exécute des commandes', () => {
+    expect(skillSure('---\nname: sure\ndescription: x\n---\nCorps')).toBe(true);
+    expect(skillSure('---\nname: adr\nallowed-tools: Read Write\n---\nCorps')).toBe(false);
+    expect(skillSure('---\nname: dyn\n---\n!`find . -name x`')).toBe(false);
   });
 
   it('indique à l’agent quand utiliser chaque skill disponible', () => {
