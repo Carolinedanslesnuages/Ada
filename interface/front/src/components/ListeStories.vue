@@ -16,6 +16,7 @@ const emit = defineEmits<{ ouvrir: [numero: number] }>()
         <span>
           <span class="fr-text--xs fr-mb-0">#{{ story.numero }}</span>
           <span v-if="story.type === 'bug'" class="fr-text--xs fr-mb-0"> Problème :</span>
+          <span v-else-if="story.type === 'libre'" class="fr-text--xs fr-mb-0"> Mode libre :</span>
           {{ story.titre }}
         </span>
         <DsfrBadge

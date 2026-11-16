@@ -41,6 +41,7 @@ describe('AgentService', () => {
     statut,
     contenu: { role: 'agent', besoin: 'voir ma journée', benefice: 'm’organiser', criteres: ['titre'] },
     contenuBug: null,
+    contenuLibre: null,
     messages: [
       { id: 1, auteur: 'po', texte: 'Discussion avant lancement', le: '' },
       { id: 2, auteur: 'po', texte: '▶️ Lancée depuis ADA par po1.', le: '' },

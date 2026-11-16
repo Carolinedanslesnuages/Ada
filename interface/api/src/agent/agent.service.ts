@@ -139,7 +139,15 @@ export class AgentService {
           ? { auteur: 'assistant' as const, texte: m.texte.replace(MARQUEUR_ASSISTANT, '').trim() }
           : { auteur: 'po' as const, texte: m.texte.trim() },
       );
-    return { numero, titre: detail.titre, type: detail.type, contenu: detail.contenu, contenuBug: detail.contenuBug, echanges };
+    return {
+      numero,
+      titre: detail.titre,
+      type: detail.type,
+      contenu: detail.contenu,
+      contenuBug: detail.contenuBug,
+      contenuLibre: detail.contenuLibre,
+      echanges,
+    };
   }
 
   /** Exécute une phase de l'agent et renvoie sa réponse finale (texte). */

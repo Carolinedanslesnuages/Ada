@@ -39,6 +39,15 @@ export class StoriesController {
     return this.stories.detail(req.session.jeton!, this.depot(depot), numero);
   }
 
+  /** Mode sauvage : le prompt est enregistré comme issue et lancé ; l'assistant propose un plan. */
+  @Post('prompt')
+  async prompter(@Req() req: Request, @Param('depot') depot: string, @Body('texte') texte: unknown) {
+    this.agent.verifierDisponible();
+    const demande = await this.stories.prompter(req.session.jeton!, this.depot(depot), texte, req.session.utilisateur!.login);
+    this.agent.analyser(req.session.jeton!, depot, demande.numero);
+    return demande;
+  }
+
   /** Lance la demande, puis l'assistant commence son analyse (questions ou plan). */
   @Post(':numero/lancer')
   async lancer(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {

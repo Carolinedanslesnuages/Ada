@@ -47,6 +47,7 @@ describe('StoriesService', () => {
       addLabels: vi.fn(),
       getLabel: vi.fn(),
       createLabel: vi.fn(),
+      create: vi.fn(),
     },
   };
   const github = { client: vi.fn(() => gh) } as unknown as GithubService;
@@ -131,6 +132,33 @@ describe('StoriesService', () => {
   it('traduit un « introuvable » de GitHub', async () => {
     gh.paginate.mockRejectedValue({ status: 404 });
     await expect(service.lister('jeton', 'inconnu')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  describe('Mode sauvage', () => {
+    it('enregistre le prompt comme issue « mode-libre », déjà lancée', async () => {
+      depot([issue(1, { state: 'closed' })]);
+      gh.issues.getLabel.mockResolvedValue({});
+      gh.issues.create.mockResolvedValue({
+        data: issue(9, { title: 'Demande libre : Mets le titre en bleu', labels: [{ name: 'mode-libre' }, { name: 'story:en-cours' }], body: '### Demande libre (mode sauvage, hors story)\n\nMets le titre en bleu\n\n<!-- ada:mode-libre -->' }),
+      });
+      const demande = await service.prompter('jeton', 'poc', '  Mets le titre en bleu ', 'po1');
+      const creation = gh.issues.create.mock.calls[0][0];
+      expect(creation.title).toBe('Demande libre : Mets le titre en bleu');
+      expect(creation.labels).toEqual(['mode-libre', 'story:en-cours']);
+      expect(creation.body).toContain('Mets le titre en bleu');
+      expect(gh.issues.createComment).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 9, body: '▶️ Lancée depuis ADA par po1 (mode sauvage).' }));
+      expect(demande).toMatchObject({ numero: 9, type: 'libre', statut: 'en-cours', prete: true });
+    });
+
+    it('refuse un prompt si une autre demande est en cours', async () => {
+      depot([issue(1, { labels: [{ name: 'user-story' }, { name: 'story:en-cours' }] })]);
+      await expect(service.prompter('jeton', 'poc', 'Mets le titre en bleu', 'po1')).rejects.toThrow(/une seule demande à la fois/);
+      expect(gh.issues.create).not.toHaveBeenCalled();
+    });
+
+    it('refuse un prompt vide', async () => {
+      await expect(service.prompter('jeton', 'poc', '   ', 'po1')).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 
   it('refuse un message vide', async () => {

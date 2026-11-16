@@ -3,15 +3,20 @@ import { CONFIG, type Config } from '../config.js';
 import { GithubService } from '../github/github.service.js';
 import { traduireErreurGithub } from '../github/erreurs.js';
 import {
+  formaterPrompt,
   LABEL_BUG,
+  LABEL_LIBRE,
   LABEL_STORY,
   lireBug,
+  lirePrompt,
   lireStory,
   STATUTS,
   STATUTS_ACTIFS,
   statutDepuis,
+  titrePrompt,
   typeDepuis,
   verifierPrete,
+  verifierPrompt,
   type ContenuBug,
   type ContenuStory,
   type Statut,
@@ -48,6 +53,8 @@ export interface Message {
 export interface DetailStory extends ResumeStory {
   contenu: ContenuStory | null;
   contenuBug: ContenuBug | null;
+  /** Mode sauvage : le prompt du PO. */
+  contenuLibre: string | null;
   texteBrut: string;
   messages: Message[];
 }
@@ -69,7 +76,7 @@ const resumer = (i: Issue): ResumeStory => {
   const labels = nomsLabels(i.labels);
   const corps = i.body ?? '';
   const type = typeDepuis(labels, corps) ?? 'story';
-  const verification = verifierPrete(type, lireStory(corps), lireBug(corps));
+  const verification = verifierPrete(type, lireStory(corps), lireBug(corps), lirePrompt(corps));
   return {
     numero: i.number,
     type,
@@ -127,6 +134,7 @@ export class StoriesService {
         ...resumer(issue as Issue),
         contenu: lireStory(corps),
         contenuBug: lireBug(corps),
+        contenuLibre: lirePrompt(corps),
         texteBrut: corps,
         messages: commentaires.map((c) => ({
           id: c.id,
@@ -136,6 +144,40 @@ export class StoriesService {
           le: c.created_at,
         })),
       };
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+  }
+
+  /**
+   * Mode sauvage : le prompt devient une issue « mode-libre » (trace dans GitHub), lancée tout
+   * de suite. Mêmes règles qu'une story : une seule demande active par projet.
+   */
+  async prompter(jeton: string, depot: string, texte: unknown, login: string): Promise<ResumeStory> {
+    const verification = verifierPrompt(texte);
+    if (!verification.ok) throw new BadRequestException({ erreurs: { texte: verification.erreur } });
+    const active = (await this.lister(jeton, depot)).find((s) => STATUTS_ACTIFS.includes(s.statut));
+    if (active) {
+      throw new ConflictException(`La demande #${active.numero} « ${active.titre} » est en cours : une seule demande à la fois`);
+    }
+    const gh = this.github.client(jeton);
+    try {
+      await this.assurerLabel(jeton, depot, LABEL_LIBRE);
+      await this.assurerLabel(jeton, depot, STATUTS['en-cours']);
+      const { data } = await gh.issues.create({
+        owner: this.owner,
+        repo: depot,
+        title: titrePrompt(verification.texte),
+        body: formaterPrompt(verification.texte),
+        labels: [LABEL_LIBRE, STATUTS['en-cours']],
+      });
+      await gh.issues.createComment({
+        owner: this.owner,
+        repo: depot,
+        issue_number: data.number,
+        body: `${MARQUEUR_LANCEMENT} par ${login} (mode sauvage).`,
+      });
+      return resumer(data as Issue);
     } catch (e) {
       traduireErreurGithub(e);
     }
@@ -156,7 +198,7 @@ export class StoriesService {
     }
     const gh = this.github.client(jeton);
     try {
-      const labelType = cible.type === 'bug' ? LABEL_BUG : LABEL_STORY;
+      const labelType = cible.type === 'bug' ? LABEL_BUG : cible.type === 'libre' ? LABEL_LIBRE : LABEL_STORY;
       await this.assurerLabel(jeton, depot, labelType);
       await this.assurerLabel(jeton, depot, STATUTS['en-cours']);
       await gh.issues.addLabels({
@@ -242,8 +284,8 @@ export class StoriesService {
         owner: this.owner,
         repo: depot,
         name: nom,
-        color: '0063cb',
-        description: 'Statut géré par ADA',
+        color: nom === LABEL_LIBRE ? '6a6af4' : '0063cb',
+        description: nom === LABEL_LIBRE ? 'Demande libre du PO (mode sauvage, hors story)' : 'Statut géré par ADA',
       });
     }
   }

@@ -8,6 +8,11 @@ import { z } from 'zod';
 export const CRITERES_MAX = 4;
 export const LABEL_STORY = 'user-story';
 export const LABEL_BUG = 'bug';
+/** Demande libre (« mode sauvage ») : un prompt du PO, hors story, enregistré comme issue. */
+export const LABEL_LIBRE = 'mode-libre';
+const MARQUEUR_LIBRE = '<!-- ada:mode-libre -->';
+export const PROMPT_MIN = 10;
+export const PROMPT_MAX = 1000;
 
 export const STATUTS = {
   'en-cours': 'story:en-cours',
@@ -18,7 +23,7 @@ export const STATUTS = {
 } as const;
 
 export type Statut = 'nouvelle' | keyof typeof STATUTS | 'livree';
-export type TypeDemande = 'story' | 'bug';
+export type TypeDemande = 'story' | 'bug' | 'libre';
 
 /** Statuts qui occupent le projet : tant qu'une demande y est, on n'en lance pas d'autre. */
 export const STATUTS_ACTIFS: Statut[] = ['en-cours', 'questions', 'plan-a-valider', 'en-verification', 'besoin-dev'];
@@ -66,6 +71,31 @@ export function lireStory(corps: string): ContenuStory | null {
   };
 }
 
+/** Corps de l'issue créée pour un prompt : lisible sur GitHub, relisible par ADA. */
+export function formaterPrompt(texte: string): string {
+  return ['### Demande libre (mode sauvage, hors story)', '', texte.trim(), '', MARQUEUR_LIBRE].join('\n');
+}
+
+export function lirePrompt(corps: string): string | null {
+  if (!corps.includes(MARQUEUR_LIBRE)) return null;
+  return sectionsFormulaire(corps).get('demande libre (mode sauvage, hors story)')?.replace(MARQUEUR_LIBRE, '').trim() ?? null;
+}
+
+/** Titre de l'issue : le début du prompt, coupé proprement. */
+export function titrePrompt(texte: string): string {
+  const ligne = texte.trim().split('\n')[0]!.replace(/\s+/g, ' ');
+  return `Demande libre : ${ligne.length > 60 ? `${ligne.slice(0, 57).trimEnd()}…` : ligne}`;
+}
+
+export function verifierPrompt(texte: unknown): { ok: true; texte: string } | { ok: false; erreur: string } {
+  const propre = typeof texte === 'string' ? texte.trim() : '';
+  if (propre.length < PROMPT_MIN) return { ok: false, erreur: 'Décrivez votre demande en une phrase au moins' };
+  if (propre.length > PROMPT_MAX) {
+    return { ok: false, erreur: `${PROMPT_MAX} caractères au maximum : pour une demande plus importante, écrivez des stories` };
+  }
+  return { ok: true, texte: propre };
+}
+
 export function lireBug(corps: string): ContenuBug | null {
   const f = sectionsFormulaire(corps);
   if (!f.has('ce qui se passe')) return null;
@@ -100,7 +130,12 @@ export function verifierPrete(
   type: TypeDemande,
   story: ContenuStory | null,
   bug: ContenuBug | null,
+  prompt: string | null = null,
 ): { prete: true } | { prete: false; raison: string } {
+  if (type === 'libre') {
+    const r = verifierPrompt(prompt);
+    return r.ok ? { prete: true } : { prete: false, raison: r.erreur };
+  }
   if (type === 'story') {
     if (!story) return { prete: false, raison: 'Story écrite hors du formulaire « User story » de GitHub' };
     const r = schemaStory.safeParse(story);
@@ -122,6 +157,7 @@ export function statutDepuis(etat: 'open' | 'closed', labels: string[]): Statut 
  * ne pose son label que si celui-ci existe déjà dans le dépôt). null : ni l'un ni l'autre.
  */
 export function typeDepuis(labels: string[], corps = ''): TypeDemande | null {
+  if (labels.includes(LABEL_LIBRE) || corps.includes(MARQUEUR_LIBRE)) return 'libre';
   if (labels.includes(LABEL_BUG)) return 'bug';
   if (labels.includes(LABEL_STORY)) return 'story';
   if (lireStory(corps)) return 'story';

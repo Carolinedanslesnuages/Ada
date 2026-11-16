@@ -31,7 +31,7 @@ export const LIBELLES_STATUT: Record<
   livree: { libelle: 'Livrée', type: 'success' },
 }
 
-export type TypeDemande = 'story' | 'bug'
+export type TypeDemande = 'story' | 'bug' | 'libre'
 
 export interface ResumeStory {
   numero: number
@@ -69,6 +69,7 @@ export interface Message {
 export interface DetailStory extends ResumeStory {
   contenu: ContenuStory | null
   contenuBug: ContenuBug | null
+  contenuLibre: string | null
   texteBrut: string
   messages: Message[]
 }
@@ -120,3 +121,6 @@ export const LIBELLES_CONTROLE: Record<Controle['etat'], string> = {
   reussi: 'réussi',
   echec: 'échoué',
 }
+
+export const PROMPT_MIN = 10
+export const PROMPT_MAX = 1000

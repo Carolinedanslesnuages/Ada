@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { lireBug, lireStory, statutDepuis, typeDepuis, verifierPrete } from './story.js';
+import {
+  formaterPrompt,
+  lireBug,
+  lirePrompt,
+  lireStory,
+  statutDepuis,
+  titrePrompt,
+  typeDepuis,
+  verifierPrete,
+  verifierPrompt,
+} from './story.js';
 
 const formulaireStory = (criteres: string) =>
   [
@@ -107,5 +117,30 @@ describe('Statut et type', () => {
     expect(typeDepuis([], formulaireStory('- a'))).toBe('story');
     expect(typeDepuis([], formulaireBug)).toBe('bug');
     expect(typeDepuis([], 'Une question libre')).toBeNull();
+  });
+});
+
+describe('Mode sauvage : demande libre', () => {
+  it('enregistre le prompt dans un format relisible, reconnu comme demande libre', () => {
+    const corps = formaterPrompt('  Mets le titre de la page en bleu  ');
+    expect(corps).toContain('### Demande libre (mode sauvage, hors story)');
+    expect(lirePrompt(corps)).toBe('Mets le titre de la page en bleu');
+    expect(typeDepuis([], corps)).toBe('libre');
+    expect(typeDepuis(['mode-libre'], '')).toBe('libre');
+    expect(verifierPrete('libre', null, null, lirePrompt(corps))).toEqual({ prete: true });
+  });
+
+  it('titre l’issue avec le début du prompt', () => {
+    expect(titrePrompt('Ajoute un lien vers le guide dans le pied de page')).toBe(
+      'Demande libre : Ajoute un lien vers le guide dans le pied de page',
+    );
+    expect(titrePrompt('a'.repeat(80)).length).toBeLessThanOrEqual('Demande libre : '.length + 58);
+  });
+
+  it('refuse un prompt vide ou démesuré (une application entière s’écrit en stories)', () => {
+    expect(verifierPrompt('  ')).toEqual({ ok: false, erreur: 'Décrivez votre demande en une phrase au moins' });
+    const long = verifierPrompt('x'.repeat(1001));
+    expect(long.ok).toBe(false);
+    if (!long.ok) expect(long.erreur).toMatch(/écrivez des stories/);
   });
 });

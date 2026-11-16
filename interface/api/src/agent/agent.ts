@@ -12,6 +12,8 @@ export interface Demande {
   type: TypeDemande;
   contenu: ContenuStory | null;
   contenuBug: ContenuBug | null;
+  /** Mode sauvage : le prompt du PO. */
+  contenuLibre: string | null;
   /** Échanges depuis le lancement (questions, plan, réponses du PO), dans l'ordre. */
   echanges: { auteur: 'assistant' | 'po'; texte: string }[];
 }
@@ -49,7 +51,8 @@ export function brancheDe(demande: Pick<Demande, 'numero' | 'titre' | 'type'>): 
     .replace(/^-+|-+$/g, '')
     .slice(0, 40)
     .replace(/-+$/, '');
-  return `${demande.type === 'bug' ? 'fix' : 'story'}/${demande.numero}-${slug || 'demande'}`;
+  const prefixe = { bug: 'fix', libre: 'libre', story: 'story' }[demande.type];
+  return `${prefixe}/${demande.numero}-${slug.replace(/^demande-libre-/, '') || 'demande'}`;
 }
 
 function decrireDemande(d: Demande): string {
@@ -70,6 +73,9 @@ function decrireDemande(d: Demande): string {
       `Comment le reproduire : ${d.contenuBug.etapes}`,
       `Écran concerné : ${d.contenuBug.ecran || 'non précisé'}`,
     );
+  }
+  if (d.type === 'libre' && d.contenuLibre) {
+    lignes.push('Demande libre du PO (mode sauvage, hors story) :', d.contenuLibre);
   }
   if (d.echanges.length) {
     lignes.push('', 'Échanges avec le PO depuis le lancement :');
@@ -97,6 +103,10 @@ Ta tâche :
    critère), « Accessibilité » (points RGAA concernés), « Point d'attention » (données, etc.).
    Si une donnée est partagée entre plusieurs écrans, annonce l'usage d'un store Pinia.
 3. Si le PO a déjà répondu à tes questions dans les échanges, tiens-en compte.
+4. Taille : une demande doit rester petite (un écran ou un parcours, une évolution des données au
+   plus). Si elle est trop grosse — à plus forte raison une application entière ou plusieurs
+   fonctionnalités — ne propose PAS de plan : réponds par des questions qui proposent de la découper
+   en petites demandes successives (ou en user stories), en suggérant par quoi commencer.
 
 Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
 {"decision":"questions","texte":"<tes questions>"}  ou  {"decision":"plan","texte":"<ton plan>"}`;
@@ -125,10 +135,10 @@ Règles :
 - Contrôle final, une seule fois, en jugeant sur le code de retour de chaque commande :
   ${DANS_CONTENEUR} "cd /app/api && npm run lint && npm test && npm run test:e2e && npm run build"
   ${DANS_CONTENEUR} "cd /app/front && npx oxlint . && npx eslint . && npm run type-check && npm run test:unit -- --run && npm run build-only"
-- Écris la fiche revues/${branche.replace('/', '-')}.md (critères et tests qui les prouvent,
+- Écris la fiche revues/${branche.replace('/', '-')}.md${d.type === 'libre' ? ' (en tête : « Réalisé hors story, en mode libre »)' : ''} (critères et tests qui les prouvent,
   accessibilité dont ce qu'un humain doit vérifier, périmètre, résultat des contrôles), ajoute la
   demande à « Stories réalisées » de PROJET.md, puis commite au format Conventional Commits :
-  « ${d.type === 'bug' ? 'fix' : 'feat'}: <ce que l'utilisateur peut désormais faire> » avec
+  « ${d.type === 'bug' ? 'fix' : 'feat'}: <ce que l'utilisateur peut désormais faire> »${d.type === 'libre' ? ' (ou « fix: » si la demande corrige quelque chose)' : ''} avec
   « Closes #${d.numero} » dans le corps. Ne pousse pas : l'atelier s'en charge.
 - Trois échecs sur le même problème : arrête-toi.
 

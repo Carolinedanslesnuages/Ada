@@ -61,6 +61,25 @@ describe('Écran de l’atelier', () => {
     wrapper.unmount()
   })
 
+  it('ouvre le formulaire « Prompter » quand aucune demande n’est en cours', async () => {
+    const wrapper = await monter()
+    const prompter = wrapper.findAll('button').find((b) => b.text().includes('Prompter'))!
+    expect(prompter.attributes('disabled')).toBeUndefined()
+    await prompter.trigger('click')
+    expect(wrapper.find('h2.fr-h4').text()).toBe('Prompter (mode libre)')
+    wrapper.unmount()
+  })
+
+  it('désactive « Prompter » quand une demande est déjà en cours', async () => {
+    lire.mockImplementation(async (chemin: string) =>
+      chemin === '/projets/poc-portail/stories' ? [{ ...story, statut: 'en-cours' }] : reponses[chemin],
+    )
+    const wrapper = await monter()
+    const prompter = wrapper.findAll('button').find((b) => b.text().includes('Prompter'))!
+    expect(prompter.attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
+
   it('relit la liste quand on clique sur « Actualiser »', async () => {
     const wrapper = await monter()
     lire.mockClear()

@@ -16,6 +16,7 @@ const story: DetailStory = {
   type: 'story',
   texteBrut: '',
   contenuBug: null,
+  contenuLibre: null,
   contenu: {
     role: "agent d'accueil",
     besoin: 'voir les salles libres',
@@ -149,6 +150,14 @@ describe('Fil d’une story', () => {
       expect(wrapper.text()).toContain('Front : en cours')
       wrapper.unmount()
     })
+  })
+
+  it('affiche une demande libre (mode sauvage)', () => {
+    const wrapper = monterAvec({ story: { ...story, type: 'libre', contenu: null, contenuLibre: 'Mets le titre en bleu' } })
+    expect(wrapper.text()).toContain('Demande libre (hors story)')
+    expect(wrapper.text()).toContain('Mets le titre en bleu')
+    expect(wrapper.text()).toContain('Enregistrée sur GitHub comme demande n° 12 « mode libre »')
+    wrapper.unmount()
   })
 
   it('montre le lien vers la pull request une fois la réalisation terminée', () => {

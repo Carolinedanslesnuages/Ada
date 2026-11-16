@@ -114,6 +114,19 @@ export const useStoriesStore = defineStore('stories', () => {
   const validerPlan = (projet: string, numero: number) =>
     agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/plan/valider`, {}))
 
+  /** Mode sauvage : enregistre le prompt (issue), le lance et l'ouvre ; renvoie l'erreur éventuelle. */
+  async function prompter(projet: string, texte: string): Promise<string | null> {
+    try {
+      const demande = await api.envoyer<ResumeStory>(`${chemin(projet)}/prompt`, { texte })
+      await charger(projet, true)
+      await ouvrir(projet, demande.numero)
+      await chargerActivite(projet, demande.numero)
+      return null
+    } catch (e) {
+      return (e as Error).message
+    }
+  }
+
   const relancer = (projet: string, numero: number) =>
     agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/relancer`, {}))
 
@@ -144,6 +157,7 @@ export const useStoriesStore = defineStore('stories', () => {
     suivre,
     validerPlan,
     relancer,
+    prompter,
     ouvrir,
     lancer,
     repondre,

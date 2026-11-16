@@ -30,6 +30,7 @@ const detail = (numero: number, extra: Partial<ResumeStory> = {}) => ({
   ...resume(numero, extra),
   contenu: null,
   contenuBug: null,
+  contenuLibre: null,
   texteBrut: '',
   messages: [],
 })
@@ -108,6 +109,23 @@ describe('Store des stories', () => {
     expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/2/fusionner', {})
     expect(store.verification?.pullRequest?.etat).toBe('fusionnee')
     expect(store.active).toBeNull()
+  })
+
+  it('mode sauvage : envoie le prompt, puis ouvre la demande créée', async () => {
+    const store = useStoriesStore()
+    envoyer.mockResolvedValue(resume(9, { type: 'libre', statut: 'en-cours' }))
+    lire.mockImplementation(async (chemin: string) =>
+      chemin.endsWith('/stories') ? [resume(9, { type: 'libre', statut: 'en-cours' })] : chemin.endsWith('/activite') ? null : detail(9, { type: 'libre', statut: 'en-cours' }),
+    )
+    expect(await store.prompter('mon-poc', 'Mets le titre en bleu')).toBeNull()
+    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/prompt', { texte: 'Mets le titre en bleu' })
+    expect(store.courante?.numero).toBe(9)
+  })
+
+  it('mode sauvage : renvoie le refus (une autre demande en cours)', async () => {
+    const store = useStoriesStore()
+    envoyer.mockRejectedValue(new ErreurApi(409, 'La demande #1 « A » est en cours : une seule demande à la fois'))
+    expect(await store.prompter('mon-poc', 'Mets le titre en bleu')).toMatch(/une seule demande à la fois/)
   })
 
   it('garde le message si l’action est refusée', async () => {

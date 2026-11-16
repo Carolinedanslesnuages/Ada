@@ -16,6 +16,7 @@ const demande: Demande = {
   type: 'story',
   contenu: { role: 'agent', besoin: 'voir ma journée', benefice: 'm’organiser', criteres: ['titre « Ma journée »', 'date du jour'] },
   contenuBug: null,
+  contenuLibre: null,
   echanges: [{ auteur: 'po', texte: 'La date en toutes lettres.' }],
 };
 
@@ -37,6 +38,16 @@ describe('Consignes données à l’agent', () => {
     expect(consigne).toContain('Ne pousse pas');
     expect(consigne).toContain('Noms explicites partout');
     expect(consigne).toContain('revues/story-1-page-d-accueil-ma-journee.md');
+  });
+
+  it('mode sauvage : décrit le prompt et refuse de planifier une demande trop grosse', () => {
+    const libre: Demande = { ...demande, type: 'libre', titre: 'Demande libre : Mets le titre en bleu', contenu: null, contenuLibre: 'Mets le titre en bleu', echanges: [] };
+    const analyse = consigneAnalyse(libre);
+    expect(analyse).toContain('Demande libre du PO (mode sauvage, hors story) :\nMets le titre en bleu');
+    expect(analyse).toContain('une application entière');
+    expect(analyse).toContain('ne propose PAS de plan');
+    expect(brancheDe(libre)).toBe('libre/1-mets-le-titre-en-bleu');
+    expect(consigneRealisation(libre, 'libre/1-mets-le-titre-en-bleu')).toContain('Réalisé hors story, en mode libre');
   });
 
   it('nomme la branche d’après le numéro et le titre', () => {

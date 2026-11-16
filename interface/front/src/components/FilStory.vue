@@ -116,6 +116,13 @@ function envoyer(): void {
         </template>
       </dl>
     </section>
+    <section v-else-if="story.contenuLibre" aria-labelledby="titre-libre">
+      <h3 id="titre-libre" class="fr-h6 fr-mb-1w">Demande libre (hors story)</h3>
+      <p class="fr-text--xs fr-mb-1w">
+        Enregistrée sur GitHub comme demande n° {{ story.numero }} « mode libre ».
+      </p>
+      <p class="fil-pre">{{ story.contenuLibre }}</p>
+    </section>
     <p v-else class="fr-text--sm">{{ story.texteBrut }}</p>
 
     <section v-if="story.statut !== 'nouvelle'" aria-labelledby="titre-suivi">

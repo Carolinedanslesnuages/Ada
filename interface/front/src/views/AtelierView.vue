@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import FilStory from '@/components/FilStory.vue'
+import FormulairePrompt from '@/components/FormulairePrompt.vue'
 import FormulaireProjet from '@/components/FormulaireProjet.vue'
 import ListeStories from '@/components/ListeStories.vue'
 import PanneauApercu from '@/components/PanneauApercu.vue'
@@ -81,6 +82,7 @@ function choisirProjet(nom: string | number | null | undefined): void {
 }
 
 async function ouvrir(numero: number): Promise<void> {
+  modePrompt.value = false
   if (projets.nomCourant) await stories.ouvrir(projets.nomCourant, numero)
 }
 
@@ -99,6 +101,27 @@ const autreEnCours = computed(() =>
 )
 
 const actionEnCours = ref(false)
+
+/** Mode sauvage : formulaire « Prompter » à la place du détail d'une demande. */
+const modePrompt = ref(false)
+const erreurPrompt = ref<string | null>(null)
+
+function ouvrirPrompt(): void {
+  stories.fermer()
+  erreurPrompt.value = null
+  modePrompt.value = true
+}
+
+async function prompter(texte: string): Promise<void> {
+  if (!projets.nomCourant) return
+  actionEnCours.value = true
+  try {
+    erreurPrompt.value = await stories.prompter(projets.nomCourant, texte)
+    if (!erreurPrompt.value) modePrompt.value = false
+  } finally {
+    actionEnCours.value = false
+  }
+}
 
 async function agir(action: (projet: string, numero: number) => Promise<void>): Promise<void> {
   if (!projets.nomCourant || !stories.courante) return
@@ -215,6 +238,17 @@ onUnmounted(() => {
             Signaler un problème sur GitHub<span class="fr-sr-only"> (nouvelle fenêtre)</span>
           </a>
         </li>
+        <li>
+          <DsfrButton
+            size="sm"
+            tertiary
+            icon="fr-icon-chat-3-line"
+            label="Prompter"
+            :disabled="Boolean(stories.active)"
+            :title="stories.active ? 'Une demande est déjà en cours : une seule à la fois' : 'Mode libre : un petit changement sans story'"
+            @click="ouvrirPrompt"
+          />
+        </li>
       </ul>
 
       <p v-if="stories.chargement">Chargement des stories…</p>
@@ -230,8 +264,15 @@ onUnmounted(() => {
         @ouvrir="ouvrir"
       />
 
+      <FormulairePrompt
+        v-if="modePrompt"
+        :envoi-en-cours="actionEnCours"
+        :erreur-serveur="erreurPrompt"
+        @soumettre="prompter"
+        @annuler="modePrompt = false"
+      />
       <FilStory
-        v-if="stories.courante"
+        v-else-if="stories.courante"
         :story="stories.courante"
         :autre-en-cours="autreEnCours"
         :erreur-lancement="stories.erreurLancement"
