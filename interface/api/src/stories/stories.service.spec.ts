@@ -48,6 +48,9 @@ describe('StoriesService', () => {
       getLabel: vi.fn(),
       createLabel: vi.fn(),
       create: vi.fn(),
+      listAssignees: vi.fn(),
+      addAssignees: vi.fn(),
+      removeAssignees: vi.fn(),
     },
   };
   const github = { client: vi.fn(() => gh) } as unknown as GithubService;
@@ -173,5 +176,54 @@ describe('StoriesService', () => {
   it('refuse un message vide', async () => {
     await expect(service.repondre('jeton', 'poc', 1, '   ')).rejects.toBeInstanceOf(BadRequestException);
     expect(gh.issues.createComment).not.toHaveBeenCalled();
+  });
+
+  describe('assigner un développeur à une demande bloquée', () => {
+    const bloquee = (assignees: { login: string }[] = []) =>
+      issue(7, { labels: [{ name: 'user-story' }, { name: 'story:besoin-dev' }], assignees });
+
+    beforeEach(() => {
+      gh.paginate.mockImplementation(async (methode: unknown) =>
+        methode === gh.issues.listAssignees ? [{ login: 'dev-b', avatar_url: 'b.png' }, { login: 'dev-a', avatar_url: null }] : [],
+      );
+      gh.issues.listComments.mockResolvedValue({ data: [] });
+    });
+
+    it('propose les personnes qui ont accès au dépôt', async () => {
+      expect(await service.developpeurs('jeton', 'poc')).toEqual([
+        { login: 'dev-a', avatar: null },
+        { login: 'dev-b', avatar: 'b.png' },
+      ]);
+    });
+
+    it('assigne la personne choisie sur GitHub, et ADA affiche son nom', async () => {
+      gh.issues.get.mockResolvedValueOnce({ data: bloquee() }).mockResolvedValueOnce({ data: bloquee([{ login: 'dev-a' }]) });
+      const detail = await service.assigner('jeton', 'poc', 7, 'dev-a');
+      expect(gh.issues.addAssignees).toHaveBeenCalledWith({ owner: 'proprio', repo: 'poc', issue_number: 7, assignees: ['dev-a'] });
+      expect(gh.issues.removeAssignees).not.toHaveBeenCalled();
+      expect(detail.assignes).toEqual([{ login: 'dev-a', avatar: null }]);
+    });
+
+    it('change d’assignation (l’ancien est retiré) ou la retire', async () => {
+      gh.issues.get.mockResolvedValue({ data: bloquee([{ login: 'dev-a' }]) });
+      await service.assigner('jeton', 'poc', 7, 'dev-b');
+      expect(gh.issues.removeAssignees).toHaveBeenCalledWith(expect.objectContaining({ assignees: ['dev-a'] }));
+      expect(gh.issues.addAssignees).toHaveBeenCalledWith(expect.objectContaining({ assignees: ['dev-b'] }));
+      vi.clearAllMocks();
+      gh.issues.get.mockResolvedValue({ data: bloquee([{ login: 'dev-b' }]) });
+      gh.issues.listComments.mockResolvedValue({ data: [] });
+      await service.assigner('jeton', 'poc', 7, null);
+      expect(gh.issues.removeAssignees).toHaveBeenCalledWith(expect.objectContaining({ assignees: ['dev-b'] }));
+      expect(gh.issues.addAssignees).not.toHaveBeenCalled();
+    });
+
+    it('refuse une demande qui n’est pas bloquée, ou une personne sans accès au projet', async () => {
+      gh.issues.get.mockResolvedValue({ data: issue(7) });
+      await expect(service.assigner('jeton', 'poc', 7, 'dev-a')).rejects.toThrow(/seulement à une demande bloquée/);
+      gh.issues.get.mockResolvedValue({ data: bloquee() });
+      await expect(service.assigner('jeton', 'poc', 7, 'inconnu')).rejects.toThrow(/n’a pas accès au projet/);
+      await expect(service.assigner('jeton', 'poc', 7, '../x')).rejects.toThrow(/Choisissez un développeur/);
+      expect(gh.issues.addAssignees).not.toHaveBeenCalled();
+    });
   });
 });

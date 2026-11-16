@@ -52,7 +52,15 @@ export interface Message {
   le: string;
 }
 
+/** Développeur qui peut être assigné à une demande (accès au dépôt du projet). */
+export interface Personne {
+  login: string;
+  avatar: string | null;
+}
+
 export interface DetailStory extends ResumeStory {
+  /** Développeurs assignés sur GitHub (déblocage d'une demande « Besoin d'un développeur »). */
+  assignes: Personne[];
   contenu: ContenuStory | null;
   contenuBug: ContenuBug | null;
   /** Mode sauvage : le prompt du PO. */
@@ -140,6 +148,7 @@ export class StoriesService {
         contenuBug: lireBug(corps),
         contenuLibre: lirePrompt(corps),
         texteBrut: corps,
+        assignes: (issue.assignees ?? []).map((personne) => ({ login: personne.login, avatar: personne.avatar_url ?? null })),
         messages: commentaires.map((c) => ({
           id: c.id,
           auteur: c.user?.login ?? 'inconnu',
@@ -151,6 +160,48 @@ export class StoriesService {
     } catch (e) {
       traduireErreurGithub(e);
     }
+  }
+
+  /** Personnes qui peuvent être assignées aux issues du dépôt (accès au projet). */
+  async developpeurs(jeton: string, depot: string): Promise<Personne[]> {
+    const gh = this.github.client(jeton);
+    try {
+      const personnes = await gh.paginate(gh.issues.listAssignees, { owner: this.owner, repo: depot, per_page: 100 });
+      return personnes
+        .map((personne) => ({ login: personne.login, avatar: personne.avatar_url ?? null }))
+        .sort((premiere, seconde) => premiere.login.localeCompare(seconde.login));
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+  }
+
+  /**
+   * Assigne un développeur à une demande bloquée (« Besoin d'un développeur »), en remplaçant
+   * l'assignation éventuelle ; `null` retire l'assignation (possible à tout moment). ADA ne
+   * prévient pas le développeur : il l'a été par ailleurs.
+   */
+  async assigner(jeton: string, depot: string, numero: number, login: unknown): Promise<DetailStory> {
+    if (login !== null && (typeof login !== 'string' || !/^[A-Za-z0-9-]{1,39}$/.test(login))) {
+      throw new BadRequestException('Choisissez un développeur dans la liste');
+    }
+    const gh = this.github.client(jeton);
+    const { data: issue } = await gh.issues.get({ owner: this.owner, repo: depot, issue_number: numero }).catch((e: unknown) => traduireErreurGithub(e));
+    if (login !== null) {
+      if (resumer(issue as Issue).statut !== 'besoin-dev') {
+        throw new BadRequestException('On assigne un développeur seulement à une demande bloquée (« Besoin d’un développeur »)');
+      }
+      if (!(await this.developpeurs(jeton, depot)).some((personne) => personne.login === login)) {
+        throw new BadRequestException(`${login} n’a pas accès au projet : il ne peut pas être assigné`);
+      }
+    }
+    try {
+      const actuels = (issue.assignees ?? []).map((personne) => personne.login).filter((actuel) => actuel !== login);
+      if (actuels.length) await gh.issues.removeAssignees({ owner: this.owner, repo: depot, issue_number: numero, assignees: actuels });
+      if (login !== null) await gh.issues.addAssignees({ owner: this.owner, repo: depot, issue_number: numero, assignees: [login] });
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+    return this.detail(jeton, depot, numero);
   }
 
   /**

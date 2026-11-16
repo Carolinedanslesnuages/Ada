@@ -4,6 +4,7 @@ import FilStory from '@/components/FilStory.vue'
 import FormulairePrompt from '@/components/FormulairePrompt.vue'
 import FormulaireProjet from '@/components/FormulaireProjet.vue'
 import ListeStories from '@/components/ListeStories.vue'
+import AssignationDeveloppeur from '@/components/AssignationDeveloppeur.vue'
 import StoriesLivrees from '@/components/StoriesLivrees.vue'
 import PanneauApercu from '@/components/PanneauApercu.vue'
 import PanneauVersions from '@/components/PanneauVersions.vue'
@@ -297,6 +298,11 @@ onUnmounted(() => {
         @relancer="relancer"
         @fusionner="fusionner"
         @repondre="repondre"
+      />
+      <AssignationDeveloppeur
+        v-if="!modePrompt && stories.courante && projets.nomCourant"
+        :projet="projets.nomCourant"
+        :story="stories.courante"
       />
       <DsfrAlert v-if="stories.erreurAction" type="error" small :description="stories.erreurAction" />
     </section>

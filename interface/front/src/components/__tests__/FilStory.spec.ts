@@ -16,6 +16,7 @@ const story: DetailStory = {
   url: 'https://github.com/proprio/poc/issues/12',
   type: 'story',
   texteBrut: '',
+  assignes: [],
   contenuBug: null,
   contenuLibre: null,
   contenu: {

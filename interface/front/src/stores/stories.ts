@@ -5,6 +5,7 @@ import {
   STATUTS_ACTIFS,
   type Activite,
   type DetailStory,
+  type Personne,
   type ResumeStory,
   type Verification,
 } from '@/lib/story'
@@ -18,6 +19,8 @@ export const useStoriesStore = defineStore('stories', () => {
   const activite = ref<Activite | null>(null)
   const verification = ref<Verification | null>(null)
   const erreurAction = ref<string | null>(null)
+  /** Développeurs assignables du projet courant (lus à la demande). */
+  const developpeurs = ref<Personne[] | null>(null)
 
   /** La demande qui occupe le projet : tant qu'elle existe, on n'en lance pas d'autre. */
   /** Liste principale : ce qui reste à faire ou est en cours. */
@@ -35,7 +38,10 @@ export const useStoriesStore = defineStore('stories', () => {
   async function charger(projet: string, garderCourante = false): Promise<void> {
     chargement.value = !garderCourante
     erreur.value = null
-    if (!garderCourante) courante.value = null
+    if (!garderCourante) {
+      courante.value = null
+      developpeurs.value = null // autre projet : autres personnes assignables
+    }
     try {
       liste.value = await api.lire<ResumeStory[]>(chemin(projet))
     } catch (e) {
@@ -160,7 +166,29 @@ export const useStoriesStore = defineStore('stories', () => {
     verification.value = null
   }
 
+  async function chargerDeveloppeurs(projet: string): Promise<void> {
+    erreurAction.value = null
+    try {
+      developpeurs.value = await api.lire<Personne[]>(`${chemin(projet)}/developpeurs`)
+    } catch (e) {
+      erreurAction.value = (e as Error).message
+    }
+  }
+
+  /** Assigne un développeur à la demande ouverte (null : retire l'assignation). */
+  async function assigner(projet: string, numero: number, login: string | null): Promise<void> {
+    erreurAction.value = null
+    try {
+      courante.value = await api.envoyer<DetailStory>(`${chemin(projet)}/${numero}/assigner`, { login })
+    } catch (e) {
+      erreurAction.value = (e as Error).message
+    }
+  }
+
   return {
+    developpeurs,
+    chargerDeveloppeurs,
+    assigner,
     liste,
     aFaire,
     livrees,
