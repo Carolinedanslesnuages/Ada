@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Inject, Injectable, Logger } fr
 import { spawn } from 'node:child_process';
 import { openSync } from 'node:fs';
 import { existsSync } from 'node:fs';
-import { appendFile, lstat, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { appendFile, lstat, mkdir, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { ApercuService } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
@@ -43,6 +43,13 @@ interface Verrou {
   pid: number;
   numero: number;
   phase: Phase;
+}
+
+/** Écriture atomique : on ne lit jamais un fichier à moitié écrit (fichier temporaire puis renommage). */
+async function ecrireAtomique(chemin: string, contenu: string): Promise<void> {
+  const temporaire = `${chemin}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(temporaire, contenu);
+  await rename(temporaire, chemin);
 }
 
 const processusVivant = (pid: number): boolean => {
@@ -181,7 +188,22 @@ export class AgentService {
 
   private async poserVerrou(depot: string, verrou: Verrou): Promise<void> {
     await mkdir(dirname(this.cheminVerrou(depot)), { recursive: true });
-    await writeFile(this.cheminVerrou(depot), JSON.stringify(verrou));
+    await ecrireAtomique(this.cheminVerrou(depot), JSON.stringify(verrou));
+  }
+
+  /**
+   * Prise exclusive du verrou du projet : création qui échoue si le fichier existe déjà ; seul un
+   * verrou tenu par un processus mort peut être repris. Deux tâches ne peuvent pas démarrer ensemble.
+   */
+  private async acquerirVerrou(depot: string, verrou: Verrou): Promise<void> {
+    await mkdir(dirname(this.cheminVerrou(depot)), { recursive: true });
+    try {
+      await writeFile(this.cheminVerrou(depot), JSON.stringify(verrou), { flag: 'wx' });
+    } catch (erreur) {
+      if ((erreur as NodeJS.ErrnoException).code !== 'EEXIST') throw erreur;
+      if (await this.verrouActif(depot)) throw new ConflictException('L’assistant travaille déjà sur ce projet');
+      await this.poserVerrou(depot, verrou);
+    }
   }
 
   /** « En cours » seulement si un agent tourne vraiment (pas un reste d'exécution interrompue). */
@@ -215,7 +237,7 @@ export class AgentService {
   private async enregistrer(depot: string, numero: number, maj: Partial<Activite>): Promise<Activite> {
     const activite = { ...(await this.lireActivite(depot, numero)), ...maj };
     await mkdir(dirname(this.fichier(depot, numero)), { recursive: true });
-    await writeFile(this.fichier(depot, numero), JSON.stringify(activite, null, 2));
+    await ecrireAtomique(this.fichier(depot, numero), JSON.stringify(activite, null, 2));
     return activite;
   }
 
@@ -293,7 +315,7 @@ export class AgentService {
   /** Démarre une tâche pour la demande ; une seule par projet (verrou partagé entre processus). */
   private async lancerTache(tache: Tache): Promise<void> {
     this.verifierDisponible();
-    if (await this.verrouActif(tache.depot)) throw new ConflictException('L’assistant travaille déjà sur ce projet');
+    await this.acquerirVerrou(tache.depot, { pid: process.pid, numero: tache.numero, phase: tache.phase });
     await this.enregistrer(tache.depot, tache.numero, {
       phase: tache.phase,
       enCours: true,
@@ -304,7 +326,6 @@ export class AgentService {
       await this.demarrerTravailleur(tache);
       return;
     }
-    await this.poserVerrou(tache.depot, { pid: process.pid, numero: tache.numero, phase: tache.phase });
     this.derniereTache = this.executerTache(tache);
   }
 

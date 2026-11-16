@@ -47,10 +47,20 @@ signalés), `repo-perimetre` (avant de livrer), `controle-qualite-code` (relectu
 `Edit(./**)`…), plus la lecture des dossiers des skills. ADA écarte toute skill qui pré-autorise
 des outils (`allowed-tools`) ou exécute des commandes au chargement (c'est le cas d'`adr-new`).
 
+## Sécurité et fiabilité
+
+- **Cloisonnement de l'agent** : lecture et écriture limitées au projet, plus la lecture des
+  dossiers de skills ; skills qui pré-autorisent des outils écartées.
+- **Processus travailleur** : chaque tâche de l'assistant tourne dans un processus détaché qui
+  survit aux redémarrages de l'API ; verrou par projet (`apercus/<projet>/agent/verrou.json`).
+- **Fusion** : une demande en retard sur `main` est mise à jour (contrôles relancés) avant fusion.
+- **Sessions** chiffrées sur disque ; **jeton GitHub** renouvelé en silence avant expiration.
+
 ## Limites connues
 
-- Sessions en mémoire : un redémarrage de l'API déconnecte tout le monde (magasin persistant
-  et jetons chiffrés avant toute mise en ligne).
-- Jeton GitHub non renouvelé à expiration (8 h) : reconnexion nécessaire.
 - Compte personnel gratuit + dépôt privé : la protection de `main` est refusée par GitHub ;
   l'interface le signale au PO.
+- PR de version (release-please) : leurs contrôles attendent une approbation manuelle sur GitHub,
+  car ouvertes par le robot GitHub. Sans conséquence : ADA ne publie une version que si la PR
+  ne touche que les fichiers de version. Les faire tourner seules demande une clé privée de la
+  GitHub App et un secret par dépôt (à mettre en place avec l'hébergement).

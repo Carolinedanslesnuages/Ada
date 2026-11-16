@@ -24,5 +24,5 @@ code : l'accès à l'interface doit être restreint.
 ## Conséquences
 - **Positives** : traçabilité, moindre privilège, pas de secret manipulé par le PO.
 - **Négatives** : la permission *Administration* (topics, réglages Actions) est puissante.
-- **À surveiller** : renouvellement du jeton (refresh token) à implémenter ; secret de webhook
-  à vérifier dès que l'interface aura une URL publique.
+- **À surveiller** : secret de webhook à vérifier dès que l'interface aura une URL publique.
+  (Le renouvellement du jeton est en place depuis le 2026-11-16 : garde de connexion.)

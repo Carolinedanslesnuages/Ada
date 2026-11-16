@@ -195,6 +195,17 @@ describe('AgentService', () => {
     expect(await service.verrouActif('poc')).toBeNull();
   });
 
+  it('deux lancements simultanés : une seule tâche démarre', async () => {
+    let terminer: ((code: number) => void) | null = null;
+    service.lancerAgent = () => new Promise((ok) => (terminer = ok));
+    const resultats = await Promise.allSettled([service.analyser(JETON, 'poc', 1), service.analyser(JETON, 'poc', 2)]);
+    expect(resultats.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(resultats.filter((r) => r.status === 'rejected' && r.reason instanceof ConflictException)).toHaveLength(1);
+    await vi.waitFor(() => expect(terminer).not.toBeNull());
+    terminer!(0);
+    await service.derniereTache;
+  });
+
   it('ignore le verrou d’un processus mort (exécution interrompue)', async () => {
     const { mkdir, writeFile } = await import('node:fs/promises');
     await mkdir(join(racine, 'poc', 'agent'), { recursive: true });
