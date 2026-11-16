@@ -3,6 +3,8 @@ import { z } from 'zod';
 /** Marqueurs présents dans les dépôts modèles, remplacés à la création d'un projet. */
 export interface ValeursProjet {
   nom: string;
+  /** Phrase courte sous le nom du service dans l'en-tête DSFR ; vide = aucune. */
+  baseline: string;
   slug: string;
   objectif: string;
   date: string;
@@ -46,6 +48,17 @@ const schema = z.object({
     .pipe(z.string().min(10, 'Décrivez l’objectif en une ou deux phrases').max(300, '300 caractères au maximum'))
     .transform((o) => (/[.!?]$/.test(o) ? o : `${o}.`)),
   modele: z.string().min(1, 'Choisissez une stack'),
+  baseline: z
+    .string()
+    .optional()
+    .default('')
+    .transform(normaliserNom)
+    .pipe(
+      z
+        .string()
+        .max(80, '80 caractères au maximum')
+        .regex(/^[\p{L}\p{N} ’.,!?:;()«»-]*$/u, 'Lettres, chiffres, espaces et ponctuation simple uniquement'),
+    ),
 });
 
 export type NouveauProjet = z.output<typeof schema>;
@@ -71,6 +84,7 @@ export function validerProjet(
 export function personnaliser(texte: string, v: ValeursProjet): string {
   return texte
     .replaceAll('__NOM_PROJET__', v.nom)
+    .replaceAll('__BASELINE__', v.baseline)
     .replaceAll('__SLUG__', v.slug)
     .replaceAll('__OBJECTIF__', v.objectif)
     .replaceAll('__DATE__', v.date)

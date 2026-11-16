@@ -16,7 +16,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ soumettre: [projet: NouveauProjet]; annuler: [] }>()
 
-const projet = reactive<NouveauProjet>({ nom: '', objectif: '', modele: '' })
+const projet = reactive<NouveauProjet>({ nom: '', objectif: '', modele: '', baseline: '' })
 const erreursLocales = ref<ErreursProjet>({})
 const erreurs = computed<ErreursProjet>(() => ({ ...erreursLocales.value, ...props.erreursServeur }))
 const adresse = computed(() => slugifier(normaliserNom(projet.nom)))
@@ -24,7 +24,11 @@ const adresse = computed(() => slugifier(normaliserNom(projet.nom)))
 function envoyer(): void {
   erreursLocales.value = verifierProjet(projet)
   if (Object.keys(erreursLocales.value).length > 0) return
-  emit('soumettre', { ...projet, nom: normaliserNom(projet.nom) })
+  emit('soumettre', {
+    ...projet,
+    nom: normaliserNom(projet.nom),
+    baseline: normaliserNom(projet.baseline),
+  })
 }
 </script>
 
@@ -33,7 +37,7 @@ function envoyer(): void {
     <h2 class="fr-h4">Nouveau projet</h2>
     <p class="fr-text--sm">
       Le projet est créé sur GitHub, en votre nom, prêt à recevoir sa première story. Tous les
-      champs sont obligatoires.
+      champs sont obligatoires, sauf la baseline.
     </p>
 
     <DsfrInputGroup
@@ -42,6 +46,13 @@ function envoyer(): void {
       :hint="adresse ? `Adresse du dépôt : ${adresse}` : 'Exemple : Réservation de salles'"
       label-visible
       :error-message="erreurs.nom"
+    />
+    <DsfrInputGroup
+      v-model="projet.baseline"
+      label="Baseline (facultatif)"
+      hint="Phrase courte affichée sous le nom du service dans l’en-tête. Exemple : Ma journée avec POC Portail"
+      label-visible
+      :error-message="erreurs.baseline"
     />
     <DsfrInputGroup
       v-model="projet.objectif"

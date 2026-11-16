@@ -140,6 +140,7 @@ export class ProjetsService {
       protectionMain = await this.protegerMain(gh, owner, slug);
       await this.personnaliserDepot(gh, owner, slug, {
         nom: projet.nom,
+        baseline: projet.baseline,
         slug,
         objectif: projet.objectif,
         date: new Date().toISOString().slice(0, 10),

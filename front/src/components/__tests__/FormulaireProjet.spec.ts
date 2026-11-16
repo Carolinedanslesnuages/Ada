@@ -39,7 +39,9 @@ describe('Formulaire de nouveau projet', () => {
 
   it('envoie le projet avec un nom sans apostrophe droite', async () => {
     const wrapper = monter()
-    await wrapper.find('input:not([type="radio"])').setValue("  L'annuaire  ")
+    const champsTexte = wrapper.findAll('input:not([type="radio"])')
+    await champsTexte[0]!.setValue("  L'annuaire  ")
+    await champsTexte[1]!.setValue("Qui fait quoi dans l'équipe")
     await wrapper.find('textarea').setValue('Trouver un collègue et son bureau')
     await wrapper.find('#modele-vue-nest-dsfr').setValue(true)
     await wrapper.find('form').trigger('submit')
@@ -47,7 +49,24 @@ describe('Formulaire de nouveau projet', () => {
       nom: 'L’annuaire',
       objectif: 'Trouver un collègue et son bureau',
       modele: 'vue-nest-dsfr',
+      baseline: 'Qui fait quoi dans l’équipe',
     })
+  })
+
+  it('accepte un projet sans baseline, mais refuse des guillemets', async () => {
+    const wrapper = monter()
+    const champsTexte = wrapper.findAll('input:not([type="radio"])')
+    await champsTexte[0]!.setValue('Annuaire')
+    await wrapper.find('textarea').setValue('Trouver un collègue et son bureau')
+    await wrapper.find('#modele-vue-nest-dsfr').setValue(true)
+    await champsTexte[1]!.setValue('Le "meilleur" annuaire')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('soumettre')).toBeUndefined()
+    expect(wrapper.text()).toContain('ponctuation simple')
+    await champsTexte[1]!.setValue('')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('soumettre')?.[0]?.[0]).toMatchObject({ nom: 'Annuaire', baseline: '' })
+    wrapper.unmount()
     wrapper.unmount()
   })
 

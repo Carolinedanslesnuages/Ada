@@ -10,6 +10,8 @@ export interface NouveauProjet {
   nom: string
   objectif: string
   modele: string
+  /** Facultative : phrase courte sous le nom du service dans l'en-tête DSFR. */
+  baseline: string
 }
 
 export type ErreursProjet = Partial<Record<keyof NouveauProjet, string>>
@@ -49,5 +51,9 @@ export function verifierProjet(projet: NouveauProjet): ErreursProjet {
   if (projet.objectif.replace(/\s+/g, ' ').trim().length < 10)
     erreurs.objectif = 'Décrivez l’objectif en une ou deux phrases'
   if (!projet.modele) erreurs.modele = 'Choisissez une stack'
+  const baseline = normaliserNom(projet.baseline)
+  if (baseline.length > 80) erreurs.baseline = '80 caractères au maximum'
+  else if (!/^[\p{L}\p{N} ’.,!?:;()«»-]*$/u.test(baseline))
+    erreurs.baseline = 'Lettres, chiffres, espaces et ponctuation simple uniquement'
   return erreurs
 }
