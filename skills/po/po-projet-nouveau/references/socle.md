@@ -8,7 +8,9 @@ n'importe quel agent de code.
 
 `AGENTS.md` contient : l'objectif du projet (une phrase), les sections « Conventions » et
 « Commandes » du fichier de stack, la règle des messages de commit (`release-please.md`), la
-règle Pinia si la stack contient Vue, et : « Aucune donnée réelle, aucun secret dans le dépôt ».
+règle Pinia si la stack contient Vue, la section **« Accessibilité (RGAA) — les bases, toujours »**
+(reprendre celle du dépôt modèle `modele-vue-nest-dsfr`), et : « Aucune donnée réelle, aucun
+secret dans le dépôt ».
 
 ## 2. ADR-0001 — le choix de la stack
 

@@ -84,9 +84,24 @@ function decrireDemande(d: Demande): string {
   return lignes.join('\n');
 }
 
+/** Bases d'accessibilité (RGAA) appliquées à toute demande, même si AGENTS.md ne les contient pas. */
+export const ACCESSIBILITE = `Accessibilité (RGAA, obligatoire) — toujours, à chaque écran ou composant :
+- composants DSFR d'abord, sans changer leurs couleurs ; jamais de bouton ou champ recodé à la main ;
+- lang="fr", titre de page explicite, un seul h1, titres sans saut de niveau ;
+- images : alternative qui dit l'information, ou alt="" si décorative ;
+- formulaires : étiquette visible liée à chaque champ, champs obligatoires signalés, erreurs
+  claires reliées au champ ;
+- clavier : tout est utilisable au clavier, ordre logique, focus visible, aucun tabindex positif ;
+  un élément cliquable est un bouton ou un lien ;
+- liens et boutons à l'intitulé explicite ; nouvelle fenêtre annoncée ;
+- jamais d'information par la couleur seule ; messages dynamiques annoncés (role="status") ;
+- tableaux avec titre et en-têtes ; animations qui respectent prefers-reduced-motion.`;
+
 const COMMUN = `Tu travailles pour un Product Owner (PO) non développeur, dans le dépôt de son projet
 (répertoire courant). Lis d'abord AGENTS.md et PROJET.md : ce sont les règles du projet.
-Tu écris au PO en français, en langage métier, sans jargon, sans noms de fichiers.`;
+Tu écris au PO en français, en langage métier, sans jargon, sans noms de fichiers.
+
+${ACCESSIBILITE}`;
 
 export function consigneAnalyse(d: Demande): string {
   return `${COMMUN}

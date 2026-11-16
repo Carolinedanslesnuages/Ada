@@ -26,6 +26,9 @@ l'aperçu du produit tourne à droite dès la création du projet.
 - Composants DSFR plutôt que du HTML maison ; un seul `h1` par page.
 - Chaque critère, un test ; chaque écran ou formulaire, un test d'accessibilité automatique
   (`front/src/__tests__/accessibilite.ts`, axe-core).
+- **Accessibilité (RGAA)** : mêmes bases que pour les projets (section « Accessibilité » de
+  `modele-vue-nest-dsfr/AGENTS.md`, reprises dans `api/src/agent/agent.ts`) ; vérifiées par le lint
+  `eslint-plugin-vuejs-accessibility` (règle `label-has-for` adaptée au DSFR : for/id suffit).
 - Mocks typés dans les tests front (`vi.fn<() => Promise<T>>()`).
 
 ## Commandes

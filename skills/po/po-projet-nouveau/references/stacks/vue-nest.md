@@ -102,6 +102,10 @@ Si Docker est disponible : `docker compose up -d`, puis vérifier que l'API
 se connecte (`SELECT 1` via Prisma).
 
 ## Conventions
+- **Accessibilité à l'écriture** : `npm i -D eslint-plugin-vuejs-accessibility globals`, puis dans
+  `eslint.config.ts` `...pluginVueA11y.configs['flat/recommended']` et la règle
+  `'vuejs-accessibility/label-has-for': ['error', { required: { some: ['nesting', 'id'] } }]`
+  (le DSFR relie par for/id). Les bases RGAA vont dans la section « Accessibilité » d'`AGENTS.md`.
 - **Noms explicites** : règle ESLint `id-length` (3 caractères minimum, propriétés exclues,
   exceptions `vi`, `id`, `ok`, `fs`, `db`, `ui`, `to`, `_`). Front : dans `eslint.config.ts`.
   API : `npm i -D eslint@9 typescript-eslint`, un `eslint.config.mjs` limité à cette règle, et

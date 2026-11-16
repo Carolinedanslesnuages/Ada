@@ -28,6 +28,7 @@ describe('Consignes données à l’agent', () => {
     expect(consigne).toContain('- titre « Ma journée »');
     expect(consigne).toContain('[PO] La date en toutes lettres.');
     expect(consigne).toContain('{"decision":"questions"');
+    expect(consigne).toContain('Accessibilité (RGAA, obligatoire)');
   });
 
   it('la réalisation n’autorise ni push ni commande hors du conteneur', () => {
@@ -37,6 +38,7 @@ describe('Consignes données à l’agent', () => {
     expect(consigne).toContain('Closes #1');
     expect(consigne).toContain('Ne pousse pas');
     expect(consigne).toContain('Noms explicites partout');
+    expect(consigne).toContain('focus visible, aucun tabindex positif');
     expect(consigne).toContain('revues/story-1-page-d-accueil-ma-journee.md');
   });
 
