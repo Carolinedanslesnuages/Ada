@@ -15,6 +15,7 @@ async function deconnecter(): Promise<void> {
 const liensRapides = computed(() =>
   session.utilisateur
     ? [
+        { label: 'Indicateurs', icon: 'fr-icon-line-chart-line', to: '/indicateurs' },
         { label: session.utilisateur.nom ?? session.utilisateur.login, icon: 'fr-icon-user-line', to: '/' },
         { label: 'Se déconnecter', icon: 'fr-icon-logout-box-r-line', button: true, onClick: deconnecter },
       ]

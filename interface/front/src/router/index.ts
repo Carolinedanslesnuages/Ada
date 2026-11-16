@@ -10,6 +10,12 @@ const router = createRouter({
       component: () => import('../views/AtelierView.vue'),
       meta: { connexionRequise: true },
     },
+    {
+      path: '/indicateurs',
+      name: 'indicateurs',
+      component: () => import('../views/IndicateursView.vue'),
+      meta: { connexionRequise: true },
+    },
     { path: '/connexion', name: 'connexion', component: () => import('../views/ConnexionView.vue') },
   ],
 })
@@ -22,7 +28,8 @@ router.beforeEach(async (vers) => {
 })
 
 router.afterEach((vers) => {
-  document.title = vers.name === 'connexion' ? 'Connexion — ADA' : 'ADA'
+  const titres: Record<string, string> = { connexion: 'Connexion — ADA', indicateurs: 'Indicateurs — ADA' }
+  document.title = titres[String(vers.name)] ?? 'ADA'
 })
 
 export default router
