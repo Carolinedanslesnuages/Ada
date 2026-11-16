@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import ReponseChoix from '@/components/ReponseChoix.vue'
 import TexteRiche from '@/components/TexteRiche.vue'
 import { computed, ref } from 'vue'
 import {
   LIBELLES_CONTROLE,
   LIBELLES_STATUT,
   presenterMessage,
+  lireChoix,
+  MARQUEUR_ASSISTANT,
   type Activite,
   type DetailStory,
   type Verification,
@@ -46,6 +49,13 @@ const modeModification = ref(false)
 const pourquoiOuvert = ref(-1)
 const texte = ref('')
 const erreur = ref('')
+/** Choix joints par l'assistant à ses dernières questions : réponse en cases à cocher (#35). */
+const questionsAChoix = computed(() => {
+  if (props.story.statut !== 'questions') return []
+  const dernier = [...props.story.messages].reverse().find((message) => message.texte.startsWith(MARQUEUR_ASSISTANT))
+  return dernier ? lireChoix(dernier.texte) : []
+})
+
 const champVisible = computed(
   () => !travaille.value && (props.story.statut === 'questions' || (props.story.statut === 'plan-a-valider' && modeModification.value)),
 )
@@ -251,7 +261,23 @@ function envoyer(): void {
         </ul>
       </div>
 
-      <form v-if="champVisible" novalidate class="fr-mt-2w" @submit.prevent="envoyer">
+      <ReponseChoix
+        v-if="champVisible && questionsAChoix.length"
+        :key="story.messages.length"
+        :questions="questionsAChoix"
+        :action-en-cours="actionEnCours"
+        description-envoi="reponse-choix-enregistrement"
+        @repondre="(reponse) => emit('repondre', reponse)"
+      >
+        <template #avant-envoi>
+          <p id="reponse-choix-enregistrement" class="fr-text--sm fr-mb-2w">
+            <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
+            <strong>En envoyant, vos réponses sont enregistrées sur GitHub, en commentaire
+            {{ designation }}</strong>, à votre nom et visible par l’équipe du projet.
+          </p>
+        </template>
+      </ReponseChoix>
+      <form v-else-if="champVisible" novalidate class="fr-mt-2w" @submit.prevent="envoyer">
         <DsfrAlert
           v-if="story.statut === 'questions'"
           type="info"

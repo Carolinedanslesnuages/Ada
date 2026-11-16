@@ -15,6 +15,7 @@ import {
   consigneRealisation,
   decrireEvenement,
   lireDecision,
+  texteQuestions,
   lireResultat,
   OUTILS_INTERDITS,
   outilsAutorises,
@@ -388,7 +389,7 @@ export class AgentService {
         return;
       }
       const questions = decision.decision === 'questions';
-      await this.stories.commenterAssistant(jeton, depot, numero, questions ? 'Questions de l’assistant' : 'Plan proposé', decision.texte);
+      await this.stories.commenterAssistant(jeton, depot, numero, questions ? 'Questions de l’assistant' : 'Plan proposé', texteQuestions(decision));
       await this.stories.changerStatut(jeton, depot, numero, questions ? 'questions' : 'plan-a-valider');
       await this.noter(depot, numero, questions ? 'Attend vos réponses' : 'Attend que vous validiez le plan');
     }

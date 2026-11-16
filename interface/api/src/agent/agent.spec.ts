@@ -3,6 +3,8 @@ import {
   consigneSkills,
   brancheDe,
   consigneAnalyse,
+  nettoyerChoix,
+  texteQuestions,
   consigneRealisation,
   decrireEvenement,
   lireDecision,
@@ -140,4 +142,44 @@ describe('Fil d’activité pour le PO', () => {
     expect(decrireEvenement(JSON.stringify({ type: 'system', subtype: 'init' }))).toEqual([]);
     expect(decrireEvenement('pas du json')).toEqual([]);
   });
+
+describe('Questions à choix (réponse en cases à cocher, #35)', () => {
+  const brut = (choix: unknown) => JSON.stringify({ decision: 'questions', texte: 'Deux questions.', choix });
+
+  it('garde les choix bien formés, avec une seule ou plusieurs réponses', () => {
+    const decision = lireDecision(
+      brut([
+        { question: 'Retour le jour même ?', choix: ['Oui', 'Non'] },
+        { question: 'Quelles colonnes ?', choix: ['Nom', 'Date', 'Nom'], plusieurs: true },
+      ]),
+    );
+    expect(decision?.choix).toEqual([
+      { question: 'Retour le jour même ?', choix: ['Oui', 'Non'], plusieurs: false },
+      { question: 'Quelles colonnes ?', choix: ['Nom', 'Date'], plusieurs: true },
+    ]);
+  });
+
+  it('écarte les choix mal formés sans perdre les questions écrites', () => {
+    const decision = lireDecision(brut([{ question: 'Une seule option ?', choix: ['Oui'] }, { choix: ['a', 'b'] }, 'texte']));
+    expect(decision).toEqual({ decision: 'questions', texte: 'Deux questions.' });
+    expect(lireDecision(JSON.stringify({ decision: 'plan', texte: 'Plan', choix: [{ question: 'Q', choix: ['a', 'b'] }] }))).toEqual({
+      decision: 'plan',
+      texte: 'Plan',
+    });
+    expect(nettoyerChoix(Array.from({ length: 5 }, (_, rang) => ({ question: `Q${rang}`, choix: ['a', 'b'] })))).toHaveLength(3);
+  });
+
+  it('écrit les choix lisibles sur GitHub, et les données pour ADA dans un commentaire caché', () => {
+    const texte = texteQuestions({ decision: 'questions', texte: 'Questions.', choix: [{ question: 'Couleur -- vive ?', choix: ['Bleu', 'Rouge'], plusieurs: false }] });
+    expect(texte).toContain('1. Couleur -- vive ? (une seule réponse)\n   - [ ] Bleu\n   - [ ] Rouge');
+    const donnees = /<!-- ada:choix (\S+) -->/.exec(texte)![1]!;
+    expect(donnees).not.toContain('--');
+    expect(JSON.parse(Buffer.from(donnees, 'base64').toString('utf8'))).toEqual([{ question: 'Couleur -- vive ?', choix: ['Bleu', 'Rouge'], plusieurs: false }]);
+    expect(texteQuestions({ decision: 'plan', texte: 'Le plan.' })).toBe('Le plan.');
+  });
+
+  it('la consigne d’analyse explique le format des choix', () => {
+    expect(consigneAnalyse(demande)).toContain('"choix":[{"question"');
+  });
+});
 });
