@@ -44,7 +44,7 @@ export class StoriesController {
   async prompter(@Req() req: Request, @Param('depot') depot: string, @Body('texte') texte: unknown) {
     this.agent.verifierDisponible();
     const demande = await this.stories.prompter(req.session.jeton!, this.depot(depot), texte, req.session.utilisateur!.login);
-    this.agent.analyser(req.session.jeton!, depot, demande.numero);
+    await this.agent.analyser(req.session.jeton!, depot, demande.numero, req.session.utilisateur!.login);
     return demande;
   }
 
@@ -53,7 +53,7 @@ export class StoriesController {
   async lancer(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
     this.agent.verifierDisponible();
     const lancee = await this.stories.lancer(req.session.jeton!, this.depot(depot), numero, req.session.utilisateur!.login);
-    this.agent.analyser(req.session.jeton!, depot, numero);
+    await this.agent.analyser(req.session.jeton!, depot, numero, req.session.utilisateur!.login);
     return lancee;
   }
 

@@ -87,7 +87,7 @@ describe('AgentService', () => {
 
   it('analyse en lecture seule et publie le plan, qui attend la validation du PO', async () => {
     sortie = [action('Read', { file_path: '/x/AGENTS.md' }), resultat('{"decision":"plan","texte":"Je vais créer la page."}')];
-    service.analyser(JETON, 'poc', 1);
+    await service.analyser(JETON, 'poc', 1);
     await service.derniereTache;
     const args = lancer.mock.calls[0]![0];
     expect(args.slice(args.indexOf('--allowedTools') + 1)).toEqual(['Skill', 'Read(./**)', 'Glob(./**)', 'Grep(./**)']);
@@ -111,7 +111,7 @@ describe('AgentService', () => {
       ],
     });
     sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
-    service.analyser(JETON, 'poc', 1);
+    await service.analyser(JETON, 'poc', 1);
     await service.derniereTache;
     const consigne = lancer.mock.calls[0]![0][1]!;
     expect(consigne).toContain('[PO] Après');
@@ -130,7 +130,7 @@ describe('AgentService', () => {
     );
     avecIndex.lancerAgent = lancer;
     sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
-    avecIndex.analyser(JETON, 'poc', 1);
+    await avecIndex.analyser(JETON, 'poc', 1);
     await avecIndex.derniereTache;
     expect(lancer.mock.calls[0]![0][1]).toContain('**12.7** Lien d’évitement présent ?');
   });
@@ -169,7 +169,7 @@ describe('AgentService', () => {
 
   it('publie les questions de l’assistant quand la story est floue', async () => {
     sortie = [resultat('{"decision":"questions","texte":"1. Quel format de date ?"}')];
-    service.analyser(JETON, 'poc', 1);
+    await service.analyser(JETON, 'poc', 1);
     await service.derniereTache;
     expect(stories.commenterAssistant).toHaveBeenCalledWith(JETON, 'poc', 1, 'Questions de l’assistant', '1. Quel format de date ?');
     expect(statut).toBe('questions');
@@ -177,7 +177,7 @@ describe('AgentService', () => {
 
   it('demande un développeur si la réponse de l’agent est inexploitable', async () => {
     sortie = [resultat('Je ne sais pas')];
-    service.analyser(JETON, 'poc', 1);
+    await service.analyser(JETON, 'poc', 1);
     await service.derniereTache;
     expect(statut).toBe('besoin-dev');
     expect((await service.activite('poc', 1)).erreur).toMatch(/pas réussi à analyser/);
@@ -186,11 +186,24 @@ describe('AgentService', () => {
   it('ne lance pas deux tâches en même temps sur un projet', async () => {
     let terminer: ((code: number) => void) | null = null;
     service.lancerAgent = () => new Promise((ok) => (terminer = ok));
-    service.analyser(JETON, 'poc', 1);
-    expect(() => service.analyser(JETON, 'poc', 2)).toThrow(ConflictException);
+    await service.analyser(JETON, 'poc', 1);
+    await expect(service.analyser(JETON, 'poc', 2)).rejects.toThrow(ConflictException);
+    expect((await service.verrouActif('poc'))?.numero).toBe(1);
     await vi.waitFor(() => expect(terminer).not.toBeNull());
     terminer!(0);
     await service.derniereTache;
+    expect(await service.verrouActif('poc')).toBeNull();
+  });
+
+  it('ignore le verrou d’un processus mort (exécution interrompue)', async () => {
+    const { mkdir, writeFile } = await import('node:fs/promises');
+    await mkdir(join(racine, 'poc', 'agent'), { recursive: true });
+    await writeFile(join(racine, 'poc', 'agent', 'verrou.json'), JSON.stringify({ pid: 999999, numero: 1, phase: 'realisation' }));
+    expect(await service.verrouActif('poc')).toBeNull();
+    sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
+    await service.analyser(JETON, 'poc', 1);
+    await service.derniereTache;
+    expect(statut).toBe('plan-a-valider');
   });
 
   it('refuse de travailler sans agent configuré', () => {
@@ -321,7 +334,7 @@ describe('AgentService', () => {
 
   it('n’affiche pas « en cours » pour une exécution interrompue (redémarrage)', async () => {
     sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
-    service.analyser(JETON, 'poc', 1);
+    await service.analyser(JETON, 'poc', 1);
     await service.derniereTache;
     const autreInstance = new AgentService(config(), {} as GithubService, stories as unknown as StoriesService, apercu as unknown as ApercuService);
     const { writeFile } = await import('node:fs/promises');

@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
+import { openSync } from 'node:fs';
 import { existsSync } from 'node:fs';
-import { appendFile, lstat, mkdir, readFile, realpath, symlink, writeFile } from 'node:fs/promises';
+import { appendFile, lstat, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { ApercuService } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
@@ -29,6 +30,30 @@ export interface Activite {
   pullRequest: string | null;
 }
 
+/** Ce qu'il faut faire, décrit par des données : peut être confié à un processus travailleur. */
+export interface Tache {
+  phase: Phase;
+  jeton: string;
+  login: string;
+  depot: string;
+  numero: number;
+}
+
+interface Verrou {
+  pid: number;
+  numero: number;
+  phase: Phase;
+}
+
+const processusVivant = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 /** Lance l'agent ; appelle surLigne pour chaque ligne de sa sortie ; renvoie le code de sortie. */
 export type LancerAgent = (args: string[], cwd: string, surLigne: (ligne: string) => void) => Promise<number>;
 
@@ -55,9 +80,12 @@ const VIDE: Activite = { phase: null, enCours: false, debut: null, journal: [], 
 @Injectable()
 export class AgentService {
   private readonly log = new Logger(AgentService.name);
-  /** Une seule exécution à la fois par projet (une seule demande active). */
-  private readonly enCours = new Set<string>();
   lancerAgent: LancerAgent;
+  /**
+   * Vrai : chaque tâche tourne dans un processus travailleur détaché, qui survit aux
+   * redémarrages de l'API. Faux (tests, et dans le travailleur lui-même) : exécution directe.
+   */
+  travailleurSepare = !process.env.VITEST;
   /** Dernière tâche de fond lancée (permet aux tests d'en attendre la fin). */
   derniereTache: Promise<void> = Promise.resolve();
   /** Tours maximum de l'agent par phase. */
@@ -137,10 +165,30 @@ export class AgentService {
     }
   }
 
+  private cheminVerrou(depot: string): string {
+    return join(dirname(this.apercu.cheminDepot(depot)), 'agent', 'verrou.json');
+  }
+
+  /** Verrou du projet, s'il est tenu par un processus vivant (sinon : reste d'une exécution interrompue). */
+  async verrouActif(depot: string): Promise<Verrou | null> {
+    try {
+      const verrou = JSON.parse(await readFile(this.cheminVerrou(depot), 'utf8')) as Verrou;
+      return processusVivant(verrou.pid) ? verrou : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async poserVerrou(depot: string, verrou: Verrou): Promise<void> {
+    await mkdir(dirname(this.cheminVerrou(depot)), { recursive: true });
+    await writeFile(this.cheminVerrou(depot), JSON.stringify(verrou));
+  }
+
   /** « En cours » seulement si un agent tourne vraiment (pas un reste d'exécution interrompue). */
   async activite(depot: string, numero: number): Promise<Activite> {
     const activite = await this.lireActivite(depot, numero);
-    return { ...activite, enCours: activite.enCours && this.enCours.has(depot) };
+    const verrou = await this.verrouActif(depot);
+    return { ...activite, enCours: activite.enCours && verrou?.numero === numero };
   }
 
   /**
@@ -149,7 +197,7 @@ export class AgentService {
    */
   async relancer(jeton: string, login: string, depot: string, numero: number): Promise<void> {
     this.verifierDisponible();
-    if (this.enCours.has(depot)) throw new ConflictException('L’assistant travaille déjà sur ce projet');
+    if (await this.verrouActif(depot)) throw new ConflictException('L’assistant travaille déjà sur ce projet');
     const detail = await this.stories.detail(jeton, depot, numero);
     if (detail.statut !== 'en-cours' && detail.statut !== 'besoin-dev') {
       throw new ConflictException('Cette demande n’a pas besoin d’être relancée');
@@ -158,9 +206,9 @@ export class AgentService {
     const precedente = await this.lireActivite(depot, numero);
     if (precedente.phase === 'realisation') {
       await this.noter(depot, numero, 'Reprend la réalisation');
-      this.realiser(jeton, login, depot, numero);
+      await this.realiser(jeton, login, depot, numero);
     } else {
-      this.analyser(jeton, depot, numero);
+      await this.analyser(jeton, depot, numero, login);
     }
   }
 
@@ -242,29 +290,67 @@ export class AgentService {
     return resultat;
   }
 
-  /** Démarre une tâche de fond pour la demande ; une seule par projet. */
-  private demarrerTache(depot: string, numero: number, phase: Phase, tache: () => Promise<void>): void {
+  /** Démarre une tâche pour la demande ; une seule par projet (verrou partagé entre processus). */
+  private async lancerTache(tache: Tache): Promise<void> {
     this.verifierDisponible();
-    if (this.enCours.has(depot)) throw new ConflictException('L’assistant travaille déjà sur ce projet');
-    this.enCours.add(depot);
-    this.derniereTache = (async () => {
-      await this.enregistrer(depot, numero, { phase, enCours: true, debut: new Date().toISOString(), erreur: null });
-      try {
-        await tache();
-        await this.enregistrer(depot, numero, { enCours: false });
-      } catch (e) {
-        const message = (e as Error).message;
-        this.log.warn(`Agent sur ${depot}#${numero} (${phase}) : ${message}`);
-        await this.enregistrer(depot, numero, { enCours: false, erreur: message });
-      } finally {
-        this.enCours.delete(depot);
-      }
-    })();
+    if (await this.verrouActif(tache.depot)) throw new ConflictException('L’assistant travaille déjà sur ce projet');
+    await this.enregistrer(tache.depot, tache.numero, {
+      phase: tache.phase,
+      enCours: true,
+      debut: new Date().toISOString(),
+      erreur: null,
+    });
+    if (this.travailleurSepare) {
+      await this.demarrerTravailleur(tache);
+      return;
+    }
+    await this.poserVerrou(tache.depot, { pid: process.pid, numero: tache.numero, phase: tache.phase });
+    this.derniereTache = this.executerTache(tache);
+  }
+
+  /**
+   * Processus détaché : il survit à un redémarrage de l'API. La tâche (avec le jeton du PO) lui
+   * est passée par un fichier lisible par le seul utilisateur, qu'il supprime dès sa lecture.
+   */
+  private async demarrerTravailleur(tache: Tache): Promise<void> {
+    const dossier = dirname(this.cheminVerrou(tache.depot));
+    await mkdir(dossier, { recursive: true });
+    const fichierTache = join(dossier, `tache-${tache.numero}-${Date.now()}.json`);
+    await writeFile(fichierTache, JSON.stringify(tache), { mode: 0o600 });
+    const journal = openSync(join(dossier, `${tache.numero}.travailleur.log`), 'a');
+    const travailleur = spawn(process.execPath, [join(import.meta.dirname, 'travailleur.js'), fichierTache], {
+      cwd: process.cwd(),
+      detached: true,
+      stdio: ['ignore', journal, journal],
+    });
+    travailleur.unref();
+    await this.poserVerrou(tache.depot, { pid: travailleur.pid!, numero: tache.numero, phase: tache.phase });
+  }
+
+  /** Exécute la tâche dans ce processus (travailleur, ou tests) et tient l'activité à jour. */
+  async executerTache(tache: Tache): Promise<void> {
+    const { depot, numero, phase } = tache;
+    await this.poserVerrou(depot, { pid: process.pid, numero, phase });
+    try {
+      if (phase === 'analyse') await this.corpsAnalyse(tache);
+      else await this.corpsRealisation(tache);
+      await this.enregistrer(depot, numero, { enCours: false });
+    } catch (e) {
+      const message = (e as Error).message;
+      this.log.warn(`Agent sur ${depot}#${numero} (${phase}) : ${message}`);
+      await this.enregistrer(depot, numero, { enCours: false, erreur: message });
+    } finally {
+      await rm(this.cheminVerrou(depot), { force: true });
+    }
   }
 
   /** Analyse : questions ou plan, publiés dans l'issue ; aucune modification du code. */
-  analyser(jeton: string, depot: string, numero: number): void {
-    this.demarrerTache(depot, numero, 'analyse', async () => {
+  analyser(jeton: string, depot: string, numero: number, login = ''): Promise<void> {
+    return this.lancerTache({ phase: 'analyse', jeton, login, depot, numero });
+  }
+
+  private async corpsAnalyse({ jeton, depot, numero }: Tache): Promise<void> {
+    {
       await this.noter(depot, numero, 'Prépare le projet');
       const cwd = await this.apercu.preparerDepot(jeton, depot);
       const skills = await this.equiperSkills(cwd);
@@ -280,7 +366,7 @@ export class AgentService {
       await this.stories.commenterAssistant(jeton, depot, numero, questions ? 'Questions de l’assistant' : 'Plan proposé', decision.texte);
       await this.stories.changerStatut(jeton, depot, numero, questions ? 'questions' : 'plan-a-valider');
       await this.noter(depot, numero, questions ? 'Attend vos réponses' : 'Attend que vous validiez le plan');
-    });
+    }
   }
 
   /** Le PO valide le plan : réalisation sur une branche, puis branche poussée et PR ouverte. */
@@ -290,11 +376,15 @@ export class AgentService {
     if (detail.statut !== 'plan-a-valider') throw new ConflictException('Aucun plan n’attend votre validation');
     await this.stories.repondre(jeton, depot, numero, `✅ Plan validé par ${login}.`);
     await this.stories.changerStatut(jeton, depot, numero, 'en-cours');
-    this.realiser(jeton, login, depot, numero);
+    await this.realiser(jeton, login, depot, numero);
   }
 
-  private realiser(jeton: string, login: string, depot: string, numero: number): void {
-    this.demarrerTache(depot, numero, 'realisation', async () => {
+  private realiser(jeton: string, login: string, depot: string, numero: number): Promise<void> {
+    return this.lancerTache({ phase: 'realisation', jeton, login, depot, numero });
+  }
+
+  private async corpsRealisation({ jeton, login, depot, numero }: Tache): Promise<void> {
+    {
       const demande = await this.demande(jeton, depot, numero);
       const branche = brancheDe(demande);
       const { cwd, travailRepris } = await this.preparerBranche(jeton, login, depot, branche);
@@ -328,7 +418,7 @@ export class AgentService {
       );
       await this.stories.changerStatut(jeton, depot, numero, 'en-verification');
       await this.noter(depot, numero, 'Terminé : à vous de vérifier');
-    });
+    }
   }
 
   /** Le PO demande de revoir le plan, ou répond aux questions : nouvelle analyse. */
@@ -340,7 +430,7 @@ export class AgentService {
     }
     await this.stories.repondre(jeton, depot, numero, texte);
     await this.stories.changerStatut(jeton, depot, numero, 'en-cours');
-    this.analyser(jeton, depot, numero);
+    await this.analyser(jeton, depot, numero);
   }
 
   /**
