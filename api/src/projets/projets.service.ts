@@ -104,6 +104,8 @@ export class ProjetsService {
     }
 
     let depot: DepotGithub;
+    let versionsAutomatiques: Reglage['etat'];
+    let protectionMain: Reglage['etat'];
     try {
       ({ data: depot } = await gh.repos.createUsingTemplate({
         template_owner: modeleProprietaire,
@@ -114,6 +116,9 @@ export class ProjetsService {
         private: true,
       }));
       await this.attendreContenu(gh, owner, slug);
+      // Réglages AVANT le commit de personnalisation : ce commit déclenche release-please.
+      versionsAutomatiques = await this.autoriserReleasePlease(gh, owner, slug);
+      protectionMain = await this.protegerMain(gh, owner, slug);
       await this.personnaliserDepot(gh, owner, slug, {
         nom: projet.nom,
         slug,
@@ -130,8 +135,8 @@ export class ProjetsService {
     return {
       projet: versProjet(depot),
       reglages: {
-        versionsAutomatiques: { etat: await this.autoriserReleasePlease(gh, owner, slug), lien: `${base}/actions` },
-        protectionMain: { etat: await this.protegerMain(gh, owner, slug), lien: `${base}/rules` },
+        versionsAutomatiques: { etat: versionsAutomatiques, lien: `${base}/actions` },
+        protectionMain: { etat: protectionMain, lien: `${base}/rules` },
       },
     };
   }

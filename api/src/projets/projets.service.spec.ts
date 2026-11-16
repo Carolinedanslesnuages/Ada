@@ -108,6 +108,7 @@ describe('ProjetsService', () => {
     expect(gh.git.createCommit).toHaveBeenCalledWith(expect.objectContaining({ parents: ['parent'], message: 'chore: personnalisation du projet L’annuaire' }));
     expect(gh.git.updateRef).toHaveBeenCalledWith(expect.objectContaining({ ref: 'heads/main', sha: 'commit' }));
     expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith(expect.objectContaining({ names: ['atelier-po'] }));
+    expect(gh.request.mock.invocationCallOrder[0]).toBeLessThan(gh.git.createCommit.mock.invocationCallOrder[0]);
     expect(resultat.reglages.versionsAutomatiques.etat).toBe('fait');
     expect(resultat.reglages.protectionMain.etat).toBe('fait');
   });
