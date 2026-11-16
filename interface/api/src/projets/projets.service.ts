@@ -141,6 +141,7 @@ export class ProjetsService {
       }
       await this.attendreContenu(gh, owner, slug);
       // Réglages AVANT le commit de personnalisation : ce commit déclenche release-please.
+      await this.imposerSquash(gh, owner, slug);
       versionsAutomatiques = await this.autoriserReleasePlease(gh, owner, slug);
       protectionMain = await this.protegerMain(gh, owner, slug);
       await this.personnaliserDepot(gh, owner, slug, {
@@ -218,6 +219,27 @@ export class ProjetsService {
       parents: [parent],
     });
     await gh.git.updateRef({ owner, repo, ref: 'heads/main', sha: commit.sha });
+  }
+
+  /**
+   * Fusion en « Squash and merge » uniquement : un commit par demande, titré comme la PR
+   * (Conventional Commits pour release-please) ; branches supprimées après fusion.
+   */
+  private async imposerSquash(gh: Octokit, owner: string, repo: string): Promise<void> {
+    try {
+      await gh.repos.update({
+        owner,
+        repo,
+        allow_squash_merge: true,
+        allow_merge_commit: false,
+        allow_rebase_merge: false,
+        delete_branch_on_merge: true,
+        squash_merge_commit_title: 'PR_TITLE',
+        squash_merge_commit_message: 'PR_BODY',
+      });
+    } catch (e) {
+      this.journal.warn(`Squash non imposé sur ${repo} (${statut(e)}) : les fusions par ADA restent en squash`);
+    }
   }
 
   /** Workflow permissions : lecture/écriture + création de PR (release-please). */

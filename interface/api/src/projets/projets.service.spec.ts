@@ -33,6 +33,7 @@ describe('ProjetsService', () => {
       createUsingTemplate: vi.fn(),
       getContent: vi.fn(),
       replaceAllTopics: vi.fn(),
+      update: vi.fn(),
     },
     issues: { createLabel: vi.fn() },
     git: { getRef: vi.fn(), getCommit: vi.fn(), createTree: vi.fn(), createCommit: vi.fn(), updateRef: vi.fn() },
@@ -109,6 +110,9 @@ describe('ProjetsService', () => {
     expect(gh.git.createCommit).toHaveBeenCalledWith(expect.objectContaining({ parents: ['parent'], message: 'chore: personnalisation du projet L’annuaire' }));
     expect(gh.git.updateRef).toHaveBeenCalledWith(expect.objectContaining({ ref: 'heads/main', sha: 'commit' }));
     expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith(expect.objectContaining({ names: ['ada'] }));
+    expect(gh.repos.update).toHaveBeenCalledWith(
+      expect.objectContaining({ repo: 'l-annuaire', allow_squash_merge: true, allow_merge_commit: false, allow_rebase_merge: false, delete_branch_on_merge: true }),
+    );
     const labels = gh.issues.createLabel.mock.calls.map((appel) => (appel[0] as { name: string }).name);
     expect(labels).toEqual(expect.arrayContaining(['user-story', 'bug', 'story:en-cours', 'story:besoin-dev']));
     expect(gh.request.mock.invocationCallOrder[0]).toBeLessThan(gh.git.createCommit.mock.invocationCallOrder[0]);
@@ -128,6 +132,13 @@ describe('ProjetsService', () => {
     gh.issues.createLabel.mockImplementation(async ({ name }: { name: string }) => {
       if (name === 'bug') throw { status: 422 };
     });
+    await expect(service.creer('jeton', 'po1', projetValide)).resolves.toBeDefined();
+  });
+
+  it('crée le projet même si GitHub refuse le réglage de fusion', async () => {
+    preparerCreation();
+    gh.request.mockResolvedValue({});
+    gh.repos.update.mockRejectedValueOnce({ status: 403 });
     await expect(service.creer('jeton', 'po1', projetValide)).resolves.toBeDefined();
   });
 
