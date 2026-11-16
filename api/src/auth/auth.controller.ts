@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, Logger, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { CONFIG, loginAutorise, type Config } from '../config.js';
@@ -9,6 +9,8 @@ import type { UtilisateurConnecte } from './session.js';
 
 @Controller('auth')
 export class AuthController {
+  private readonly journal = new Logger(AuthController.name);
+
   constructor(
     @Inject(CONFIG) private readonly config: Config,
     private readonly oauth: GithubOAuthService,
@@ -37,7 +39,15 @@ export class AuthController {
       res.redirect(`${this.config.URL_INTERFACE}/connexion?erreur=etat`);
       return;
     }
-    const jeton = await this.oauth.echangerCode(code);
+    let jeton: Awaited<ReturnType<GithubOAuthService['echangerCode']>>;
+    try {
+      jeton = await this.oauth.echangerCode(code);
+    } catch (e) {
+      // Identifiants de la GitHub App refusés, code expiré… : jamais de JSON brut pour le PO.
+      this.journal.warn(`Échange du code GitHub refusé : ${(e as Error).message}`);
+      res.redirect(`${this.config.URL_INTERFACE}/connexion?erreur=github`);
+      return;
+    }
     const { data } = await this.github.client(jeton.access_token).users.getAuthenticated();
     if (!loginAutorise(this.config, data.login)) {
       res.redirect(`${this.config.URL_INTERFACE}/connexion?erreur=non-autorise`);

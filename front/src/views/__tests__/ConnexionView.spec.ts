@@ -33,4 +33,9 @@ describe('Écran de connexion', () => {
     expect(wrapper.text()).toContain('n’est pas autorisé à utiliser cet atelier')
     wrapper.unmount()
   })
+  it('explique un refus de GitHub sans détail technique', async () => {
+    const wrapper = await monter('/connexion?erreur=github')
+    expect(wrapper.text()).toContain('GitHub a refusé la connexion de l’atelier')
+    wrapper.unmount()
+  })
 })

@@ -6,8 +6,10 @@ const route = useRoute()
 const message = computed(() =>
   route.query.erreur === 'non-autorise'
     ? 'Votre compte GitHub n’est pas autorisé à utiliser cet atelier. Demandez l’accès à son administrateur.'
-    : route.query.erreur
-      ? 'La connexion n’a pas abouti. Réessayez.'
+    : route.query.erreur === 'github'
+      ? 'GitHub a refusé la connexion de l’atelier (configuration de l’application GitHub). Prévenez son administrateur.'
+      : route.query.erreur
+        ? 'La connexion n’a pas abouti. Réessayez.'
       : null,
 )
 </script>

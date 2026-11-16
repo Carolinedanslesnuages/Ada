@@ -51,6 +51,24 @@ describe('Atelier PO (e2e)', () => {
     expect(reponse.headers.location).toBe('http://localhost:5180/connexion?erreur=etat');
   });
 
+  it('revient à l’écran de connexion, sans JSON brut, si GitHub refuse l’échange', async () => {
+    const agent = request.agent(app.getHttpServer());
+    const depart = await agent.get('/api/auth/github').expect(302);
+    const etat = new URL(depart.headers.location).searchParams.get('state');
+    const vraiFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ error: 'incorrect_client_credentials' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })) as typeof fetch;
+    try {
+      const retour = await agent.get(`/api/auth/github/callback?code=abc&state=${etat}`).expect(302);
+      expect(retour.headers.location).toBe('http://localhost:5180/connexion?erreur=github');
+    } finally {
+      globalThis.fetch = vraiFetch;
+    }
+  });
+
   it.each(['/__version__', '/api/__version__'])('sert la version sur %s (repli « dev »)', async (chemin) => {
     const reponse = await request(app.getHttpServer()).get(chemin).expect(200);
     expect(reponse.body.version).toBe('dev');
