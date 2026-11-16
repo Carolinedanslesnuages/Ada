@@ -1,0 +1,42 @@
+import { describe, it, expect } from 'vitest'
+import { mount } from '@vue/test-utils'
+import VueDsfr from '@gouvminint/vue-dsfr'
+import ResultatProjet from '../ResultatProjet.vue'
+import type { ResultatCreation } from '@/lib/projet'
+import { violationsAccessibilite } from '@/__tests__/accessibilite'
+
+const resultat = (versions: 'fait' | 'a-faire', protection: 'fait' | 'a-faire'): ResultatCreation => ({
+  projet: { nom: 'annuaire', description: null, prive: true, url: 'https://github.com/p/annuaire', misAJourLe: null },
+  reglages: {
+    versionsAutomatiques: { etat: versions, lien: 'https://github.com/p/annuaire/settings/actions' },
+    protectionMain: { etat: protection, lien: 'https://github.com/p/annuaire/settings/rules' },
+  },
+})
+
+const monter = (r: ResultatCreation) =>
+  mount(ResultatProjet, { props: { resultat: r }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+
+describe('Résultat de la création de projet', () => {
+  it('n’affiche aucune consigne quand GitHub a tout accepté', () => {
+    const wrapper = monter(resultat('fait', 'fait'))
+    expect(wrapper.text()).toContain('Versions automatiques : activées')
+    expect(wrapper.text()).not.toContain('Workflow permissions')
+    wrapper.unmount()
+  })
+
+  it('guide le PO, avec le bon lien, pour les réglages refusés', async () => {
+    const wrapper = monter(resultat('a-faire', 'a-faire'))
+    expect(wrapper.text()).toContain('Workflow permissions')
+    expect(wrapper.find('a[href="https://github.com/p/annuaire/settings/actions"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('compte personnel gratuit')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('propose d’écrire la première story', async () => {
+    const wrapper = monter(resultat('fait', 'fait'))
+    await wrapper.findAll('button').find((b) => b.text().includes('première story'))!.trigger('click')
+    expect(wrapper.emitted('fermer')).toHaveLength(1)
+    wrapper.unmount()
+  })
+})

@@ -18,6 +18,8 @@ const schema = z.object({
     .string()
     .default('')
     .transform((v) => v.split(',').map((l) => l.trim().toLowerCase()).filter(Boolean)),
+  /** Dépôt modèle « proprietaire/depot » (défaut : <GITHUB_PROPRIETAIRE>/modele-vue-nest-dsfr). */
+  MODELE_VUE_NEST_DSFR: z.string().default(''),
   /** Topic GitHub qui distingue les dépôts créés par l'atelier. */
   TOPIC_ATELIER: z.string().default('atelier-po'),
 });

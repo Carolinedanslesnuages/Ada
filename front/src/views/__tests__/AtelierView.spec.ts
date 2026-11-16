@@ -65,6 +65,24 @@ describe('Écran de l’atelier', () => {
     wrapper.unmount()
   })
 
+  it('propose de créer un projet quand il n’y en a aucun', async () => {
+    lire.mockImplementation(async (chemin: string) =>
+      chemin === '/projets'
+        ? []
+        : chemin === '/projets/modeles'
+          ? [{ id: 'vue-nest-dsfr', libelle: 'Vue 3 + NestJS', pourQuoi: 'Métier', depot: 'p/m' }]
+          : undefined,
+    )
+    const wrapper = await monter()
+    expect(wrapper.text()).toContain('Aucun projet pour l’instant')
+    await wrapper.findAll('button').find((b) => b.text().includes('Nouveau projet'))!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('h2.fr-h4').text()).toBe('Nouveau projet')
+    expect(wrapper.text()).toContain('Vue 3 + NestJS')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+
   it('aucune violation d’accessibilité automatique', async () => {
     const wrapper = await monter()
     expect(await violationsAccessibilite(document.body)).toEqual([])
