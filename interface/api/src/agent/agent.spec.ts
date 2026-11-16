@@ -7,6 +7,7 @@ import {
   decrireEvenement,
   lireDecision,
   lireResultat,
+  OUTILS_INTERDITS,
   outilsAutorises,
   skillSure,
   type Demande,
@@ -73,6 +74,11 @@ describe('Consignes données à l’agent', () => {
     expect(realisation).not.toContain('Read');
     expect(realisation).not.toContain('Edit');
     expect(realisation).not.toContain('Write');
+  });
+
+  it('interdit toujours de modifier les workflows GitHub, et le dit dans la consigne', () => {
+    expect(OUTILS_INTERDITS).toEqual(['Edit(./.github/**)', 'Write(./.github/**)']);
+    expect(consigneRealisation(demande, 'story/1-x')).toContain('Ne modifie jamais le dossier .github/');
   });
 
   it('écarte une skill qui pré-autorise des outils ou exécute des commandes', () => {

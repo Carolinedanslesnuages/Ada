@@ -91,6 +91,7 @@ describe('AgentService', () => {
     await service.derniereTache;
     const args = lancer.mock.calls[0]![0];
     expect(args.slice(args.indexOf('--allowedTools') + 1)).toEqual(['Skill', 'Read(./**)', 'Glob(./**)', 'Grep(./**)']);
+    expect(args.slice(args.indexOf('--disallowedTools') + 1, args.indexOf('--allowedTools'))).toEqual(['Edit(./.github/**)', 'Write(./.github/**)']);
     expect(args.join(' ')).not.toContain(JETON);
     expect(args[1]).toContain('[Assistant] 🤖 **Plan proposé**');
     expect(args[1]).not.toContain('Discussion avant lancement');
