@@ -20,6 +20,12 @@ export class VerificationService {
   ) {}
 
   /** La PR de la demande, l'état de ses contrôles, et si le PO peut fusionner. */
+  /** Nombre de commits de main absents de la branche (0 : la branche est à jour). */
+  private async retard(gh: ReturnType<GithubService['client']>, depot: string, base: string, tete: string): Promise<number> {
+    const { data } = await gh.repos.compareCommits({ owner: this.config.GITHUB_PROPRIETAIRE, repo: depot, base: tete, head: base });
+    return data.ahead_by;
+  }
+
   async verifier(jeton: string, depot: string, numero: number): Promise<Verification> {
     const numeroPr = numeroDepuisUrl((await this.agent.activite(depot, numero)).pullRequest);
     if (!numeroPr) return { pullRequest: null, controles: [], fusionnable: false, raison: 'Aucune pull request pour cette demande' };
@@ -53,6 +59,17 @@ export class VerificationService {
     const owner = this.config.GITHUB_PROPRIETAIRE;
     try {
       const { data: pr } = await gh.pulls.get({ owner, repo: depot, pull_number: verification.pullRequest.numero });
+      // Branche en retard sur main : on la met à jour d'abord ; les contrôles repartent sur le code
+      // réellement fusionné, et le PO valide de nouveau quand ils sont verts.
+      if ((await this.retard(gh, depot, pr.base.ref, pr.head.sha)) > 0) {
+        await gh.pulls.updateBranch({ owner, repo: depot, pull_number: pr.number, expected_head_sha: pr.head.sha });
+        return {
+          ...verification,
+          fusionnable: false,
+          raison:
+            'Le projet a évolué depuis cette demande : elle vient d’être mise à jour et les contrôles sont relancés. Revenez valider quand ils sont verts.',
+        };
+      }
       await gh.pulls.merge({
         owner,
         repo: depot,

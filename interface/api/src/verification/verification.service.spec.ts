@@ -15,7 +15,8 @@ const runs = (conclusion: string | null, status = 'completed') => ({
 
 describe('VerificationService', () => {
   const gh = {
-    pulls: { get: vi.fn(), merge: vi.fn() },
+    pulls: { get: vi.fn(), merge: vi.fn(), updateBranch: vi.fn() },
+    repos: { compareCommits: vi.fn() },
     checks: { listForRef: vi.fn() },
     issues: { update: vi.fn(), get: vi.fn() },
   };
@@ -27,8 +28,9 @@ describe('VerificationService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     gh.issues.get.mockResolvedValue({ data: { state: 'open' } });
+    gh.repos.compareCommits.mockResolvedValue({ data: { ahead_by: 0 } });
     gh.pulls.get.mockResolvedValue({
-      data: { number: 3, html_url: 'https://github.com/proprio/poc/pull/3', merged: false, state: 'open', mergeable: true, title: 'feat: Page d’accueil', head: { sha: 'abc' } },
+      data: { number: 3, html_url: 'https://github.com/proprio/poc/pull/3', merged: false, state: 'open', mergeable: true, title: 'feat: Page d’accueil', head: { sha: 'abc' }, base: { ref: 'main' } },
     });
     service = new VerificationService(
       config,
@@ -86,6 +88,17 @@ describe('VerificationService', () => {
     await expect(service.fusionner('jeton', 'poc', 1)).resolves.toBeDefined();
     expect(stories.retirerStatut).toHaveBeenCalled();
     expect(apercu.revenirSurMain).toHaveBeenCalled();
+  });
+
+  it('met d’abord à jour une branche en retard sur main, sans fusionner', async () => {
+    gh.checks.listForRef.mockResolvedValue(runs('success'));
+    gh.repos.compareCommits.mockResolvedValue({ data: { ahead_by: 2 } });
+    const resultat = await service.fusionner('jeton', 'poc', 1);
+    expect(gh.repos.compareCommits).toHaveBeenCalledWith(expect.objectContaining({ base: 'abc', head: 'main' }));
+    expect(gh.pulls.updateBranch).toHaveBeenCalledWith(expect.objectContaining({ pull_number: 3, expected_head_sha: 'abc' }));
+    expect(gh.pulls.merge).not.toHaveBeenCalled();
+    expect(resultat.fusionnable).toBe(false);
+    expect(resultat.raison).toMatch(/mise à jour et les contrôles sont relancés/);
   });
 
   it('considère la fusion faite même si l’aperçu ne peut pas être remis à jour', async () => {
