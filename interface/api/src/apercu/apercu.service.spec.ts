@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BadRequestException } from '@nestjs/common';
@@ -102,5 +102,31 @@ describe('ApercuService', () => {
   it('explique simplement un échec de démarrage, sans détail technique', async () => {
     executer.mockRejectedValueOnce(new Error('fatal: could not read from remote repository'));
     await expect(service.demarrer(JETON, 'poc-portail')).rejects.toThrow(/L’aperçu n’a pas pu démarrer/);
+  });
+
+  describe('relance de l’application après un changement de branche', () => {
+    const ecrireProjet = (adaJson: string | null) => {
+      const dossier = join(racine, 'poc');
+      mkdirSync(join(dossier, 'depot'), { recursive: true });
+      writeFileSync(join(dossier, 'compose.yml'), 'services: {}\n');
+      if (adaJson) writeFileSync(join(dossier, 'depot', 'ada.json'), adaJson);
+    };
+
+    it('redémarre le conteneur de l’application quand elle a une API en arrière-plan', async () => {
+      ecrireProjet(null); // sans ada.json : modèle Vue + NestJS, API en arrière-plan
+      await service.relancerApplication('poc');
+      expect(executer).toHaveBeenCalledWith('docker', ['compose', '-f', 'compose.yml', 'restart', 'app'], { cwd: join(racine, 'poc') });
+    });
+
+    it('ne fait rien sans arrière-plan (maquette, extension : le rechargement à chaud suffit)', async () => {
+      ecrireProjet(JSON.stringify({ type: 'maquette', controlesRequis: ['x'], controles: ['y'], apercu: { principal: 'npx vite' } }));
+      await service.relancerApplication('poc');
+      expect(executer).not.toHaveBeenCalled();
+    });
+
+    it('ne fait rien si l’aperçu n’a jamais été démarré', async () => {
+      await service.relancerApplication('poc');
+      expect(executer).not.toHaveBeenCalled();
+    });
   });
 });

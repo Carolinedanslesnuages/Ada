@@ -151,6 +151,21 @@ export class ApercuService {
     await git('merge', '--ff-only', '--quiet', 'origin/main');
   }
 
+  /**
+   * Relance l'application de l'aperçu (API en arrière-plan) après un changement de branche fait par
+   * git : le rechargement automatique (node --watch, nest --watch) ne voit pas toujours les
+   * fichiers remplacés, et l'aperçu servirait alors l'ancienne API. Sans arrière-plan (maquette,
+   * extension), le rechargement à chaud du front suffit : rien à faire.
+   */
+  async relancerApplication(projet: string): Promise<void> {
+    this.verifier(projet);
+    const dossier = join(this.racine, projet);
+    if (!existsSync(join(dossier, 'compose.yml'))) return;
+    const { apercu } = await this.lireConfig(this.cheminDepot(projet));
+    if (apercu.arrierePlan.length === 0) return;
+    await this.executer('docker', ['compose', '-f', 'compose.yml', 'restart', 'app'], { cwd: dossier });
+  }
+
   /** Prépare le dépôt avec les droits du PO, puis démarre les conteneurs. */
   async demarrer(jeton: string, projet: string): Promise<Apercu> {
     this.verifier(projet);

@@ -26,7 +26,7 @@ const action = (name: string, input: Record<string, unknown>) =>
 describe('AgentService', () => {
   let racine: string;
   let stories: Record<string, ReturnType<typeof vi.fn>>;
-  let apercu: { lireConfig: ReturnType<typeof vi.fn>; cheminDepot: ReturnType<typeof vi.fn>; preparerDepot: ReturnType<typeof vi.fn>; executer: ReturnType<typeof vi.fn>; environnementGit: ReturnType<typeof vi.fn> };
+  let apercu: { relancerApplication: ReturnType<typeof vi.fn>; lireConfig: ReturnType<typeof vi.fn>; cheminDepot: ReturnType<typeof vi.fn>; preparerDepot: ReturnType<typeof vi.fn>; executer: ReturnType<typeof vi.fn>; environnementGit: ReturnType<typeof vi.fn> };
   let gh: { pulls: { create: ReturnType<typeof vi.fn> } };
   let service: AgentService;
   let lancer: ReturnType<typeof vi.fn<LancerAgent>>;
@@ -63,6 +63,7 @@ describe('AgentService', () => {
       repondre: vi.fn(async () => ({})),
     };
     apercu = {
+      relancerApplication: vi.fn(async () => {}),
       lireConfig: vi.fn(async () => (await import('../ada/ada-config.js')).ADA_PAR_DEFAUT),
       cheminDepot: vi.fn((projet: string) => join(racine, projet, 'depot')),
       preparerDepot: vi.fn(async (_j: string, projet: string) => join(racine, projet, 'depot')),
@@ -242,6 +243,11 @@ describe('AgentService', () => {
     const push = apercu.executer.mock.calls.find(([, a]) => (a as string[]).includes('push'))!;
     expect((push[1] as string[]).join(' ')).not.toContain(JETON);
     expect(push[2]).toEqual({ env: { GIT_CONFIG_VALUE_0: 'AUTHORIZATION: basic secret' } });
+    // L'aperçu est relancé sur le travail (API comprise) avant que le PO vérifie.
+    expect(apercu.relancerApplication).toHaveBeenCalledWith('poc');
+    expect(apercu.relancerApplication.mock.invocationCallOrder[0]).toBeLessThan(
+      stories.changerStatut.mock.invocationCallOrder[stories.changerStatut.mock.calls.findIndex((appel) => appel[3] === 'en-verification')]!,
+    );
     expect(gh.pulls.create).toHaveBeenCalledWith(
       expect.objectContaining({ head: 'story/1-page-d-accueil', base: 'main', title: 'feat: Page d’accueil', body: expect.stringContaining('Closes #1') }),
     );

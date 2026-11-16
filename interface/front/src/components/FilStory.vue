@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TexteRiche from '@/components/TexteRiche.vue'
 import { computed, ref } from 'vue'
 import {
   LIBELLES_CONTROLE,
@@ -199,7 +200,7 @@ function envoyer(): void {
           <p class="fr-text--xs fr-mb-1v">
             <strong>{{ message.auteur }}</strong> — {{ date(message.le) }}
           </p>
-          {{ message.texte }}
+          <TexteRiche :texte="message.texte" />
         </li>
       </ol>
 
