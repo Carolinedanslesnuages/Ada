@@ -1,10 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import type { Config } from '../config.js';
 import type { GithubService } from '../github/github.service.js';
 import { StoriesService } from './stories.service.js';
 
 const config = { GITHUB_PROPRIETAIRE: 'proprio' } as Config;
+
+const corpsStory = (criteres: string[]) =>
+  [
+    '### En tant que',
+    '',
+    'agent',
+    '',
+    '### Je veux',
+    '',
+    'voir ma journée',
+    '',
+    '### Afin de',
+    '',
+    'm’organiser',
+    '',
+    "### Critères d'acceptation",
+    '',
+    ...criteres.map((c) => `- ${c}`),
+  ].join('\n');
 
 const issue = (numero: number, extra: Record<string, unknown> = {}) => ({
   number: numero,
@@ -13,82 +32,90 @@ const issue = (numero: number, extra: Record<string, unknown> = {}) => ({
   created_at: '2026-11-16T10:00:00Z',
   html_url: `https://github.com/proprio/poc/issues/${numero}`,
   labels: [{ name: 'user-story' }],
+  body: corpsStory(['un critère']),
   ...extra,
 });
-
-const storyValide = {
-  titre: 'Voir les salles libres',
-  role: "agent d'accueil",
-  besoin: 'voir les salles libres',
-  benefice: 'proposer une salle rapidement',
-  criteres: ['une salle sans réservation en cours est libre'],
-};
 
 describe('StoriesService', () => {
   const gh = {
     issues: {
       listForRepo: vi.fn(),
-      create: vi.fn(),
-      getLabel: vi.fn(),
-      createLabel: vi.fn(),
       get: vi.fn(),
       listComments: vi.fn(),
       createComment: vi.fn(),
+      addLabels: vi.fn(),
+      getLabel: vi.fn(),
+      createLabel: vi.fn(),
     },
   };
   const github = { client: vi.fn(() => gh) } as unknown as GithubService;
   let service: StoriesService;
+
+  const depot = (stories: unknown[], bugs: unknown[] = []) =>
+    gh.issues.listForRepo.mockImplementation(async ({ labels }: { labels: string }) => ({
+      data: labels === 'user-story' ? stories : bugs,
+    }));
 
   beforeEach(() => {
     vi.clearAllMocks();
     service = new StoriesService(config, github);
   });
 
-  it('liste stories et problèmes signalés, sans pull request, du plus récent au plus ancien', async () => {
-    gh.issues.listForRepo.mockImplementation(async ({ labels }: { labels: string }) => ({
-      data:
-        labels === 'user-story'
-          ? [issue(1), issue(2, { pull_request: {} }), issue(3, { state: 'closed' })]
-          : [issue(5, { labels: [{ name: 'bug' }] })],
-    }));
-    const liste = await service.lister('jeton', 'poc');
-    expect(gh.issues.listForRepo).toHaveBeenCalledWith(
-      expect.objectContaining({ owner: 'proprio', repo: 'poc', labels: 'user-story', state: 'all' }),
+  it('liste stories et problèmes écrits dans GitHub, sans pull request, et dit s’ils sont prêts', async () => {
+    depot(
+      [issue(1), issue(2, { pull_request: {} }), issue(3, { body: corpsStory(['a', 'b', 'c', 'd', 'e']) })],
+      [issue(5, { labels: [{ name: 'bug' }], body: 'texte libre' })],
     );
-    expect(gh.issues.listForRepo).toHaveBeenCalledWith(expect.objectContaining({ labels: 'bug' }));
-    expect(liste.map((s) => [s.numero, s.type, s.statut])).toEqual([
-      [5, 'bug', 'nouvelle'],
-      [3, 'story', 'livree'],
-      [1, 'story', 'nouvelle'],
+    const liste = await service.lister('jeton', 'poc');
+    expect(liste.map((s) => [s.numero, s.type, s.prete])).toEqual([
+      [5, 'bug', false],
+      [3, 'story', false],
+      [1, 'story', true],
     ]);
+    expect(liste[1]!.raison).toMatch(/Plus de 4 critères/);
   });
 
-  it('refuse une story invalide sans rien envoyer à GitHub', async () => {
-    await expect(
-      service.creer('jeton', 'poc', { ...storyValide, criteres: ['a b c', 'd e f', 'g h i', 'j k l', 'm n o'] }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(gh.issues.create).not.toHaveBeenCalled();
-  });
-
-  it('crée le label s’il manque, puis l’issue avec le corps structuré', async () => {
+  it('lance une story prête : label « en cours » et trace dans GitHub', async () => {
+    depot([issue(1), issue(2)]);
     gh.issues.getLabel.mockRejectedValue({ status: 404 });
-    gh.issues.create.mockResolvedValue({ data: issue(7) });
-    const story = await service.creer('jeton', 'poc', storyValide);
-    expect(gh.issues.createLabel).toHaveBeenCalledWith(expect.objectContaining({ name: 'user-story' }));
-    const appel = gh.issues.create.mock.calls[0][0];
-    expect(appel.title).toBe('Voir les salles libres');
-    expect(appel.labels).toEqual(['user-story']);
-    expect(appel.body).toContain("**En tant que** agent d'accueil,");
-    expect(story.numero).toBe(7);
+    const lancee = await service.lancer('jeton', 'poc', 2, 'po1');
+    expect(gh.issues.createLabel).toHaveBeenCalledWith(expect.objectContaining({ name: 'story:en-cours' }));
+    expect(gh.issues.addLabels).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 2, labels: ['story:en-cours'] }));
+    expect(gh.issues.createComment).toHaveBeenCalledWith(
+      expect.objectContaining({ issue_number: 2, body: '▶️ Lancée depuis l’atelier PO par po1.' }),
+    );
+    expect(lancee.statut).toBe('en-cours');
   });
 
-  it('rassemble la story et la conversation', async () => {
-    gh.issues.get.mockResolvedValue({ data: issue(4, { body: 'texte libre' }) });
+  it('refuse d’en lancer une deuxième tant qu’une autre est en cours', async () => {
+    depot([issue(1, { labels: [{ name: 'user-story' }, { name: 'story:questions' }] }), issue(2)]);
+    await expect(service.lancer('jeton', 'poc', 2, 'po1')).rejects.toThrow(/#1 .* est en cours : une seule demande à la fois/);
+    expect(gh.issues.addLabels).not.toHaveBeenCalled();
+  });
+
+  it('refuse une story trop grosse, avec la raison', async () => {
+    depot([issue(4, { body: corpsStory(['a', 'b', 'c', 'd', 'e']) })]);
+    await expect(service.lancer('jeton', 'poc', 4, 'po1')).rejects.toThrow(/pas prête : Plus de 4 critères/);
+    expect(gh.issues.addLabels).not.toHaveBeenCalled();
+  });
+
+  it('refuse de relancer une demande déjà lancée ou livrée', async () => {
+    depot([issue(6, { state: 'closed' })]);
+    await expect(service.lancer('jeton', 'poc', 6, 'po1')).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('refuse une issue qui n’est ni une story ni un problème', async () => {
+    depot([]);
+    await expect(service.lancer('jeton', 'poc', 99, 'po1')).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rassemble la demande et la conversation', async () => {
+    gh.issues.get.mockResolvedValue({ data: issue(4) });
     gh.issues.listComments.mockResolvedValue({
       data: [{ id: 1, user: { login: 'po', avatar_url: 'a.png' }, body: 'Bonjour', created_at: '2026-11-16T11:00:00Z' }],
     });
     const detail = await service.detail('jeton', 'poc', 4);
-    expect(detail.contenu).toBeNull();
+    expect(detail.contenu?.criteres).toEqual(['un critère']);
     expect(detail.messages).toEqual([
       { id: 1, auteur: 'po', avatar: 'a.png', texte: 'Bonjour', le: '2026-11-16T11:00:00Z' },
     ]);
@@ -97,28 +124,6 @@ describe('StoriesService', () => {
   it('traduit un « introuvable » de GitHub', async () => {
     gh.issues.listForRepo.mockRejectedValue({ status: 404 });
     await expect(service.lister('jeton', 'inconnu')).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it('crée un signalement de problème avec le label bug', async () => {
-    gh.issues.getLabel.mockResolvedValue({});
-    gh.issues.create.mockResolvedValue({ data: issue(8, { labels: [{ name: 'bug' }] }) });
-    const bug = await service.signaler('jeton', 'poc', {
-      titre: 'Liste vide le lundi',
-      constate: 'Aucune salle le lundi',
-      attendu: 'Les salles libres',
-      etapes: '1. Ouvrir la liste un lundi',
-    });
-    const appel = gh.issues.create.mock.calls[0][0];
-    expect(appel.labels).toEqual(['bug']);
-    expect(appel.body).toContain('### Ce qui se passe');
-    expect(bug.type).toBe('bug');
-  });
-
-  it('refuse un signalement incomplet sans rien envoyer à GitHub', async () => {
-    await expect(service.signaler('jeton', 'poc', { titre: 'Bug' })).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-    expect(gh.issues.create).not.toHaveBeenCalled();
   });
 
   it('refuse un message vide', async () => {

@@ -31,8 +31,12 @@ describe('Atelier PO (e2e)', () => {
     return request(app.getHttpServer()).get('/api/projets').expect(401);
   });
 
-  it('refuse la création d’une story sans connexion GitHub', () => {
-    return request(app.getHttpServer()).post('/api/projets/poc/stories').send({}).expect(401);
+  it('refuse de lancer une story sans connexion GitHub', () => {
+    return request(app.getHttpServer()).post('/api/projets/poc/stories/1/lancer').expect(401);
+  });
+
+  it('n’offre plus de création de story dans l’atelier (elles s’écrivent dans GitHub)', () => {
+    return request(app.getHttpServer()).post('/api/projets/poc/stories').send({}).expect(404);
   });
 
   it('renvoie vers GitHub avec un état anti-falsification', async () => {
@@ -74,7 +78,5 @@ describe('Atelier PO (e2e)', () => {
     expect(reponse.body.version).toBe('dev');
   });
 
-  it('refuse un signalement sans connexion GitHub', () => {
-    return request(app.getHttpServer()).post('/api/projets/poc/stories/signalements').send({}).expect(401);
-  });
+
 });

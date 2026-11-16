@@ -1,9 +1,24 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { LIBELLES_STATUT, type DetailStory } from '@/lib/story'
 
-defineProps<{ story: DetailStory }>()
-const emit = defineEmits<{ repondre: [texte: string] }>()
+const props = defineProps<{
+  story: DetailStory
+  /** Numéro et titre de la demande en cours sur le projet, s'il y en a une autre. */
+  autreEnCours?: { numero: number; titre: string } | null
+  erreurLancement?: string | null
+  lancementEnCours?: boolean
+}>()
+const emit = defineEmits<{ repondre: [texte: string]; lancer: [] }>()
+
+/** Pourquoi la demande ne peut pas être lancée, ou null si elle peut l'être. */
+const blocage = computed(() => {
+  if (props.story.statut !== 'nouvelle') return null
+  if (!props.story.prete) return `À corriger sur GitHub avant de la lancer : ${props.story.raison}.`
+  if (props.autreEnCours)
+    return `La demande #${props.autreEnCours.numero} « ${props.autreEnCours.titre} » est en cours : une seule à la fois.`
+  return null
+})
 
 const reponse = ref('')
 const erreur = ref('')
@@ -35,6 +50,18 @@ function envoyer(): void {
         Voir sur GitHub<span class="fr-sr-only"> (nouvelle fenêtre)</span>
       </a>
     </p>
+
+    <div v-if="story.statut === 'nouvelle'" class="fr-mb-3w">
+      <DsfrAlert v-if="blocage" type="warning" small :description="blocage" />
+      <DsfrButton
+        v-else
+        icon="fr-icon-play-line"
+        :label="lancementEnCours ? 'Lancement…' : story.type === 'bug' ? 'Lancer la correction' : 'Lancer cette story'"
+        :disabled="lancementEnCours"
+        @click="emit('lancer')"
+      />
+      <DsfrAlert v-if="erreurLancement" type="error" small :description="erreurLancement" class="fr-mt-2w" />
+    </div>
 
     <section v-if="story.contenu" aria-labelledby="titre-story">
       <h3 id="titre-story" class="fr-sr-only">La story</h3>

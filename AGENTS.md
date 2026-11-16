@@ -2,16 +2,22 @@
 
 Lu par Codex, OpenCode, Cursor, Copilot, Gemini CLI… ; `CLAUDE.md` l'importe pour Claude Code.
 
-Objectif : permettre à des Product Owners de produire des POC en autonomie — stories et
-problèmes signalés à gauche, aperçu du produit à droite, au même endroit.
+Objectif : permettre à des Product Owners de produire des POC en autonomie. Le PO crée son
+projet dans l'atelier, **écrit ses stories et ses signalements dans GitHub** (formulaires
+d'issue du projet), puis les voit apparaître dans l'atelier et **les lance une par une** ;
+l'aperçu du produit tourne à droite dès la création du projet.
 
 ## Architecture
 - `api/` : NestJS (ESM, imports en `.js`). Aucune base de données : **GitHub est la source de
   vérité** (issues = stories, labels = statuts ; voir `docs/adr/0001`). Le client GitHub agit au
   nom du PO connecté (jeton utilisateur de la GitHub App).
 - `front/` : Vue 3 + DSFR (`@gouvminint/vue-dsfr`) + Pinia (session, projets, stories).
-- Règles métier d'une story (4 critères au maximum, format de l'issue) : `api/src/stories/story.ts`,
-  reprises côté front dans `front/src/lib/story.ts` (à garder alignées).
+- Règles d'une demande (lecture des formulaires GitHub, « prête » = complète et 4 critères au
+  maximum, une seule active par projet) : `api/src/stories/story.ts` ; types côté front dans
+  `front/src/lib/story.ts`. **L'atelier ne crée jamais de story** : il lit, vérifie, lance.
+- Aperçu (`api/src/apercu/`) : clone du dépôt avec le jeton du PO (jeton passé par
+  l'environnement, jamais en argument), puis `docker compose` (PostgreSQL + application, limites
+  mémoire/CPU, ports 5300-5399 sur 127.0.0.1). Dossier de travail `apercus/`, hors git.
 
 ## Conventions
 - Validation avec Zod côté API ; jamais de `any`.

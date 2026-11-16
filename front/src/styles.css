@@ -75,3 +75,18 @@
 .fil-pre {
   white-space: pre-wrap;
 }
+
+.apercu--cadre {
+  width: 100%;
+  min-height: 70vh;
+  border: 1px solid var(--border-default-grey);
+  padding: 0;
+  background: var(--background-default-grey);
+}
+
+.journal {
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  text-align: left;
+}

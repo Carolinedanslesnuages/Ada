@@ -9,6 +9,8 @@ const story: DetailStory = {
   numero: 12,
   titre: 'Voir les salles libres',
   statut: 'questions',
+  prete: true,
+  raison: null,
   creeeLe: '2026-11-16T10:00:00Z',
   url: 'https://github.com/proprio/poc/issues/12',
   type: 'story',
@@ -82,5 +84,43 @@ describe('Fil d’une story', () => {
     expect(wrapper.text()).toContain('/salles-libres')
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
+  })
+  describe('Lancement', () => {
+    const nouvelle = { ...story, statut: 'nouvelle' as const, messages: [] }
+
+    it('propose de lancer une story prête quand rien d’autre n’est en cours', async () => {
+      const wrapper = mount(FilStory, { props: { story: nouvelle }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+      const bouton = wrapper.findAll('button').find((b) => b.text().includes('Lancer cette story'))!
+      await bouton.trigger('click')
+      expect(wrapper.emitted('lancer')).toHaveLength(1)
+      expect(await violationsAccessibilite(document.body)).toEqual([])
+      wrapper.unmount()
+    })
+
+    it('explique qu’une autre demande est en cours, sans bouton', () => {
+      const wrapper = mount(FilStory, {
+        props: { story: nouvelle, autreEnCours: { numero: 7, titre: 'Accueil' } },
+        global: { plugins: [VueDsfr] },
+      })
+      expect(wrapper.text()).toContain('La demande #7 « Accueil » est en cours : une seule à la fois')
+      expect(wrapper.findAll('button').some((b) => b.text().includes('Lancer'))).toBe(false)
+    })
+
+    it('demande de corriger sur GitHub une story qui n’est pas prête', () => {
+      const wrapper = mount(FilStory, {
+        props: { story: { ...nouvelle, prete: false, raison: 'Plus de 4 critères : découpez-la' } },
+        global: { plugins: [VueDsfr] },
+      })
+      expect(wrapper.text()).toContain('À corriger sur GitHub avant de la lancer : Plus de 4 critères')
+      expect(wrapper.findAll('button').some((b) => b.text().includes('Lancer'))).toBe(false)
+    })
+
+    it('ne propose plus de lancer une story déjà en cours', () => {
+      const wrapper = mount(FilStory, {
+        props: { story: { ...nouvelle, statut: 'en-cours' } },
+        global: { plugins: [VueDsfr] },
+      })
+      expect(wrapper.findAll('button').some((b) => b.text().includes('Lancer'))).toBe(false)
+    })
   })
 })

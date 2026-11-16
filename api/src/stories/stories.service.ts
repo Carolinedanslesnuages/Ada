@@ -1,20 +1,19 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable } from '@nestjs/common';
 import { CONFIG, type Config } from '../config.js';
 import { GithubService } from '../github/github.service.js';
 import { traduireErreurGithub } from '../github/erreurs.js';
 import {
-  formaterCorps,
-  formaterCorpsBug,
   LABEL_BUG,
   LABEL_STORY,
-  lireCorps,
-  lireCorpsBug,
+  lireBug,
+  lireStory,
+  STATUTS,
+  STATUTS_ACTIFS,
   statutDepuis,
   typeDepuis,
-  validerBug,
-  validerStory,
-  type NouveauBug,
-  type NouvelleStory,
+  verifierPrete,
+  type ContenuBug,
+  type ContenuStory,
   type Statut,
   type TypeDemande,
 } from './story.js';
@@ -26,6 +25,9 @@ export interface ResumeStory {
   statut: Statut;
   creeeLe: string;
   url: string;
+  /** Prête à être lancée (complète, assez petite) ; sinon la raison, à corriger sur GitHub. */
+  prete: boolean;
+  raison: string | null;
 }
 
 export interface Message {
@@ -37,8 +39,8 @@ export interface Message {
 }
 
 export interface DetailStory extends ResumeStory {
-  contenu: Omit<NouvelleStory, 'titre'> | null;
-  contenuBug: Omit<NouveauBug, 'titre'> | null;
+  contenu: ContenuStory | null;
+  contenuBug: ContenuBug | null;
   texteBrut: string;
   messages: Message[];
 }
@@ -54,17 +56,24 @@ type Issue = {
   labels: (string | { name?: string })[];
 };
 
-const nomsLabels = (labels: Issue['labels']) =>
-  labels.map((l) => (typeof l === 'string' ? l : (l.name ?? '')));
+const nomsLabels = (labels: Issue['labels']) => labels.map((l) => (typeof l === 'string' ? l : (l.name ?? '')));
 
-const resumer = (i: Issue): ResumeStory => ({
-  numero: i.number,
-  type: typeDepuis(nomsLabels(i.labels)),
-  titre: i.title,
-  statut: statutDepuis(i.state === 'closed' ? 'closed' : 'open', nomsLabels(i.labels)),
-  creeeLe: i.created_at,
-  url: i.html_url,
-});
+const resumer = (i: Issue): ResumeStory => {
+  const labels = nomsLabels(i.labels);
+  const type = typeDepuis(labels);
+  const corps = i.body ?? '';
+  const verification = verifierPrete(type, lireStory(corps), lireBug(corps));
+  return {
+    numero: i.number,
+    type,
+    titre: i.title,
+    statut: statutDepuis(i.state === 'closed' ? 'closed' : 'open', labels),
+    creeeLe: i.created_at,
+    url: i.html_url,
+    prete: verification.prete,
+    raison: verification.prete ? null : verification.raison,
+  };
+};
 
 @Injectable()
 export class StoriesService {
@@ -77,7 +86,7 @@ export class StoriesService {
     return this.config.GITHUB_PROPRIETAIRE;
   }
 
-  /** Stories et problèmes signalés, du plus récent au plus ancien. */
+  /** Stories et problèmes écrits dans GitHub, du plus récent au plus ancien. */
   async lister(jeton: string, depot: string): Promise<ResumeStory[]> {
     const gh = this.github.client(jeton);
     const parLabel = (labels: string) =>
@@ -101,11 +110,12 @@ export class StoriesService {
         gh.issues.get({ owner: this.owner, repo: depot, issue_number: numero }),
         gh.issues.listComments({ owner: this.owner, repo: depot, issue_number: numero, per_page: 100 }),
       ]);
+      const corps = issue.body ?? '';
       return {
         ...resumer(issue as Issue),
-        contenu: lireCorps(issue.body ?? ''),
-        contenuBug: lireCorpsBug(issue.body ?? ''),
-        texteBrut: issue.body ?? '',
+        contenu: lireStory(corps),
+        contenuBug: lireBug(corps),
+        texteBrut: corps,
         messages: commentaires.map((c) => ({
           id: c.id,
           auteur: c.user?.login ?? 'inconnu',
@@ -119,42 +129,33 @@ export class StoriesService {
     }
   }
 
-  async creer(jeton: string, depot: string, donnees: unknown): Promise<ResumeStory> {
-    const validation = validerStory(donnees);
-    if (!validation.ok) throw new BadRequestException({ erreurs: validation.erreurs });
+  /** Lance une demande : une seule à la fois par projet, et seulement si elle est prête. */
+  async lancer(jeton: string, depot: string, numero: number, login: string): Promise<ResumeStory> {
+    const toutes = await this.lister(jeton, depot);
+    const cible = toutes.find((s) => s.numero === numero);
+    if (!cible) throw new BadRequestException(`La demande #${numero} n’est ni une story ni un problème de l’atelier`);
+    if (cible.statut !== 'nouvelle') throw new ConflictException(`La demande #${numero} est déjà lancée ou terminée`);
+    if (!cible.prete) throw new BadRequestException(`La demande #${numero} n’est pas prête : ${cible.raison}`);
+    const active = toutes.find((s) => STATUTS_ACTIFS.includes(s.statut));
+    if (active) {
+      throw new ConflictException(
+        `La demande #${active.numero} « ${active.titre} » est en cours : une seule demande à la fois`,
+      );
+    }
     const gh = this.github.client(jeton);
     try {
-      await this.assurerLabel(jeton, depot, LABEL_STORY);
-      const { data } = await gh.issues.create({
+      await this.assurerLabel(jeton, depot, STATUTS['en-cours']);
+      await gh.issues.addLabels({ owner: this.owner, repo: depot, issue_number: numero, labels: [STATUTS['en-cours']] });
+      await gh.issues.createComment({
         owner: this.owner,
         repo: depot,
-        title: validation.story.titre,
-        body: formaterCorps(validation.story),
-        labels: [LABEL_STORY],
+        issue_number: numero,
+        body: `▶️ Lancée depuis l’atelier PO par ${login}.`,
       });
-      return resumer(data as Issue);
     } catch (e) {
       traduireErreurGithub(e);
     }
-  }
-
-  async signaler(jeton: string, depot: string, donnees: unknown): Promise<ResumeStory> {
-    const validation = validerBug(donnees);
-    if (!validation.ok) throw new BadRequestException({ erreurs: validation.erreurs });
-    const gh = this.github.client(jeton);
-    try {
-      await this.assurerLabel(jeton, depot, LABEL_BUG);
-      const { data } = await gh.issues.create({
-        owner: this.owner,
-        repo: depot,
-        title: validation.bug.titre,
-        body: formaterCorpsBug(validation.bug),
-        labels: [LABEL_BUG],
-      });
-      return resumer(data as Issue);
-    } catch (e) {
-      traduireErreurGithub(e);
-    }
+    return { ...cible, statut: 'en-cours' };
   }
 
   async repondre(jeton: string, depot: string, numero: number, texte: string): Promise<Message> {
@@ -183,8 +184,8 @@ export class StoriesService {
         owner: this.owner,
         repo: depot,
         name: nom,
-        color: nom === LABEL_BUG ? 'ce0500' : '000091',
-        description: nom === LABEL_BUG ? 'Problème signalé depuis l’atelier PO' : 'Story créée depuis l’atelier PO',
+        color: '0063cb',
+        description: 'Statut géré par l’atelier PO',
       });
     }
   }

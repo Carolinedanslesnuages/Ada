@@ -24,3 +24,6 @@ secrets/
 .idea/
 .vscode/*.local
 *.swp
+
+# Aperçus : clones et conteneurs des projets (jamais dans git)
+apercus/

@@ -5,8 +5,9 @@ import ListeStories from '../ListeStories.vue'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
 
 const stories = [
-  { numero: 2, type: 'bug' as const, titre: 'Filtre visio', statut: 'en-cours' as const, creeeLe: '', url: '' },
-  { numero: 1, type: 'story' as const, titre: 'Salles libres', statut: 'livree' as const, creeeLe: '', url: '' },
+  { numero: 2, type: 'bug' as const, titre: 'Filtre visio', statut: 'en-cours' as const, creeeLe: '', url: '', prete: true, raison: null },
+  { numero: 1, type: 'story' as const, titre: 'Salles libres', statut: 'livree' as const, creeeLe: '', url: '', prete: true, raison: null },
+  { numero: 3, type: 'story' as const, titre: 'Trop grosse', statut: 'nouvelle' as const, creeeLe: '', url: '', prete: false, raison: 'Plus de 4 critères' },
 ]
 
 describe('Liste des stories', () => {
@@ -21,6 +22,7 @@ describe('Liste des stories', () => {
     expect(boutons[0]!.attributes('aria-current')).toBeUndefined()
     expect(wrapper.text()).toContain('Livrée')
     expect(boutons[0]!.text()).toContain('Problème')
+    expect(boutons[2]!.text()).toContain('À corriger sur GitHub')
     await boutons[0]!.trigger('click')
     expect(wrapper.emitted('ouvrir')?.[0]).toEqual([2])
     expect(await violationsAccessibilite(document.body)).toEqual([])

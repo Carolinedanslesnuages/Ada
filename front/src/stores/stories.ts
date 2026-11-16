@@ -1,32 +1,28 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import { api, ErreurApi } from '@/services/api'
-import type {
-  DetailStory,
-  ErreursBug,
-  ErreursStory,
-  Message,
-  NouveauBug,
-  NouvelleStory,
-  ResumeStory,
-} from '@/lib/story'
+import { computed, ref } from 'vue'
+import { api } from '@/services/api'
+import { STATUTS_ACTIFS, type DetailStory, type Message, type ResumeStory } from '@/lib/story'
 
 export const useStoriesStore = defineStore('stories', () => {
   const liste = ref<ResumeStory[]>([])
   const courante = ref<DetailStory | null>(null)
   const chargement = ref(false)
   const erreur = ref<string | null>(null)
+  const erreurLancement = ref<string | null>(null)
+
+  /** La demande qui occupe le projet : tant qu'elle existe, on n'en lance pas d'autre. */
+  const active = computed(() => liste.value.find((s) => STATUTS_ACTIFS.includes(s.statut)) ?? null)
 
   const chemin = (projet: string) => `/projets/${encodeURIComponent(projet)}/stories`
 
-  async function charger(projet: string): Promise<void> {
-    chargement.value = true
+  async function charger(projet: string, garderCourante = false): Promise<void> {
+    chargement.value = !garderCourante
     erreur.value = null
-    courante.value = null
+    if (!garderCourante) courante.value = null
     try {
       liste.value = await api.lire<ResumeStory[]>(chemin(projet))
     } catch (e) {
-      liste.value = []
+      if (!garderCourante) liste.value = []
       erreur.value = (e as Error).message
     } finally {
       chargement.value = false
@@ -35,6 +31,7 @@ export const useStoriesStore = defineStore('stories', () => {
 
   async function ouvrir(projet: string, numero: number): Promise<void> {
     erreur.value = null
+    erreurLancement.value = null
     try {
       courante.value = await api.lire<DetailStory>(`${chemin(projet)}/${numero}`)
     } catch (e) {
@@ -42,29 +39,14 @@ export const useStoriesStore = defineStore('stories', () => {
     }
   }
 
-  /** Crée la story ; renvoie les erreurs de validation de l'API s'il y en a. */
-  async function creer(projet: string, story: NouvelleStory): Promise<ErreursStory | null> {
+  async function lancer(projet: string, numero: number): Promise<void> {
+    erreurLancement.value = null
     try {
-      const creee = await api.envoyer<ResumeStory>(chemin(projet), story)
-      liste.value = [creee, ...liste.value]
-      await ouvrir(projet, creee.numero)
-      return null
+      await api.envoyer<ResumeStory>(`${chemin(projet)}/${numero}/lancer`, {})
+      await charger(projet, true)
+      await ouvrir(projet, numero)
     } catch (e) {
-      if (e instanceof ErreurApi && e.statut === 400 && e.erreurs) return e.erreurs as ErreursStory
-      throw e
-    }
-  }
-
-  /** Signale un problème ; renvoie les erreurs de validation de l'API s'il y en a. */
-  async function signaler(projet: string, bug: NouveauBug): Promise<ErreursBug | null> {
-    try {
-      const cree = await api.envoyer<ResumeStory>(`${chemin(projet)}/signalements`, bug)
-      liste.value = [cree, ...liste.value]
-      await ouvrir(projet, cree.numero)
-      return null
-    } catch (e) {
-      if (e instanceof ErreurApi && e.statut === 400 && e.erreurs) return e.erreurs as ErreursBug
-      throw e
+      erreurLancement.value = (e as Error).message
     }
   }
 
@@ -80,12 +62,13 @@ export const useStoriesStore = defineStore('stories', () => {
   return {
     liste,
     courante,
+    active,
     chargement,
     erreur,
+    erreurLancement,
     charger,
     ouvrir,
-    creer,
-    signaler,
+    lancer,
     repondre,
     fermer,
   }

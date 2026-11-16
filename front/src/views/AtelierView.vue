@@ -1,24 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import FilStory from '@/components/FilStory.vue'
-import FormulaireBug from '@/components/FormulaireBug.vue'
 import FormulaireProjet from '@/components/FormulaireProjet.vue'
-import FormulaireStory from '@/components/FormulaireStory.vue'
 import ListeStories from '@/components/ListeStories.vue'
 import PanneauApercu from '@/components/PanneauApercu.vue'
 import ResultatProjet from '@/components/ResultatProjet.vue'
 import type { ErreursProjet, NouveauProjet, ResultatCreation } from '@/lib/projet'
-import type { ErreursBug, ErreursStory, NouveauBug, NouvelleStory } from '@/lib/story'
+import { lienNouvelleIssue } from '@/lib/story'
 import { useProjetsStore } from '@/stores/projets'
 import { useStoriesStore } from '@/stores/stories'
 
 const projets = useProjetsStore()
 const stories = useStoriesStore()
 
-const modeCreation = ref<'story' | 'bug' | null>(null)
-const erreursCreation = ref<ErreursStory | null>(null)
-const erreursSignalement = ref<ErreursBug | null>(null)
 const envoiEnCours = ref(false)
+const lancementEnCours = ref(false)
 
 /** Création de projet : formulaire, puis écran de résultat avec les réglages GitHub. */
 const creationProjet = ref(false)
@@ -62,58 +58,44 @@ const options = computed(() => projets.liste.map((p) => ({ value: p.nom, text: p
 watch(
   () => projets.nomCourant,
   (nom) => {
-    modeCreation.value = null
     if (nom) void stories.charger(nom)
   },
 )
 
+/** Les stories s'écrivent dans GitHub : on relit la liste au retour sur l'onglet de l'atelier. */
+function actualiser(): void {
+  if (projets.nomCourant && !creationProjet.value) void stories.charger(projets.nomCourant, true)
+}
+
 onMounted(async () => {
   await projets.charger()
   if (projets.nomCourant) await stories.charger(projets.nomCourant)
+  window.addEventListener('focus', actualiser)
 })
+
+onUnmounted(() => window.removeEventListener('focus', actualiser))
 
 function choisirProjet(nom: string | number | null | undefined): void {
   if (typeof nom === 'string') projets.choisir(nom)
 }
 
 async function ouvrir(numero: number): Promise<void> {
-  modeCreation.value = null
   if (projets.nomCourant) await stories.ouvrir(projets.nomCourant, numero)
 }
 
-function nouvelleStory(): void {
-  stories.fermer()
-  erreursCreation.value = null
-  modeCreation.value = 'story'
-}
-
-function nouveauSignalement(): void {
-  stories.fermer()
-  erreursSignalement.value = null
-  modeCreation.value = 'bug'
-}
-
-async function signaler(bug: NouveauBug): Promise<void> {
-  if (!projets.nomCourant) return
-  envoiEnCours.value = true
+async function lancer(): Promise<void> {
+  if (!projets.nomCourant || !stories.courante) return
+  lancementEnCours.value = true
   try {
-    erreursSignalement.value = await stories.signaler(projets.nomCourant, bug)
-    if (!erreursSignalement.value) modeCreation.value = null
+    await stories.lancer(projets.nomCourant, stories.courante.numero)
   } finally {
-    envoiEnCours.value = false
+    lancementEnCours.value = false
   }
 }
 
-async function creer(story: NouvelleStory): Promise<void> {
-  if (!projets.nomCourant) return
-  envoiEnCours.value = true
-  try {
-    erreursCreation.value = await stories.creer(projets.nomCourant, story)
-    if (!erreursCreation.value) modeCreation.value = null
-  } finally {
-    envoiEnCours.value = false
-  }
-}
+const autreEnCours = computed(() =>
+  stories.active && stories.active.numero !== stories.courante?.numero ? stories.active : null,
+)
 
 async function repondre(texte: string): Promise<void> {
   if (projets.nomCourant && stories.courante) {
@@ -173,27 +155,38 @@ async function repondre(texte: string): Promise<void> {
       <div class="fr-grid-row fr-grid-row--middle fr-grid-row--gutters">
         <h2 id="titre-stories" class="fr-h5 fr-col fr-mb-0">Stories</h2>
         <div class="fr-col-auto">
-          <ul class="fr-btns-group fr-btns-group--inline fr-btns-group--sm">
-            <li>
-              <DsfrButton size="sm" icon="fr-icon-add-line" label="Nouvelle story" @click="nouvelleStory" />
-            </li>
-            <li>
-              <DsfrButton
-                size="sm"
-                secondary
-                icon="fr-icon-error-warning-line"
-                label="Signaler un problème"
-                @click="nouveauSignalement"
-              />
-            </li>
-          </ul>
+          <DsfrButton size="sm" tertiary icon="fr-icon-refresh-line" label="Actualiser" @click="actualiser" />
         </div>
       </div>
 
+      <ul v-if="projets.courant" class="fr-btns-group fr-btns-group--inline fr-btns-group--sm fr-btns-group--icon-left">
+        <li>
+          <a
+            class="fr-btn fr-btn--sm fr-icon-edit-line"
+            :href="lienNouvelleIssue(projets.courant.url, 'user-story.yml')"
+            target="_blank"
+            rel="noopener"
+          >
+            Écrire une story sur GitHub<span class="fr-sr-only"> (nouvelle fenêtre)</span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-error-warning-line"
+            :href="lienNouvelleIssue(projets.courant.url, 'bug.yml')"
+            target="_blank"
+            rel="noopener"
+          >
+            Signaler un problème sur GitHub<span class="fr-sr-only"> (nouvelle fenêtre)</span>
+          </a>
+        </li>
+      </ul>
+
       <p v-if="stories.chargement">Chargement des stories…</p>
       <DsfrAlert v-else-if="stories.erreur" type="error" small :description="stories.erreur" />
-      <p v-else-if="stories.liste.length === 0 && !modeCreation" class="fr-text--sm">
-        Aucune story dans ce projet. Créez la première !
+      <p v-else-if="stories.liste.length === 0" class="fr-text--sm">
+        Aucune story pour l’instant. Écrivez-la sur GitHub, puis revenez ici : elle apparaîtra
+        dans la liste.
       </p>
       <ListeStories
         v-else
@@ -202,21 +195,15 @@ async function repondre(texte: string): Promise<void> {
         @ouvrir="ouvrir"
       />
 
-      <FormulaireStory
-        v-if="modeCreation === 'story'"
-        :erreurs-serveur="erreursCreation"
-        :envoi-en-cours="envoiEnCours"
-        @soumettre="creer"
-        @annuler="modeCreation = null"
+      <FilStory
+        v-if="stories.courante"
+        :story="stories.courante"
+        :autre-en-cours="autreEnCours"
+        :erreur-lancement="stories.erreurLancement"
+        :lancement-en-cours="lancementEnCours"
+        @lancer="lancer"
+        @repondre="repondre"
       />
-      <FormulaireBug
-        v-else-if="modeCreation === 'bug'"
-        :erreurs-serveur="erreursSignalement"
-        :envoi-en-cours="envoiEnCours"
-        @soumettre="signaler"
-        @annuler="modeCreation = null"
-      />
-      <FilStory v-else-if="stories.courante" :story="stories.courante" @repondre="repondre" />
     </section>
 
     <PanneauApercu :projet="projets.nomCourant" />

@@ -30,19 +30,14 @@ export class StoriesController {
     return this.stories.lister(req.session.jeton!, this.depot(depot));
   }
 
-  @Post()
-  creer(@Req() req: Request, @Param('depot') depot: string, @Body() corps: unknown) {
-    return this.stories.creer(req.session.jeton!, this.depot(depot), corps);
-  }
-
-  @Post('signalements')
-  signaler(@Req() req: Request, @Param('depot') depot: string, @Body() corps: unknown) {
-    return this.stories.signaler(req.session.jeton!, this.depot(depot), corps);
-  }
-
   @Get(':numero')
   detail(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
     return this.stories.detail(req.session.jeton!, this.depot(depot), numero);
+  }
+
+  @Post(':numero/lancer')
+  lancer(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
+    return this.stories.lancer(req.session.jeton!, this.depot(depot), numero, req.session.utilisateur!.login);
   }
 
   @Post(':numero/messages')

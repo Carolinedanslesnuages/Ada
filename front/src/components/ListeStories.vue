@@ -19,6 +19,14 @@ const emit = defineEmits<{ ouvrir: [numero: number] }>()
           {{ story.titre }}
         </span>
         <DsfrBadge
+          v-if="story.statut === 'nouvelle' && !story.prete"
+          label="À corriger sur GitHub"
+          type="warning"
+          small
+          no-icon
+        />
+        <DsfrBadge
+          v-else
           :label="LIBELLES_STATUT[story.statut].libelle"
           :type="LIBELLES_STATUT[story.statut].type"
           small
