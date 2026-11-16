@@ -28,4 +28,9 @@ describe('Écran de connexion', () => {
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
+  it('explique qu’un compte n’est pas autorisé', async () => {
+    const wrapper = await monter('/connexion?erreur=non-autorise')
+    expect(wrapper.text()).toContain('n’est pas autorisé à utiliser cet atelier')
+    wrapper.unmount()
+  })
 })

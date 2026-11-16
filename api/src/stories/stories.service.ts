@@ -4,16 +4,24 @@ import { GithubService } from '../github/github.service.js';
 import { traduireErreurGithub } from '../github/erreurs.js';
 import {
   formaterCorps,
+  formaterCorpsBug,
+  LABEL_BUG,
   LABEL_STORY,
   lireCorps,
+  lireCorpsBug,
   statutDepuis,
+  typeDepuis,
+  validerBug,
   validerStory,
+  type NouveauBug,
   type NouvelleStory,
   type Statut,
+  type TypeDemande,
 } from './story.js';
 
 export interface ResumeStory {
   numero: number;
+  type: TypeDemande;
   titre: string;
   statut: Statut;
   creeeLe: string;
@@ -30,6 +38,7 @@ export interface Message {
 
 export interface DetailStory extends ResumeStory {
   contenu: Omit<NouvelleStory, 'titre'> | null;
+  contenuBug: Omit<NouveauBug, 'titre'> | null;
   texteBrut: string;
   messages: Message[];
 }
@@ -50,6 +59,7 @@ const nomsLabels = (labels: Issue['labels']) =>
 
 const resumer = (i: Issue): ResumeStory => ({
   numero: i.number,
+  type: typeDepuis(nomsLabels(i.labels)),
   titre: i.title,
   statut: statutDepuis(i.state === 'closed' ? 'closed' : 'open', nomsLabels(i.labels)),
   creeeLe: i.created_at,
@@ -67,16 +77,18 @@ export class StoriesService {
     return this.config.GITHUB_PROPRIETAIRE;
   }
 
+  /** Stories et problèmes signalés, du plus récent au plus ancien. */
   async lister(jeton: string, depot: string): Promise<ResumeStory[]> {
+    const gh = this.github.client(jeton);
+    const parLabel = (labels: string) =>
+      gh.issues.listForRepo({ owner: this.owner, repo: depot, labels, state: 'all', per_page: 100 });
     try {
-      const { data } = await this.github.client(jeton).issues.listForRepo({
-        owner: this.owner,
-        repo: depot,
-        labels: LABEL_STORY,
-        state: 'all',
-        per_page: 100,
-      });
-      return (data as Issue[]).filter((i) => !i.pull_request).map(resumer);
+      const [stories, bugs] = await Promise.all([parLabel(LABEL_STORY), parLabel(LABEL_BUG)]);
+      const parNumero = new Map<number, Issue>();
+      for (const i of [...stories.data, ...bugs.data] as Issue[]) {
+        if (!i.pull_request) parNumero.set(i.number, i);
+      }
+      return [...parNumero.values()].sort((a, b) => b.number - a.number).map(resumer);
     } catch (e) {
       traduireErreurGithub(e);
     }
@@ -92,6 +104,7 @@ export class StoriesService {
       return {
         ...resumer(issue as Issue),
         contenu: lireCorps(issue.body ?? ''),
+        contenuBug: lireCorpsBug(issue.body ?? ''),
         texteBrut: issue.body ?? '',
         messages: commentaires.map((c) => ({
           id: c.id,
@@ -111,13 +124,32 @@ export class StoriesService {
     if (!validation.ok) throw new BadRequestException({ erreurs: validation.erreurs });
     const gh = this.github.client(jeton);
     try {
-      await this.assurerLabel(jeton, depot);
+      await this.assurerLabel(jeton, depot, LABEL_STORY);
       const { data } = await gh.issues.create({
         owner: this.owner,
         repo: depot,
         title: validation.story.titre,
         body: formaterCorps(validation.story),
         labels: [LABEL_STORY],
+      });
+      return resumer(data as Issue);
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+  }
+
+  async signaler(jeton: string, depot: string, donnees: unknown): Promise<ResumeStory> {
+    const validation = validerBug(donnees);
+    if (!validation.ok) throw new BadRequestException({ erreurs: validation.erreurs });
+    const gh = this.github.client(jeton);
+    try {
+      await this.assurerLabel(jeton, depot, LABEL_BUG);
+      const { data } = await gh.issues.create({
+        owner: this.owner,
+        repo: depot,
+        title: validation.bug.titre,
+        body: formaterCorpsBug(validation.bug),
+        labels: [LABEL_BUG],
       });
       return resumer(data as Issue);
     } catch (e) {
@@ -141,18 +173,18 @@ export class StoriesService {
     }
   }
 
-  private async assurerLabel(jeton: string, depot: string): Promise<void> {
+  private async assurerLabel(jeton: string, depot: string, nom: string): Promise<void> {
     const gh = this.github.client(jeton);
     try {
-      await gh.issues.getLabel({ owner: this.owner, repo: depot, name: LABEL_STORY });
+      await gh.issues.getLabel({ owner: this.owner, repo: depot, name: nom });
     } catch (e) {
       if ((e as { status?: number }).status !== 404) throw e;
       await gh.issues.createLabel({
         owner: this.owner,
         repo: depot,
-        name: LABEL_STORY,
-        color: '000091',
-        description: 'Story créée depuis l’atelier PO',
+        name: nom,
+        color: nom === LABEL_BUG ? 'ce0500' : '000091',
+        description: nom === LABEL_BUG ? 'Problème signalé depuis l’atelier PO' : 'Story créée depuis l’atelier PO',
       });
     }
   }

@@ -12,6 +12,7 @@ const envoyer = vi.mocked(api.envoyer)
 
 const resume = (numero: number) => ({
   numero,
+  type: 'story' as const,
   titre: `Story ${numero}`,
   statut: 'nouvelle' as const,
   creeeLe: '2026-11-16T10:00:00Z',
@@ -35,7 +36,7 @@ describe('Store des stories', () => {
 
   it('ajoute la story créée en tête de liste et l’ouvre', async () => {
     envoyer.mockResolvedValue(resume(9))
-    lire.mockResolvedValue({ ...resume(9), contenu: null, texteBrut: '', messages: [] })
+    lire.mockResolvedValue({ ...resume(9), contenu: null, contenuBug: null, texteBrut: '', messages: [] })
     const store = useStoriesStore()
     store.liste = [resume(1)]
     const erreurs = await store.creer('mon-poc', {
@@ -65,10 +66,19 @@ describe('Store des stories', () => {
 
   it('ajoute la réponse du PO au fil de la story ouverte', async () => {
     const store = useStoriesStore()
-    store.courante = { ...resume(3), contenu: null, texteBrut: '', messages: [] }
+    store.courante = { ...resume(3), contenu: null, contenuBug: null, texteBrut: '', messages: [] }
     envoyer.mockResolvedValue({ id: 5, auteur: 'po', avatar: null, texte: 'Oui', le: 'x' })
     await store.repondre('mon-poc', 3, 'Oui')
     expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/3/messages', { texte: 'Oui' })
     expect(store.courante.messages.map((m) => m.texte)).toEqual(['Oui'])
+  })
+  it('envoie un signalement sur la route dédiée et l’ajoute en tête', async () => {
+    envoyer.mockResolvedValue({ ...resume(12), type: 'bug' })
+    lire.mockResolvedValue({ ...resume(12), type: 'bug', contenu: null, contenuBug: null, texteBrut: '', messages: [] })
+    const store = useStoriesStore()
+    const bug = { titre: 'Liste vide', constate: 'vide', attendu: 'pleine', etapes: '1. ouvrir', ecran: '' }
+    expect(await store.signaler('mon-poc', bug)).toBeNull()
+    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/signalements', bug)
+    expect(store.liste[0]?.type).toBe('bug')
   })
 })

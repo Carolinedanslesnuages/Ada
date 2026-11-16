@@ -1,7 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ErreurApi } from '@/services/api'
-import type { DetailStory, ErreursStory, Message, NouvelleStory, ResumeStory } from '@/lib/story'
+import type {
+  DetailStory,
+  ErreursBug,
+  ErreursStory,
+  Message,
+  NouveauBug,
+  NouvelleStory,
+  ResumeStory,
+} from '@/lib/story'
 
 export const useStoriesStore = defineStore('stories', () => {
   const liste = ref<ResumeStory[]>([])
@@ -47,6 +55,19 @@ export const useStoriesStore = defineStore('stories', () => {
     }
   }
 
+  /** Signale un problème ; renvoie les erreurs de validation de l'API s'il y en a. */
+  async function signaler(projet: string, bug: NouveauBug): Promise<ErreursBug | null> {
+    try {
+      const cree = await api.envoyer<ResumeStory>(`${chemin(projet)}/signalements`, bug)
+      liste.value = [cree, ...liste.value]
+      await ouvrir(projet, cree.numero)
+      return null
+    } catch (e) {
+      if (e instanceof ErreurApi && e.statut === 400 && e.erreurs) return e.erreurs as ErreursBug
+      throw e
+    }
+  }
+
   async function repondre(projet: string, numero: number, texte: string): Promise<void> {
     const message = await api.envoyer<Message>(`${chemin(projet)}/${numero}/messages`, { texte })
     if (courante.value?.numero === numero) courante.value.messages.push(message)
@@ -56,5 +77,16 @@ export const useStoriesStore = defineStore('stories', () => {
     courante.value = null
   }
 
-  return { liste, courante, chargement, erreur, charger, ouvrir, creer, repondre, fermer }
+  return {
+    liste,
+    courante,
+    chargement,
+    erreur,
+    charger,
+    ouvrir,
+    creer,
+    signaler,
+    repondre,
+    fermer,
+  }
 })

@@ -21,7 +21,7 @@ const reponses: Record<string, unknown> = {
     { nom: 'annuaire', description: null, prive: true, url: '', misAJourLe: null },
   ],
   '/projets/reservation-de-salles/stories': [
-    { numero: 1, titre: 'Salles libres', statut: 'livree', creeeLe: '', url: '' },
+    { numero: 1, type: 'story', titre: 'Salles libres', statut: 'livree', creeeLe: '', url: '' },
   ],
   '/projets/annuaire/stories': [],
 }
@@ -53,6 +53,15 @@ describe('Écran de l’atelier', () => {
     await flushPromises()
     expect(lire).toHaveBeenCalledWith('/projets/annuaire/stories')
     expect(wrapper.text()).toContain('Aucune story dans ce projet')
+    wrapper.unmount()
+  })
+
+  it('ouvre le formulaire de signalement de problème', async () => {
+    const wrapper = await monter()
+    const bouton = wrapper.findAll('button').find((b) => b.text().includes('Signaler un problème'))!
+    await bouton.trigger('click')
+    expect(wrapper.find('h2.fr-h4').text()).toBe('Signaler un problème')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
 

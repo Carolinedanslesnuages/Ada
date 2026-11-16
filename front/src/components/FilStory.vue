@@ -48,6 +48,21 @@ function envoyer(): void {
         <li v-for="critere in story.contenu.criteres" :key="critere">{{ critere }}</li>
       </ul>
     </section>
+    <section v-else-if="story.contenuBug" aria-labelledby="titre-probleme">
+      <h3 id="titre-probleme" class="fr-sr-only">Le problème signalé</h3>
+      <dl class="fr-mb-2w">
+        <dt><strong>Ce qui se passe</strong></dt>
+        <dd>{{ story.contenuBug.constate }}</dd>
+        <dt><strong>Ce qui devrait se passer</strong></dt>
+        <dd>{{ story.contenuBug.attendu }}</dd>
+        <dt><strong>Comment le reproduire</strong></dt>
+        <dd class="fil-pre">{{ story.contenuBug.etapes }}</dd>
+        <template v-if="story.contenuBug.ecran">
+          <dt><strong>Écran concerné</strong></dt>
+          <dd>{{ story.contenuBug.ecran }}</dd>
+        </template>
+      </dl>
+    </section>
     <p v-else class="fr-text--sm">{{ story.texteBrut }}</p>
 
     <section aria-labelledby="titre-conversation">

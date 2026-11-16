@@ -44,17 +44,22 @@ describe('StoriesService', () => {
     service = new StoriesService(config, github);
   });
 
-  it('liste les stories du dépôt en excluant les pull requests', async () => {
-    gh.issues.listForRepo.mockResolvedValue({
-      data: [issue(1), issue(2, { pull_request: {} }), issue(3, { state: 'closed' })],
-    });
+  it('liste stories et problèmes signalés, sans pull request, du plus récent au plus ancien', async () => {
+    gh.issues.listForRepo.mockImplementation(async ({ labels }: { labels: string }) => ({
+      data:
+        labels === 'user-story'
+          ? [issue(1), issue(2, { pull_request: {} }), issue(3, { state: 'closed' })]
+          : [issue(5, { labels: [{ name: 'bug' }] })],
+    }));
     const liste = await service.lister('jeton', 'poc');
     expect(gh.issues.listForRepo).toHaveBeenCalledWith(
       expect.objectContaining({ owner: 'proprio', repo: 'poc', labels: 'user-story', state: 'all' }),
     );
-    expect(liste.map((s) => [s.numero, s.statut])).toEqual([
-      [1, 'nouvelle'],
-      [3, 'livree'],
+    expect(gh.issues.listForRepo).toHaveBeenCalledWith(expect.objectContaining({ labels: 'bug' }));
+    expect(liste.map((s) => [s.numero, s.type, s.statut])).toEqual([
+      [5, 'bug', 'nouvelle'],
+      [3, 'story', 'livree'],
+      [1, 'story', 'nouvelle'],
     ]);
   });
 
@@ -92,6 +97,28 @@ describe('StoriesService', () => {
   it('traduit un « introuvable » de GitHub', async () => {
     gh.issues.listForRepo.mockRejectedValue({ status: 404 });
     await expect(service.lister('jeton', 'inconnu')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('crée un signalement de problème avec le label bug', async () => {
+    gh.issues.getLabel.mockResolvedValue({});
+    gh.issues.create.mockResolvedValue({ data: issue(8, { labels: [{ name: 'bug' }] }) });
+    const bug = await service.signaler('jeton', 'poc', {
+      titre: 'Liste vide le lundi',
+      constate: 'Aucune salle le lundi',
+      attendu: 'Les salles libres',
+      etapes: '1. Ouvrir la liste un lundi',
+    });
+    const appel = gh.issues.create.mock.calls[0][0];
+    expect(appel.labels).toEqual(['bug']);
+    expect(appel.body).toContain('### Ce qui se passe');
+    expect(bug.type).toBe('bug');
+  });
+
+  it('refuse un signalement incomplet sans rien envoyer à GitHub', async () => {
+    await expect(service.signaler('jeton', 'poc', { titre: 'Bug' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(gh.issues.create).not.toHaveBeenCalled();
   });
 
   it('refuse un message vide', async () => {

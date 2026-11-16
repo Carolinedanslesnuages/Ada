@@ -3,7 +3,13 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
-const erreur = computed(() => route.query.erreur)
+const message = computed(() =>
+  route.query.erreur === 'non-autorise'
+    ? 'Votre compte GitHub n’est pas autorisé à utiliser cet atelier. Demandez l’accès à son administrateur.'
+    : route.query.erreur
+      ? 'La connexion n’a pas abouti. Réessayez.'
+      : null,
+)
 </script>
 
 <template>
@@ -14,13 +20,7 @@ const erreur = computed(() => route.query.erreur)
         Décrivez vos besoins sous forme de user stories et voyez votre produit se construire,
         au même endroit.
       </p>
-      <DsfrAlert
-        v-if="erreur"
-        type="error"
-        small
-        description="La connexion n’a pas abouti. Réessayez."
-        class="fr-mb-3w"
-      />
+      <DsfrAlert v-if="message" type="error" small :description="message" class="fr-mb-3w" />
       <a class="fr-btn fr-btn--lg fr-icon-github-fill fr-btn--icon-left" href="/api/auth/github">
         Se connecter avec GitHub
       </a>

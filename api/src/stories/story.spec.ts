@@ -5,6 +5,10 @@ import {
   formaterCorps,
   lireCorps,
   statutDepuis,
+  validerBug,
+  formaterCorpsBug,
+  lireCorpsBug,
+  typeDepuis,
   type NouvelleStory,
 } from './story.js';
 
@@ -75,5 +79,67 @@ describe('Statut d’une story', () => {
   });
   it('est « nouvelle » sans label de statut', () => {
     expect(statutDepuis('open', ['user-story'])).toBe('nouvelle');
+  });
+});
+
+describe('Issues créées avec les formulaires GitHub', () => {
+  const corpsFormulaire = [
+    '### En tant que',
+    '',
+    "agent d'accueil",
+    '',
+    '### Je veux',
+    '',
+    'voir les salles libres',
+    '',
+    '### Afin de',
+    '',
+    'proposer une salle',
+    '',
+    "### Critères d'acceptation",
+    '',
+    '- une salle sans réservation en cours est libre',
+    '- triées par nom',
+  ].join('\n');
+
+  it('relit une story saisie avec le formulaire user-story.yml', () => {
+    expect(lireCorps(corpsFormulaire)).toEqual({
+      role: "agent d'accueil",
+      besoin: 'voir les salles libres',
+      benefice: 'proposer une salle',
+      criteres: ['une salle sans réservation en cours est libre', 'triées par nom'],
+    });
+  });
+});
+
+describe('Signalement de problème', () => {
+  const bug = {
+    titre: 'La liste est vide le lundi',
+    constate: 'Aucune salle ne s’affiche le lundi matin',
+    attendu: 'Les salles libres s’affichent',
+    etapes: '1. Ouvrir /salles-libres un lundi',
+    ecran: '/salles-libres',
+  };
+
+  it('accepte un signalement complet, l’écran étant facultatif', () => {
+    expect(validerBug({ ...bug, ecran: undefined })).toEqual({ ok: true, bug: { ...bug, ecran: '' } });
+  });
+
+  it('refuse un signalement sans étapes de reproduction', () => {
+    const resultat = validerBug({ ...bug, etapes: '' });
+    expect(resultat.ok).toBe(false);
+    if (!resultat.ok) expect(resultat.erreurs.etapes).toMatch(/reproduire/);
+  });
+
+  it('produit le même format que le formulaire GitHub bug.yml, et le relit', () => {
+    const { titre: _titre, ...contenu } = bug;
+    const corps = formaterCorpsBug(bug);
+    expect(corps).toContain('### Comment le reproduire');
+    expect(lireCorpsBug(corps)).toEqual(contenu);
+  });
+
+  it('distingue un bug d’une story par son label', () => {
+    expect(typeDepuis(['bug'])).toBe('bug');
+    expect(typeDepuis(['user-story', 'story:en-cours'])).toBe('story');
   });
 });

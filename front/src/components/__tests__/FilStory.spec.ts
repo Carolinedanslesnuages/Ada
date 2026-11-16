@@ -11,7 +11,9 @@ const story: DetailStory = {
   statut: 'questions',
   creeeLe: '2026-11-16T10:00:00Z',
   url: 'https://github.com/proprio/poc/issues/12',
+  type: 'story',
   texteBrut: '',
+  contenuBug: null,
   contenu: {
     role: "agent d'accueil",
     besoin: 'voir les salles libres',
@@ -54,6 +56,30 @@ describe('Fil d’une story', () => {
 
   it('aucune violation d’accessibilité automatique', async () => {
     const wrapper = monter()
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+  it('affiche un problème signalé, sans violation d’accessibilité', async () => {
+    const wrapper = mount(FilStory, {
+      props: {
+        story: {
+          ...story,
+          type: 'bug',
+          contenu: null,
+          contenuBug: {
+            constate: 'Aucune salle le lundi',
+            attendu: 'Les salles libres',
+            etapes: '1. Ouvrir la liste un lundi',
+            ecran: '/salles-libres',
+          },
+        },
+      },
+      global: { plugins: [VueDsfr] },
+      attachTo: document.body,
+    })
+    expect(wrapper.text()).toContain('Ce qui se passe')
+    expect(wrapper.text()).toContain('Aucune salle le lundi')
+    expect(wrapper.text()).toContain('/salles-libres')
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })

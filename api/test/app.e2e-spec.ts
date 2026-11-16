@@ -2,8 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
-import session from 'express-session';
 import { AppModule } from './../src/app.module.js';
+import { lireConfig } from './../src/config.js';
+import { configurerApp } from './../src/configurer-app.js';
 
 process.env.GITHUB_PROPRIETAIRE = 'proprio';
 process.env.GITHUB_CLIENT_ID = 'Iv-test';
@@ -18,8 +19,7 @@ describe('Atelier PO (e2e)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.use(session({ secret: 'x'.repeat(32), resave: false, saveUninitialized: false }));
+    configurerApp(app, lireConfig());
     await app.init();
   });
 
@@ -49,5 +49,14 @@ describe('Atelier PO (e2e)', () => {
       .get('/api/auth/github/callback?code=abc&state=falsifie')
       .expect(302);
     expect(reponse.headers.location).toBe('http://localhost:5180/connexion?erreur=etat');
+  });
+
+  it.each(['/__version__', '/api/__version__'])('sert la version sur %s (repli « dev »)', async (chemin) => {
+    const reponse = await request(app.getHttpServer()).get(chemin).expect(200);
+    expect(reponse.body.version).toBe('dev');
+  });
+
+  it('refuse un signalement sans connexion GitHub', () => {
+    return request(app.getHttpServer()).post('/api/projets/poc/stories/signalements').send({}).expect(401);
   });
 });

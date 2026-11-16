@@ -2,7 +2,11 @@ import { z } from 'zod';
 
 export const CRITERES_MAX = 4;
 export const LABEL_STORY = 'user-story';
+export const LABEL_BUG = 'bug';
 const MARQUEUR = '<!-- atelier-po:story v1 -->';
+const MARQUEUR_BUG = '<!-- atelier-po:bug v1 -->';
+
+export type TypeDemande = 'story' | 'bug';
 
 export const STATUTS = {
   questions: 'story:questions',
@@ -66,20 +70,48 @@ export function formaterCorps(story: NouvelleStory): string {
   ].join('\n');
 }
 
+/** Sections « ### Titre » d'une issue créée avec un formulaire GitHub (.github/ISSUE_TEMPLATE). */
+function sectionsFormulaire(corps: string): Map<string, string> {
+  const sections = new Map<string, string>();
+  const morceaux = corps.split(/^### /m).slice(1);
+  for (const morceau of morceaux) {
+    const [titre, ...reste] = morceau.split('\n');
+    const valeur = reste.join('\n').trim();
+    sections.set((titre ?? '').trim().toLowerCase(), valeur === '_No response_' ? '' : valeur);
+  }
+  return sections;
+}
+
+const listeCriteres = (texte: string) =>
+  texte
+    .split('\n')
+    .map((l) => l.replace(/^\s*(- \[[ x]\]|[-*]|\d+[.)])\s*/, '').trim())
+    .filter(Boolean);
+
 export function lireCorps(corps: string): Omit<NouvelleStory, 'titre'> | null {
-  if (!corps.includes(MARQUEUR)) return null;
-  const ligne = (prefixe: string, fin: string) => {
-    const l = corps.split('\n').find((x) => x.startsWith(prefixe));
-    return l ? l.slice(prefixe.length).replace(new RegExp(`${fin}$`), '').trim() : '';
-  };
+  if (corps.includes(MARQUEUR)) {
+    const ligne = (prefixe: string, fin: string) => {
+      const l = corps.split('\n').find((x) => x.startsWith(prefixe));
+      return l ? l.slice(prefixe.length).replace(new RegExp(`${fin}$`), '').trim() : '';
+    };
+    return {
+      role: ligne('**En tant que**', ','),
+      besoin: ligne('**je veux**', ','),
+      benefice: ligne('**afin de**', '\\.'),
+      criteres: corps
+        .split('\n')
+        .filter((l) => /^- \[[ x]\] /.test(l))
+        .map((l) => l.slice(6).trim()),
+    };
+  }
+  const f = sectionsFormulaire(corps);
+  if (!f.has('en tant que')) return null;
+  const critere = [...f.keys()].find((k) => k.startsWith('critères'));
   return {
-    role: ligne('**En tant que**', ','),
-    besoin: ligne('**je veux**', ','),
-    benefice: ligne('**afin de**', '\\.'),
-    criteres: corps
-      .split('\n')
-      .filter((l) => /^- \[[ x]\] /.test(l))
-      .map((l) => l.slice(6).trim()),
+    role: f.get('en tant que') ?? '',
+    besoin: f.get('je veux') ?? '',
+    benefice: f.get('afin de') ?? '',
+    criteres: critere ? listeCriteres(f.get(critere) ?? '') : [],
   };
 }
 
@@ -89,4 +121,66 @@ export function statutDepuis(etat: 'open' | 'closed', labels: string[]): Statut 
     labels.includes(STATUTS[s]),
   );
   return trouve ?? 'nouvelle';
+}
+
+const schemaBug = z.object({
+  titre: texte(5, 80, 'Donnez un titre court au problème (5 caractères minimum)'),
+  constate: texte(5, 1000, 'Décrivez ce qui se passe'),
+  attendu: texte(5, 1000, 'Décrivez ce qui devrait se passer'),
+  etapes: texte(5, 1000, 'Indiquez comment reproduire le problème'),
+  ecran: z.string().trim().max(200).default(''),
+});
+
+export type NouveauBug = z.output<typeof schemaBug>;
+export type ErreursBug = Partial<Record<keyof NouveauBug, string>>;
+
+export function validerBug(
+  donnees: unknown,
+): { ok: true; bug: NouveauBug } | { ok: false; erreurs: ErreursBug } {
+  const resultat = schemaBug.safeParse(donnees);
+  if (resultat.success) return { ok: true, bug: resultat.data };
+  const erreurs: ErreursBug = {};
+  for (const probleme of resultat.error.issues) {
+    const champ = probleme.path[0] as keyof NouveauBug;
+    erreurs[champ] ??= probleme.message;
+  }
+  return { ok: false, erreurs };
+}
+
+/** Même mise en page que le formulaire GitHub bug.yml : lisible des deux côtés. */
+export function formaterCorpsBug(bug: NouveauBug): string {
+  return [
+    '### Ce qui se passe',
+    '',
+    bug.constate,
+    '',
+    '### Ce qui devrait se passer',
+    '',
+    bug.attendu,
+    '',
+    '### Comment le reproduire',
+    '',
+    bug.etapes,
+    '',
+    '### Écran ou adresse concerné',
+    '',
+    bug.ecran || '_No response_',
+    '',
+    MARQUEUR_BUG,
+  ].join('\n');
+}
+
+export function lireCorpsBug(corps: string): Omit<NouveauBug, 'titre'> | null {
+  const f = sectionsFormulaire(corps);
+  if (!f.has('ce qui se passe')) return null;
+  return {
+    constate: f.get('ce qui se passe') ?? '',
+    attendu: f.get('ce qui devrait se passer') ?? '',
+    etapes: f.get('comment le reproduire') ?? '',
+    ecran: (f.get('écran ou adresse concerné') ?? '').replace(MARQUEUR_BUG, '').trim(),
+  };
+}
+
+export function typeDepuis(labels: string[]): TypeDemande {
+  return labels.includes(LABEL_BUG) ? 'bug' : 'story';
 }

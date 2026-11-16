@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import FilStory from '@/components/FilStory.vue'
+import FormulaireBug from '@/components/FormulaireBug.vue'
 import FormulaireStory from '@/components/FormulaireStory.vue'
 import ListeStories from '@/components/ListeStories.vue'
 import PanneauApercu from '@/components/PanneauApercu.vue'
-import type { ErreursStory, NouvelleStory } from '@/lib/story'
+import type { ErreursBug, ErreursStory, NouveauBug, NouvelleStory } from '@/lib/story'
 import { useProjetsStore } from '@/stores/projets'
 import { useStoriesStore } from '@/stores/stories'
 
 const projets = useProjetsStore()
 const stories = useStoriesStore()
 
-const modeCreation = ref(false)
+const modeCreation = ref<'story' | 'bug' | null>(null)
 const erreursCreation = ref<ErreursStory | null>(null)
+const erreursSignalement = ref<ErreursBug | null>(null)
 const envoiEnCours = ref(false)
 
 const options = computed(() => projets.liste.map((p) => ({ value: p.nom, text: p.nom })))
@@ -20,7 +22,7 @@ const options = computed(() => projets.liste.map((p) => ({ value: p.nom, text: p
 watch(
   () => projets.nomCourant,
   (nom) => {
-    modeCreation.value = false
+    modeCreation.value = null
     if (nom) void stories.charger(nom)
   },
 )
@@ -35,14 +37,31 @@ function choisirProjet(nom: string | number | null | undefined): void {
 }
 
 async function ouvrir(numero: number): Promise<void> {
-  modeCreation.value = false
+  modeCreation.value = null
   if (projets.nomCourant) await stories.ouvrir(projets.nomCourant, numero)
 }
 
 function nouvelleStory(): void {
   stories.fermer()
   erreursCreation.value = null
-  modeCreation.value = true
+  modeCreation.value = 'story'
+}
+
+function nouveauSignalement(): void {
+  stories.fermer()
+  erreursSignalement.value = null
+  modeCreation.value = 'bug'
+}
+
+async function signaler(bug: NouveauBug): Promise<void> {
+  if (!projets.nomCourant) return
+  envoiEnCours.value = true
+  try {
+    erreursSignalement.value = await stories.signaler(projets.nomCourant, bug)
+    if (!erreursSignalement.value) modeCreation.value = null
+  } finally {
+    envoiEnCours.value = false
+  }
 }
 
 async function creer(story: NouvelleStory): Promise<void> {
@@ -50,7 +69,7 @@ async function creer(story: NouvelleStory): Promise<void> {
   envoiEnCours.value = true
   try {
     erreursCreation.value = await stories.creer(projets.nomCourant, story)
-    if (!erreursCreation.value) modeCreation.value = false
+    if (!erreursCreation.value) modeCreation.value = null
   } finally {
     envoiEnCours.value = false
   }
@@ -87,7 +106,20 @@ async function repondre(texte: string): Promise<void> {
       <div class="fr-grid-row fr-grid-row--middle fr-grid-row--gutters">
         <h2 id="titre-stories" class="fr-h5 fr-col fr-mb-0">Stories</h2>
         <div class="fr-col-auto">
-          <DsfrButton size="sm" icon="fr-icon-add-line" label="Nouvelle story" @click="nouvelleStory" />
+          <ul class="fr-btns-group fr-btns-group--inline fr-btns-group--sm">
+            <li>
+              <DsfrButton size="sm" icon="fr-icon-add-line" label="Nouvelle story" @click="nouvelleStory" />
+            </li>
+            <li>
+              <DsfrButton
+                size="sm"
+                secondary
+                icon="fr-icon-error-warning-line"
+                label="Signaler un problème"
+                @click="nouveauSignalement"
+              />
+            </li>
+          </ul>
         </div>
       </div>
 
@@ -104,11 +136,18 @@ async function repondre(texte: string): Promise<void> {
       />
 
       <FormulaireStory
-        v-if="modeCreation"
+        v-if="modeCreation === 'story'"
         :erreurs-serveur="erreursCreation"
         :envoi-en-cours="envoiEnCours"
         @soumettre="creer"
-        @annuler="modeCreation = false"
+        @annuler="modeCreation = null"
+      />
+      <FormulaireBug
+        v-else-if="modeCreation === 'bug'"
+        :erreurs-serveur="erreursSignalement"
+        :envoi-en-cours="envoiEnCours"
+        @soumettre="signaler"
+        @annuler="modeCreation = null"
       />
       <FilStory v-else-if="stories.courante" :story="stories.courante" @repondre="repondre" />
     </section>

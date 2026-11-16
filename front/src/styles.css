@@ -71,3 +71,7 @@
   padding: 2rem;
   min-height: 24rem;
 }
+
+.fil-pre {
+  white-space: pre-wrap;
+}

@@ -1,7 +1,7 @@
 import { Controller, Get, Inject, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import type { Request, Response } from 'express';
-import { CONFIG, type Config } from '../config.js';
+import { CONFIG, loginAutorise, type Config } from '../config.js';
 import { GithubService } from '../github/github.service.js';
 import { ConnecteGuard } from './connecte.guard.js';
 import { GithubOAuthService } from './github-oauth.service.js';
@@ -39,6 +39,10 @@ export class AuthController {
     }
     const jeton = await this.oauth.echangerCode(code);
     const { data } = await this.github.client(jeton.access_token).users.getAuthenticated();
+    if (!loginAutorise(this.config, data.login)) {
+      res.redirect(`${this.config.URL_INTERFACE}/connexion?erreur=non-autorise`);
+      return;
+    }
     await new Promise<void>((ok, ko) => req.session.regenerate((e) => (e ? ko(e) : ok())));
     req.session.jeton = jeton.access_token;
     req.session.jetonRafraichissement = jeton.refresh_token;

@@ -31,8 +31,11 @@ export interface NouvelleStory {
   criteres: string[]
 }
 
+export type TypeDemande = 'story' | 'bug'
+
 export interface ResumeStory {
   numero: number
+  type: TypeDemande
   titre: string
   statut: Statut
   creeeLe: string
@@ -49,6 +52,7 @@ export interface Message {
 
 export interface DetailStory extends ResumeStory {
   contenu: Omit<NouvelleStory, 'titre'> | null
+  contenuBug: Omit<NouveauBug, 'titre'> | null
   texteBrut: string
   messages: Message[]
 }
@@ -69,5 +73,25 @@ export function verifierStory(story: NouvelleStory): ErreursStory {
   if (criteres.length === 0) erreurs.criteres = 'Ajoutez au moins un critère d’acceptation'
   if (criteres.length > CRITERES_MAX)
     erreurs.criteres = `${CRITERES_MAX} critères au maximum : au-delà, découpez en plusieurs stories`
+  return erreurs
+}
+
+export interface NouveauBug {
+  titre: string
+  constate: string
+  attendu: string
+  etapes: string
+  ecran: string
+}
+
+export type ErreursBug = Partial<Record<keyof NouveauBug, string>>
+
+export function verifierBug(bug: NouveauBug): ErreursBug {
+  const erreurs: ErreursBug = {}
+  if (bug.titre.trim().length < 5)
+    erreurs.titre = 'Donnez un titre court au problème (5 caractères minimum)'
+  if (bug.constate.trim().length < 5) erreurs.constate = 'Décrivez ce qui se passe'
+  if (bug.attendu.trim().length < 5) erreurs.attendu = 'Décrivez ce qui devrait se passer'
+  if (bug.etapes.trim().length < 5) erreurs.etapes = 'Indiquez comment reproduire le problème'
   return erreurs
 }

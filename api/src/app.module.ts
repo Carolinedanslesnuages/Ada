@@ -7,9 +7,10 @@ import { ProjetsController } from './projets/projets.controller.js';
 import { ProjetsService } from './projets/projets.service.js';
 import { StoriesController } from './stories/stories.controller.js';
 import { StoriesService } from './stories/stories.service.js';
+import { VersionController } from './version/version.controller.js';
 
 @Module({
-  controllers: [AuthController, ProjetsController, StoriesController],
+  controllers: [AuthController, ProjetsController, StoriesController, VersionController],
   providers: [
     { provide: CONFIG, useFactory: () => lireConfig() },
     GithubService,
