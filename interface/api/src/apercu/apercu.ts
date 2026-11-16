@@ -10,6 +10,18 @@ export const NOM_DEPOT = /^[a-z0-9][a-z0-9._-]{0,99}$/;
 
 /** Cache npm commun à tous les aperçus (créé une fois) : seuls les premiers téléchargements sont lents. */
 export const VOLUME_CACHE_NPM = 'atelier-po-cache-npm';
+/** Cache pip commun aux aperçus Python (créé une fois). */
+export const VOLUME_CACHE_PIP = 'atelier-po-cache-pip';
+
+/** Volumes partagés entre aperçus, à créer avant le premier démarrage. */
+export const volumesPartages = (config: AdaConfig): string[] => [VOLUME_CACHE_NPM, ...(config.apercu.pip.length ? [VOLUME_CACHE_PIP] : [])];
+
+/**
+ * Les images Node ont l'utilisateur « node » (1000) ; les autres (Python…) reçoivent « ada », avec
+ * le même numéro 1000 : l'assistant travaille dans tout aperçu avec `-u 1000`.
+ */
+const imageNode = (config: AdaConfig) => config.apercu.image.startsWith('node:');
+const MAISON_PYTHON = '/home/ada';
 
 /** Premier port libre de la plage, ou celui déjà attribué au projet. */
 export function attribuerPort(
@@ -65,6 +77,15 @@ export function genererCompose(
     '    environment:',
     ...(base ? ['      DATABASE_URL: postgresql://apercu:apercu@db:5432/apercu?schema=public'] : []),
     '      NODE_ENV: development',
+    ...(apercu.pip.length
+      ? [
+          '      VIRTUAL_ENV: /opt/venv',
+          '      PATH: /opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+          '      PIP_DISABLE_PIP_VERSION_CHECK: "1"',
+          '      PYTHONDONTWRITEBYTECODE: "1"',
+          '      PYTHONUNBUFFERED: "1"',
+        ]
+      : []),
     // Adresse publique (lien de démonstration) : le serveur de Vite refuse sinon un autre hôte.
     ...(hotes.length ? [`      __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: ${hotes.join(',')}`] : []),
     '    volumes:',
@@ -73,6 +94,7 @@ export function genererCompose(
     '      - ./travail.sh:/travail.sh:ro',
     ...volumesModules,
     '      - cache_npm:/home/node/.npm',
+    ...(apercu.pip.length ? ['      - venv:/opt/venv', `      - cache_pip:${MAISON_PYTHON}/.cache/pip`] : []),
     '    command: ["bash", "/demarrer.sh"]',
     '    ports:',
     `      - "127.0.0.1:${port}:${apercu.port}"`,
@@ -85,6 +107,7 @@ export function genererCompose(
     '  cache_npm:',
     `    name: ${VOLUME_CACHE_NPM}`,
     '    external: true',
+    ...(apercu.pip.length ? ['  venv: {}', '  cache_pip:', `    name: ${VOLUME_CACHE_PIP}`, '    external: true'] : []),
   ];
   return `${lignes.join('\n')}\n`;
 }
@@ -95,12 +118,25 @@ export function genererCompose(
  * de montage.
  */
 export function genererScriptDemarrage(config: AdaConfig = ADA_PAR_DEFAUT): string {
-  const imageNode = config.apercu.image.startsWith('node:');
-  const volumes = [...config.apercu.npm.map((dossier) => `${cheminDossier(dossier)}/node_modules`), '/home/node/.npm'];
+  const volumes = [
+    ...config.apercu.npm.map((dossier) => `${cheminDossier(dossier)}/node_modules`),
+    '/home/node/.npm',
+    ...(config.apercu.pip.length ? ['/opt/venv', `${MAISON_PYTHON}/.cache/pip`] : []),
+  ];
+  const utilisateur = imageNode(config) ? 'node' : 'ada';
   return [
     '#!/usr/bin/env bash',
     'set -euo pipefail',
-    ...(imageNode ? [`chown node:node ${volumes.join(' ')}`, 'exec runuser -u node -- bash /travail.sh'] : ['exec bash /travail.sh']),
+    // Image sans utilisateur « node » (Python…) : on crée « ada », numéro 1000, comme « node ».
+    ...(imageNode(config) ? [] : ['id -u ada >/dev/null 2>&1 || useradd --create-home --uid 1000 --shell /bin/bash ada']),
+    // Les commandes de l'assistant passent par un shell de connexion (bash -l), qui refait le PATH :
+    // l'environnement virtuel Python y est déclaré, sinon pytest, ruff… sont introuvables.
+    ...(config.apercu.pip.length
+      ? [`printf 'export VIRTUAL_ENV=/opt/venv\\nexport PATH=/opt/venv/bin:$PATH\\n' > /etc/profile.d/ada-venv.sh`]
+      : []),
+    `mkdir -p ${volumes.join(' ')}`,
+    `chown ${utilisateur}:${utilisateur} ${volumes.join(' ')}`,
+    `exec runuser -u ${utilisateur} -- bash /travail.sh`,
     '',
   ].join('\n');
 }
@@ -121,6 +157,23 @@ export function genererScriptTravail(config: AdaConfig = ADA_PAR_DEFAUT): string
     '  return 1',
     '}',
     ...apercu.npm.flatMap((dossier) => [`echo "[apercu] installation : ${dossier}"`, `(cd ${cheminDossier(dossier)} && installer)`]),
+    ...(apercu.pip.length
+      ? [
+          'installer_python() {',
+          '  for essai in 1 2 3; do',
+          // Outils de test et de lint compris (requirements-dev.txt inclut requirements.txt) : l'assistant
+          // lance ses contrôles dans l'aperçu.
+          '    fichier=requirements.txt; [ -f requirements-dev.txt ] && fichier=requirements-dev.txt',
+          '    pip install --retries 5 --timeout 60 -r "$fichier" && return 0',
+          '    echo "[apercu] installation Python interrompue (essai $essai), nouvelle tentative"',
+          '    sleep 10',
+          '  done',
+          '  return 1',
+          '}',
+          '[ -x /opt/venv/bin/python ] || python3 -m venv /opt/venv',
+          ...apercu.pip.flatMap((dossier) => [`echo "[apercu] installation Python : ${dossier}"`, `(cd ${cheminDossier(dossier)} && installer_python)`]),
+        ]
+      : []),
     ...apercu.avant,
     ...apercu.arrierePlan.map((commande, index) => `(${commande}) > /tmp/arriere-plan-${index}.log 2>&1 &`),
     'echo "[apercu] demarrage"',

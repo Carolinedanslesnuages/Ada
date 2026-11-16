@@ -3,8 +3,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { lireAdaConfig } from '../ada/ada-config.js';
-import { attribuerPort, etatDepuisPs, genererCompose, genererScriptDemarrage, genererScriptTravail, NOM_DEPOT, PORT_MIN } from './apercu.js';
+import { ADA_PAR_DEFAUT, lireAdaConfig } from '../ada/ada-config.js';
+import { attribuerPort, etatDepuisPs, genererCompose, genererScriptDemarrage, genererScriptTravail, NOM_DEPOT, PORT_MIN, volumesPartages } from './apercu.js';
 
 describe('Ports des aperçus', () => {
   it('garde le port déjà attribué à un projet', () => {
@@ -98,5 +98,54 @@ describe('État d’un aperçu', () => {
 
   it('en erreur si le conteneur s’est arrêté', () => {
     expect(etatDepuisPs(`${JSON.stringify({ Service: 'db', State: 'running' })}\n${ligne('exited')}`, false)).toBe('erreur');
+  });
+
+  describe('aperçu d’un projet Python', () => {
+    const configPython = lireAdaConfig(
+      JSON.stringify({
+        type: 'api',
+        controlesRequis: ['API'],
+        controles: ['cd /app && pytest'],
+        apercu: { image: 'python:3.13-slim', base: 'postgres', pip: ['.'], principal: 'cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000', port: 8000 },
+      }),
+    );
+
+    it('environnement virtuel conservé, cache pip partagé, et le PATH qui va avec', () => {
+      const compose = genererCompose('api-python', 5310, configPython);
+      expect(compose).toContain('      - venv:/opt/venv');
+      expect(compose).toContain('      - cache_pip:/home/ada/.cache/pip');
+      expect(compose).toContain('      PATH: /opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin');
+      expect(compose).toContain('    name: atelier-po-cache-pip');
+      expect(compose).toContain('"127.0.0.1:5310:8000"');
+      expect(volumesPartages(configPython)).toEqual(['atelier-po-cache-npm', 'atelier-po-cache-pip']);
+      expect(volumesPartages(ADA_PAR_DEFAUT)).toEqual(['atelier-po-cache-npm']);
+    });
+
+    it('crée l’utilisateur « ada » (1000, comme « node ») et travaille avec lui, jamais en root', () => {
+      const demarrage = genererScriptDemarrage(configPython);
+      expect(demarrage).toContain('useradd --create-home --uid 1000 --shell /bin/bash ada');
+      expect(demarrage).toContain('chown ada:ada /home/node/.npm /opt/venv /home/ada/.cache/pip');
+      expect(demarrage).toContain('exec runuser -u ada -- bash /travail.sh');
+      // Les commandes de l'assistant (bash -l) trouvent les outils de l'environnement virtuel.
+      expect(demarrage).toContain('/etc/profile.d/ada-venv.sh');
+      expect(genererScriptDemarrage(ADA_PAR_DEFAUT)).not.toContain('ada-venv');
+      expect(genererScriptDemarrage(ADA_PAR_DEFAUT)).toContain('exec runuser -u node -- bash /travail.sh');
+      expect(genererScriptDemarrage(ADA_PAR_DEFAUT)).not.toContain('useradd');
+    });
+
+    it('installe les dépendances Python avec nouvelles tentatives, dans l’environnement virtuel', () => {
+      const travail = genererScriptTravail(configPython);
+      expect(travail).toContain('[ -x /opt/venv/bin/python ] || python3 -m venv /opt/venv');
+      expect(travail).toContain('fichier=requirements.txt; [ -f requirements-dev.txt ] && fichier=requirements-dev.txt');
+      expect(travail).toContain('pip install --retries 5 --timeout 60 -r "$fichier"');
+      expect(travail).toContain('(cd /app && installer_python)');
+      expect(genererScriptTravail(ADA_PAR_DEFAUT)).not.toContain('pip install');
+    });
+
+    it('scripts générés syntaxiquement valides (bash -n)', () => {
+      for (const script of [genererScriptDemarrage(configPython), genererScriptTravail(configPython)]) {
+        expect(() => execFileSync('bash', ['-n'], { input: script })).not.toThrow();
+      }
+    });
   });
 });

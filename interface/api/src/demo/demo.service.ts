@@ -11,7 +11,7 @@ import {
   genererScriptDemarrage,
   genererScriptTravail,
   PLAGE_DEMO,
-  VOLUME_CACHE_NPM,
+  volumesPartages,
 } from '../apercu/apercu.js';
 import { CONFIG, type Config } from '../config.js';
 
@@ -97,7 +97,7 @@ export class DemoService {
       await writeFile(join(dossier, 'compose.yml'), genererCompose(projet, port, config, { nom: `demo-${projet}`, hotesAutorises: [hote] }));
       await writeFile(join(dossier, 'demarrer.sh'), genererScriptDemarrage(config), { mode: 0o755 });
       await writeFile(join(dossier, 'travail.sh'), genererScriptTravail(config), { mode: 0o755 });
-      await this.apercu.executer('docker', ['volume', 'create', VOLUME_CACHE_NPM]);
+      for (const volume of volumesPartages(config)) await this.apercu.executer('docker', ['volume', 'create', volume]);
       await this.apercu.executer('docker', ['compose', '-f', 'compose.yml', 'up', '-d', '--remove-orphans'], { cwd: dossier });
     } catch (e) {
       this.journal.warn(`Démo de ${projet} : ${(e as Error).message.split('\n')[0]}`);

@@ -43,6 +43,11 @@ const schema = z.object({
     base: z.enum(['postgres']).nullable().default(null),
     /** Dossiers où lancer « npm install » (avec nouvelles tentatives), « . » pour la racine. */
     npm: z.array(z.string()).default([]),
+    /**
+     * Dossiers contenant un requirements.txt (Python) : installés dans un environnement virtuel
+     * (/opt/venv, conservé dans un volume), avec nouvelles tentatives.
+     */
+    pip: z.array(z.string()).default([]),
     /** Commandes préalables (migrations, pip install…). */
     avant: z.array(z.string()).default([]),
     /** Commandes lancées en arrière-plan (ex. l'API). */
@@ -84,6 +89,7 @@ export const ADA_PAR_DEFAUT: AdaConfig = {
   apercu: {
     image: 'node:24-bookworm',
     base: 'postgres',
+    pip: [],
     npm: ['api', 'front'],
     avant: ['cd /app/api && if [ -d prisma/migrations ]; then npx prisma migrate deploy; fi'],
     arrierePlan: ['cd /app/api && npm run start:dev'],
