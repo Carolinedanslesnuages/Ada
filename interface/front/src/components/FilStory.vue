@@ -49,6 +49,12 @@ const champVisible = computed(
   () => !travaille.value && (props.story.statut === 'questions' || (props.story.statut === 'plan-a-valider' && modeModification.value)),
 )
 
+/** « de la story n° 12 », « du signalement n° 4 »… : où la réponse est enregistrée sur GitHub. */
+const designation = computed(() => {
+  const nature = props.story.type === 'bug' ? 'du signalement' : props.story.type === 'libre' ? 'de la demande' : 'de la story'
+  return `${nature} n° ${props.story.numero}`
+})
+
 const heure = (iso: string) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 const date = (iso: string) => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 
@@ -80,13 +86,19 @@ function envoyer(): void {
 
     <div v-if="story.statut === 'nouvelle'" class="fr-mb-3w">
       <DsfrAlert v-if="blocage" type="warning" small :description="blocage" />
-      <DsfrButton
-        v-else
-        icon="fr-icon-play-line"
-        :label="lancementEnCours ? 'Lancement…' : story.type === 'bug' ? 'Lancer la correction' : 'Lancer cette story'"
-        :disabled="lancementEnCours"
-        @click="emit('lancer')"
-      />
+      <template v-else>
+        <DsfrButton
+          icon="fr-icon-play-line"
+          :label="lancementEnCours ? 'Lancement…' : story.type === 'bug' ? 'Lancer la correction' : 'Lancer cette story'"
+          aria-describedby="lancement-enregistrement"
+          :disabled="lancementEnCours"
+          @click="emit('lancer')"
+        />
+        <p id="lancement-enregistrement" class="fr-text--sm fr-mt-1w fr-mb-0">
+          <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
+          Le lancement est noté sur GitHub, à votre nom : un commentaire et le statut {{ designation }}.
+        </p>
+      </template>
       <DsfrAlert v-if="erreurLancement" type="error" small :description="erreurLancement" class="fr-mt-2w" />
     </div>
 
@@ -206,9 +218,13 @@ function envoyer(): void {
 
       <div v-if="story.statut === 'plan-a-valider' && !travaille && !modeModification" class="fr-mt-2w">
         <DsfrAlert type="info" small class="fr-mb-2w" description="L’assistant attend votre accord sur le plan ci-dessus avant de commencer." />
+        <p id="validation-enregistrement" class="fr-text--sm fr-mb-2w">
+          <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
+          Votre accord est enregistré sur GitHub, en commentaire {{ designation }}, à votre nom.
+        </p>
         <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
           <li>
-            <DsfrButton icon="fr-icon-check-line" label="Valider le plan" :disabled="actionEnCours" @click="emit('valider')" />
+            <DsfrButton icon="fr-icon-check-line" label="Valider le plan" aria-describedby="validation-enregistrement" :disabled="actionEnCours" @click="emit('valider')" />
           </li>
           <li>
             <DsfrButton secondary label="Demander une modification" :disabled="actionEnCours" @click="modeModification = true" />
@@ -231,8 +247,14 @@ function envoyer(): void {
           is-textarea
           :error-message="erreur"
         />
+        <p id="reponse-enregistrement" class="fr-text--sm fr-mb-2w">
+          <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
+          <strong>En envoyant, votre texte est enregistré tel quel sur GitHub, en commentaire
+          {{ designation }}</strong>, à votre nom et visible par l’équipe du projet. Il garde la trace
+          des échanges avec l’assistant.
+        </p>
         <ul class="fr-btns-group fr-btns-group--inline-md">
-          <li><DsfrButton type="submit" label="Envoyer" :disabled="actionEnCours" /></li>
+          <li><DsfrButton type="submit" label="Envoyer" aria-describedby="reponse-enregistrement" :disabled="actionEnCours" /></li>
           <li v-if="modeModification">
             <DsfrButton type="button" tertiary label="Annuler" @click="modeModification = false" />
           </li>
