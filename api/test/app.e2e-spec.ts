@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -10,6 +13,7 @@ process.env.GITHUB_PROPRIETAIRE = 'proprio';
 process.env.GITHUB_CLIENT_ID = 'Iv-test';
 process.env.GITHUB_CLIENT_SECRET = 'secret-test';
 process.env.SESSION_SECRET = 'x'.repeat(32);
+process.env.DOSSIER_SESSIONS = mkdtempSync(join(tmpdir(), 'sessions-e2e-'));
 
 describe('Atelier PO (e2e)', () => {
   let app: INestApplication<App>;

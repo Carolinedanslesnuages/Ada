@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import session from 'express-session';
+import { MagasinSessionsChiffre } from './auth/magasin-sessions.js';
 import type { Config } from './config.js';
 
 /** Réglages communs à main.ts et aux tests e2e. */
@@ -11,7 +12,7 @@ export function configurerApp(app: INestApplication, config: Config): void {
       secret: config.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
-      // Magasin en mémoire : suffisant en développement (sessions perdues au redémarrage).
+      store: new MagasinSessionsChiffre(config.DOSSIER_SESSIONS, config.SESSION_SECRET),
       cookie: {
         httpOnly: true,
         sameSite: 'lax',

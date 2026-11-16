@@ -45,3 +45,14 @@ export function catalogue(config: Config): Modele[] {
     { id: 'vue-seul', libelle: 'Vue 3 seul', pourQuoi: 'Maquette ou prototype cliquable', depot: null },
   ];
 }
+
+/** Labels posés à la création d'un projet : types de demande et statuts gérés par l'atelier. */
+export const LABELS_ATELIER = [
+  { name: 'user-story', color: '000091', description: 'Story écrite par le PO' },
+  { name: 'bug', color: 'ce0500', description: 'Problème signalé par le PO' },
+  { name: 'story:en-cours', color: '0063cb', description: 'Lancée depuis l’atelier PO' },
+  { name: 'story:questions', color: 'b34000', description: 'L’assistant attend des réponses du PO' },
+  { name: 'story:plan-a-valider', color: 'b34000', description: 'Le PO doit valider le plan' },
+  { name: 'story:en-verification', color: '0063cb', description: 'Réalisée, contrôles en cours' },
+  { name: 'story:besoin-dev', color: 'ce0500', description: 'Bloquée : un développeur doit intervenir' },
+];

@@ -38,6 +38,7 @@ const issue = (numero: number, extra: Record<string, unknown> = {}) => ({
 
 describe('StoriesService', () => {
   const gh = {
+    paginate: vi.fn(async (_methode: unknown, _options: unknown) => [] as unknown[]),
     issues: {
       listForRepo: vi.fn(),
       get: vi.fn(),
@@ -51,10 +52,7 @@ describe('StoriesService', () => {
   const github = { client: vi.fn(() => gh) } as unknown as GithubService;
   let service: StoriesService;
 
-  const depot = (stories: unknown[], bugs: unknown[] = []) =>
-    gh.issues.listForRepo.mockImplementation(async ({ labels }: { labels: string }) => ({
-      data: labels === 'user-story' ? stories : bugs,
-    }));
+  const depot = (stories: unknown[], bugs: unknown[] = []) => gh.paginate.mockResolvedValue([...stories, ...bugs]);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -75,12 +73,21 @@ describe('StoriesService', () => {
     expect(liste[1]!.raison).toMatch(/Plus de 4 critères/);
   });
 
+  it('montre une story écrite avec le formulaire même si le label manquait dans le dépôt', async () => {
+    depot([issue(1, { labels: [] }), issue(2, { labels: [], body: 'Question libre' })]);
+    const liste = await service.lister('jeton', 'poc');
+    expect(liste.map((s) => [s.numero, s.type, s.prete])).toEqual([[1, 'story', true]]);
+  });
+
   it('lance une story prête : label « en cours » et trace dans GitHub', async () => {
     depot([issue(1), issue(2)]);
     gh.issues.getLabel.mockRejectedValue({ status: 404 });
     const lancee = await service.lancer('jeton', 'poc', 2, 'po1');
+    expect(gh.issues.createLabel).toHaveBeenCalledWith(expect.objectContaining({ name: 'user-story' }));
     expect(gh.issues.createLabel).toHaveBeenCalledWith(expect.objectContaining({ name: 'story:en-cours' }));
-    expect(gh.issues.addLabels).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 2, labels: ['story:en-cours'] }));
+    expect(gh.issues.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ issue_number: 2, labels: ['user-story', 'story:en-cours'] }),
+    );
     expect(gh.issues.createComment).toHaveBeenCalledWith(
       expect.objectContaining({ issue_number: 2, body: '▶️ Lancée depuis l’atelier PO par po1.' }),
     );
@@ -122,7 +129,7 @@ describe('StoriesService', () => {
   });
 
   it('traduit un « introuvable » de GitHub', async () => {
-    gh.issues.listForRepo.mockRejectedValue({ status: 404 });
+    gh.paginate.mockRejectedValue({ status: 404 });
     await expect(service.lister('jeton', 'inconnu')).rejects.toBeInstanceOf(NotFoundException);
   });
 

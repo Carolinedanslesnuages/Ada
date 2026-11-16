@@ -117,6 +117,14 @@ export function statutDepuis(etat: 'open' | 'closed', labels: string[]): Statut 
   return trouve ?? 'nouvelle';
 }
 
-export function typeDepuis(labels: string[]): TypeDemande {
-  return labels.includes(LABEL_BUG) ? 'bug' : 'story';
+/**
+ * Story ou problème ? D'abord le label ; sinon le contenu du formulaire (le formulaire GitHub
+ * ne pose son label que si celui-ci existe déjà dans le dépôt). null : ni l'un ni l'autre.
+ */
+export function typeDepuis(labels: string[], corps = ''): TypeDemande | null {
+  if (labels.includes(LABEL_BUG)) return 'bug';
+  if (labels.includes(LABEL_STORY)) return 'story';
+  if (lireStory(corps)) return 'story';
+  if (lireBug(corps)) return 'bug';
+  return null;
 }

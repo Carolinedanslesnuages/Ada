@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { attribuerPort, etatDepuisPs, genererCompose, NOM_DEPOT, PORT_MIN } from './apercu.js';
+import { attribuerPort, etatDepuisPs, genererCompose, NOM_DEPOT, PORT_MIN, SCRIPT_DEMARRAGE } from './apercu.js';
 
 describe('Ports des aperçus', () => {
   it('garde le port déjà attribué à un projet', () => {
@@ -29,6 +29,11 @@ describe('Conteneurs d’un aperçu', () => {
     expect(compose).toContain('modules_front:/app/front/node_modules');
     expect(compose).toContain('cache_npm:/home/node/.npm');
     expect(compose).toContain('name: atelier-po-cache-npm');
+  });
+
+  it('réessaie l’installation sur une connexion instable', () => {
+    expect(SCRIPT_DEMARRAGE).toContain('--fetch-retries=5');
+    expect(SCRIPT_DEMARRAGE.match(/^\s*installer$/gm)).toHaveLength(2);
   });
 
   it('nomme le projet Docker d’après le dépôt', () => {

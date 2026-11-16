@@ -27,3 +27,6 @@ secrets/
 
 # Aperçus : clones et conteneurs des projets (jamais dans git)
 apercus/
+
+# Sessions chiffrées (jamais dans git)
+sessions/

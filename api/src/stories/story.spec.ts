@@ -102,4 +102,10 @@ describe('Statut et type', () => {
     expect(typeDepuis(['bug'])).toBe('bug');
     expect(typeDepuis(['user-story'])).toBe('story');
   });
+
+  it('reconnaît une story ou un problème sans label, par le contenu du formulaire', () => {
+    expect(typeDepuis([], formulaireStory('- a'))).toBe('story');
+    expect(typeDepuis([], formulaireBug)).toBe('bug');
+    expect(typeDepuis([], 'Une question libre')).toBeNull();
+  });
 });

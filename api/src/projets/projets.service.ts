@@ -10,7 +10,7 @@ import type { Octokit } from '@octokit/rest';
 import { CONFIG, type Config } from '../config.js';
 import { decrireErreurGithub, traduireErreurGithub } from '../github/erreurs.js';
 import { GithubService } from '../github/github.service.js';
-import { catalogue, CONTROLES_REQUIS, FICHIERS_A_PERSONNALISER, type Modele } from './modeles.js';
+import { catalogue, CONTROLES_REQUIS, FICHIERS_A_PERSONNALISER, LABELS_ATELIER, type Modele } from './modeles.js';
 import { personnaliser, validerProjet, type ValeursProjet } from './projet.js';
 
 export interface Projet {
@@ -146,6 +146,7 @@ export class ProjetsService {
         po: login,
       });
       await gh.repos.replaceAllTopics({ owner, repo: slug, names: [this.config.TOPIC_ATELIER] });
+      await this.poserLabels(gh, owner, slug);
     } catch (e) {
       if (e instanceof ForbiddenException) throw e;
       traduireErreurGithub(e);
@@ -159,6 +160,20 @@ export class ProjetsService {
         protectionMain: { etat: protectionMain, lien: `${base}/rules` },
       },
     };
+  }
+
+  /**
+   * Labels dont dépendent les formulaires d'issue (ils ne posent un label que s'il existe) et
+   * les statuts de l'atelier. Un dépôt créé depuis un modèle n'hérite pas de ses labels.
+   */
+  private async poserLabels(gh: Octokit, owner: string, repo: string): Promise<void> {
+    for (const label of LABELS_ATELIER) {
+      try {
+        await gh.issues.createLabel({ owner, repo, ...label });
+      } catch (e) {
+        if (statut(e) !== 422) throw e; // 422 : le label existe déjà (ex. « bug »)
+      }
+    }
   }
 
   /** La génération depuis un modèle est asynchrone : attendre que les fichiers soient là. */

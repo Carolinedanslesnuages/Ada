@@ -34,6 +34,7 @@ describe('ProjetsService', () => {
       getContent: vi.fn(),
       replaceAllTopics: vi.fn(),
     },
+    issues: { createLabel: vi.fn() },
     git: { getRef: vi.fn(), getCommit: vi.fn(), createTree: vi.fn(), createCommit: vi.fn(), updateRef: vi.fn() },
   };
   const github = { client: vi.fn(() => gh) } as unknown as GithubService;
@@ -108,6 +109,8 @@ describe('ProjetsService', () => {
     expect(gh.git.createCommit).toHaveBeenCalledWith(expect.objectContaining({ parents: ['parent'], message: 'chore: personnalisation du projet L’annuaire' }));
     expect(gh.git.updateRef).toHaveBeenCalledWith(expect.objectContaining({ ref: 'heads/main', sha: 'commit' }));
     expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith(expect.objectContaining({ names: ['atelier-po'] }));
+    const labels = gh.issues.createLabel.mock.calls.map((appel) => (appel[0] as { name: string }).name);
+    expect(labels).toEqual(expect.arrayContaining(['user-story', 'bug', 'story:en-cours', 'story:besoin-dev']));
     expect(gh.request.mock.invocationCallOrder[0]).toBeLessThan(gh.git.createCommit.mock.invocationCallOrder[0]);
     expect(resultat.reglages.versionsAutomatiques.etat).toBe('fait');
     expect(resultat.reglages.protectionMain.etat).toBe('fait');
@@ -117,6 +120,15 @@ describe('ProjetsService', () => {
     gh.repos.get.mockRejectedValue({ status: 404 });
     gh.repos.createUsingTemplate.mockRejectedValue({ status: 404, request: { method: 'POST', url: 'x' } });
     await expect(service.creer('jeton', 'po1', projetValide)).rejects.toThrow(/Repository access/);
+  });
+
+  it('tolère un label déjà présent dans le dépôt (« bug » existe par défaut)', async () => {
+    preparerCreation();
+    gh.request.mockResolvedValue({});
+    gh.issues.createLabel.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'bug') throw { status: 422 };
+    });
+    await expect(service.creer('jeton', 'po1', projetValide)).resolves.toBeDefined();
   });
 
   it('attend que GitHub ait fini de copier le modèle', async () => {

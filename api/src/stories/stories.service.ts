@@ -60,8 +60,8 @@ const nomsLabels = (labels: Issue['labels']) => labels.map((l) => (typeof l === 
 
 const resumer = (i: Issue): ResumeStory => {
   const labels = nomsLabels(i.labels);
-  const type = typeDepuis(labels);
   const corps = i.body ?? '';
+  const type = typeDepuis(labels, corps) ?? 'story';
   const verification = verifierPrete(type, lireStory(corps), lireBug(corps));
   return {
     numero: i.number,
@@ -86,18 +86,23 @@ export class StoriesService {
     return this.config.GITHUB_PROPRIETAIRE;
   }
 
-  /** Stories et problèmes écrits dans GitHub, du plus récent au plus ancien. */
+  /**
+   * Stories et problèmes écrits dans GitHub, du plus récent au plus ancien : issues portant le
+   * label, ou rédigées avec le formulaire même si le label manquait dans le dépôt.
+   */
   async lister(jeton: string, depot: string): Promise<ResumeStory[]> {
     const gh = this.github.client(jeton);
-    const parLabel = (labels: string) =>
-      gh.issues.listForRepo({ owner: this.owner, repo: depot, labels, state: 'all', per_page: 100 });
     try {
-      const [stories, bugs] = await Promise.all([parLabel(LABEL_STORY), parLabel(LABEL_BUG)]);
-      const parNumero = new Map<number, Issue>();
-      for (const i of [...stories.data, ...bugs.data] as Issue[]) {
-        if (!i.pull_request) parNumero.set(i.number, i);
-      }
-      return [...parNumero.values()].sort((a, b) => b.number - a.number).map(resumer);
+      const issues = (await gh.paginate(gh.issues.listForRepo, {
+        owner: this.owner,
+        repo: depot,
+        state: 'all',
+        per_page: 100,
+      })) as Issue[];
+      return issues
+        .filter((i) => !i.pull_request && typeDepuis(nomsLabels(i.labels), i.body ?? '') !== null)
+        .sort((a, b) => b.number - a.number)
+        .map(resumer);
     } catch (e) {
       traduireErreurGithub(e);
     }
@@ -144,8 +149,15 @@ export class StoriesService {
     }
     const gh = this.github.client(jeton);
     try {
+      const labelType = cible.type === 'bug' ? LABEL_BUG : LABEL_STORY;
+      await this.assurerLabel(jeton, depot, labelType);
       await this.assurerLabel(jeton, depot, STATUTS['en-cours']);
-      await gh.issues.addLabels({ owner: this.owner, repo: depot, issue_number: numero, labels: [STATUTS['en-cours']] });
+      await gh.issues.addLabels({
+        owner: this.owner,
+        repo: depot,
+        issue_number: numero,
+        labels: [labelType, STATUTS['en-cours']],
+      });
       await gh.issues.createComment({
         owner: this.owner,
         repo: depot,

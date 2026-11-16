@@ -73,14 +73,24 @@ export const SCRIPT_DEMARRAGE = `#!/usr/bin/env bash
 set -euo pipefail
 chown node:node /app/api/node_modules /app/front/node_modules /home/node/.npm
 exec runuser -u node -- bash -euo pipefail -c '
+  # Connexion lente ou instable : délais longs et nouvelles tentatives.
+  installer() {
+    for essai in 1 2 3; do
+      npm install --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000 \\
+        --fetch-retry-maxtimeout=180000 --fetch-timeout=600000 && return 0
+      echo "[apercu] installation interrompue (essai $essai), nouvelle tentative"
+      sleep 10
+    done
+    return 1
+  }
   cd /app/api
   echo "[apercu] installation de l API"
-  npm install --no-audit --no-fund
+  installer
   if [ -d prisma/migrations ]; then npx prisma migrate deploy; fi
   (npm run start:dev > /tmp/api.log 2>&1 &)
   cd /app/front
   echo "[apercu] installation du front"
-  npm install --no-audit --no-fund
+  installer
   echo "[apercu] demarrage du front"
   exec npx vite --host 0.0.0.0 --port 5173 --strictPort
 '
