@@ -46,6 +46,12 @@ export function outilsAutorises(phase: Phase, dossiersLisibles: string[] = []): 
   ];
 }
 
+/**
+ * Interdits, quelle que soit la phase : l'agent ne touche jamais aux workflows GitHub (CI,
+ * versions) qui contrôlent son propre travail. Une interdiction l'emporte sur une autorisation.
+ */
+export const OUTILS_INTERDITS = ['Edit(./.github/**)', 'Write(./.github/**)'];
+
 /** Une skill qui pré-autorise des outils ou exécute des commandes au chargement casserait ce cloisonnement. */
 export function skillSure(contenuSkill: string): boolean {
   const entete = contenuSkill.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
@@ -189,6 +195,8 @@ Règles :
 - Noms explicites partout : chaque variable, fonction, paramètre dit ce qu'il contient ou fait
   (« salleLibre », « reservationsDuJour »), jamais « el », « x », « s », « tmp » ; seuls les noms
   imposés par les bibliothèques restent tels quels (vi, expect…). Le lint le vérifie.
+- Ne modifie jamais le dossier .github/ (CI, versions) : il est réservé aux développeurs. Si la
+  demande l'exige, arrête-toi et réponds « bloque » en expliquant pourquoi.
 - Reste dans le périmètre de la demande : aucun « refactor au passage », aucune dépendance non
   nécessaire. Un autre problème repéré : note-le dans la fiche, ne le corrige pas.
 - Contrôle final, une seule fois, en jugeant sur le code de retour de chaque commande :

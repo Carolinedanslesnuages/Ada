@@ -15,6 +15,7 @@ import {
   decrireEvenement,
   lireDecision,
   lireResultat,
+  OUTILS_INTERDITS,
   outilsAutorises,
   skillSure,
   type Demande,
@@ -294,6 +295,8 @@ export class AgentService {
       '--max-turns',
       String(this.tours[phase]),
       '--no-session-persistence',
+      '--disallowedTools',
+      ...OUTILS_INTERDITS,
       '--allowedTools',
       ...outilsAutorises(phase, dossiersLisibles),
     ];

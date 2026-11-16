@@ -50,7 +50,8 @@ des outils (`allowed-tools`) ou exécute des commandes au chargement (c'est le c
 ## Sécurité et fiabilité
 
 - **Cloisonnement de l'agent** : lecture et écriture limitées au projet, plus la lecture des
-  dossiers de skills ; skills qui pré-autorisent des outils écartées.
+  dossiers de skills ; skills qui pré-autorisent des outils écartées ; **jamais de modification
+  de `.github/`** (workflows de CI et de versions).
 - **Processus travailleur** : chaque tâche de l'assistant tourne dans un processus détaché qui
   survit aux redémarrages de l'API ; verrou par projet (`apercus/<projet>/agent/verrou.json`).
 - **Fusion** : une demande en retard sur `main` est mise à jour (contrôles relancés) avant fusion.
@@ -62,5 +63,4 @@ des outils (`allowed-tools`) ou exécute des commandes au chargement (c'est le c
   l'interface le signale au PO.
 - PR de version (release-please) : leurs contrôles attendent une approbation manuelle sur GitHub,
   car ouvertes par le robot GitHub. Sans conséquence : ADA ne publie une version que si la PR
-  ne touche que les fichiers de version. Les faire tourner seules demande une clé privée de la
-  GitHub App et un secret par dépôt (à mettre en place avec l'hébergement).
+  ne touche que les fichiers de version. Décision et montage prévu en organisation : ADR-0005.
