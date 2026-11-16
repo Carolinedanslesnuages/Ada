@@ -136,3 +136,8 @@
 .controle--ko {
   color: var(--text-default-error);
 }
+
+.versions {
+  padding: 0.75rem 1rem;
+  background-color: var(--background-alt-grey);
+}

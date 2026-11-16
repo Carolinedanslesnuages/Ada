@@ -4,6 +4,7 @@ import FilStory from '@/components/FilStory.vue'
 import FormulaireProjet from '@/components/FormulaireProjet.vue'
 import ListeStories from '@/components/ListeStories.vue'
 import PanneauApercu from '@/components/PanneauApercu.vue'
+import PanneauVersions from '@/components/PanneauVersions.vue'
 import ResultatProjet from '@/components/ResultatProjet.vue'
 import type { ErreursProjet, NouveauProjet, ResultatCreation } from '@/lib/projet'
 import { lienNouvelleIssue, STATUTS_ACTIFS } from '@/lib/story'
@@ -183,6 +184,8 @@ onUnmounted(() => {
           <DsfrButton size="sm" tertiary icon="fr-icon-add-line" label="Nouveau projet" @click="nouveauProjet" />
         </div>
       </div>
+
+      <PanneauVersions v-if="projets.nomCourant" :projet="projets.nomCourant" />
 
       <div class="fr-grid-row fr-grid-row--middle fr-grid-row--gutters">
         <h2 id="titre-stories" class="fr-h5 fr-col fr-mb-0">Stories</h2>

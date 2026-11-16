@@ -15,9 +15,11 @@ import { StoriesService } from './stories/stories.service.js';
 import { VerificationController } from './verification/verification.controller.js';
 import { VerificationService } from './verification/verification.service.js';
 import { VersionController } from './version/version.controller.js';
+import { VersionsController } from './versions/versions.controller.js';
+import { VersionsService } from './versions/versions.service.js';
 
 @Module({
-  controllers: [AgentController, ApercuController, AuthController, DiagnosticController, ProjetsController, StoriesController, VerificationController, VersionController],
+  controllers: [AgentController, ApercuController, AuthController, DiagnosticController, ProjetsController, StoriesController, VerificationController, VersionController, VersionsController],
   providers: [
     { provide: CONFIG, useFactory: () => lireConfig() },
     AgentService,
@@ -27,6 +29,7 @@ import { VersionController } from './version/version.controller.js';
     ProjetsService,
     StoriesService,
     VerificationService,
+    VersionsService,
   ],
 })
 export class AppModule {}

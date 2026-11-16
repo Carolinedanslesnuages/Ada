@@ -26,6 +26,8 @@ const reponses: Record<string, unknown> = {
   '/projets/poc-portail/stories': [story],
   '/projets/annuaire/stories': [],
   '/projets/poc-portail/apercu': { etat: 'demarrage', url: null, journal: null },
+  '/projets/poc-portail/versions': { actuelle: null, proposee: null },
+  '/projets/annuaire/versions': { actuelle: null, proposee: null },
 }
 
 const monter = async () => {
