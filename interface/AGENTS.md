@@ -41,7 +41,11 @@ l'aperçu du produit tourne à droite dès la création du projet.
 | Compilation | `cd api && npm run build && cd ../front && npm run type-check && npm run build-only` |
 
 ## Messages de commit (release-please)
-Conventional Commits : `feat:`, `fix:` (nouvelle version), `test:`, `docs:`, `chore:`, `refactor:`.
+Conventional Commits, versions SemVer par release-please : `fix:` → correctif, `feat:` →
+mineure, `!` / `BREAKING CHANGE:` → majeure (mineure avant 1.0.0) ; `test:`, `docs:`, `chore:`,
+`refactor:` sans version. Fusion en squash : le titre de la PR devient le commit de `main` ; il
+est vérifié en CI (`titre-pr.yml`) et par ADA avant de fusionner une demande
+(`api/src/versions/conventionnel.ts`).
 
 ## Règles absolues
 - Aucun secret dans le dépôt (`api/.env` est ignoré ; gitleaks en local et en CI ; `--no-verify` interdit).

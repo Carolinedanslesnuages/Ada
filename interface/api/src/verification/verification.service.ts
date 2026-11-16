@@ -42,7 +42,7 @@ export class VerificationService {
       return {
         pullRequest: { numero: pr.number, url: pr.html_url, etat },
         controles,
-        ...peutFusionner(etat, pr.mergeable, controles),
+        ...peutFusionner(etat, pr.mergeable, controles, pr.title),
       };
     } catch (e) {
       traduireErreurGithub(e);

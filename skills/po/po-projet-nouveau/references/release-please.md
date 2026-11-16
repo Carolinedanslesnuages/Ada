@@ -57,9 +57,17 @@ Format Conventional Commits, en français après le préfixe :
 - `feat: <ce que l'utilisateur peut désormais faire>` → version mineure (0.1.0 → 0.2.0)
 - `fix: <ce qui est corrigé>` → correctif (0.2.0 → 0.2.1)
 - `test:`, `docs:`, `chore:`, `refactor:` → pas de nouvelle version
+- `!` avant les deux-points (`feat!: …`) ou `BREAKING CHANGE:` dans le corps : changement
+  incompatible (données, adresse ou comportement attendu modifiés) → version majeure
+  (1.2.0 → 2.0.0) ; avant 1.0.0, version mineure (`bump-minor-pre-major`).
 - Une story liée à une issue GitHub : ajouter `Closes #<numéro>` dans le corps.
 
-Le commit d'initialisation : `chore: initialisation du projet <nom>`.
+Versions [SemVer 2.0.0](https://semver.org/lang/fr/) : `MAJEUR.MINEUR.CORRECTIF`, tag `vX.Y.Z`,
+calculées par release-please — jamais à la main. Fusion en squash : c'est le **titre de la PR**
+qui devient le commit de `main` ; le workflow `titre-pr.yml` (contrôle requis « Titre de PR
+(Conventional Commits, semver) ») refuse un titre non conforme.
+
+Le commit d'initialisation : `chore: création du projet <nom>`.
 
 ## À dire au PO — une seule fois par projet, quand il a un dépôt GitHub
 
