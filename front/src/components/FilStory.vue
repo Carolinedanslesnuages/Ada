@@ -11,6 +11,11 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ repondre: [texte: string]; lancer: [] }>()
 
+/** Le PO n'écrit que lorsque l'assistant attend quelque chose de lui. */
+const attendReponse = computed(
+  () => props.story.statut === 'questions' || props.story.statut === 'plan-a-valider',
+)
+
 /** Pourquoi la demande ne peut pas être lancée, ou null si elle peut l'être. */
 const blocage = computed(() => {
   if (props.story.statut !== 'nouvelle') return null
@@ -92,10 +97,11 @@ function envoyer(): void {
     </section>
     <p v-else class="fr-text--sm">{{ story.texteBrut }}</p>
 
-    <section aria-labelledby="titre-conversation">
-      <h3 id="titre-conversation" class="fr-h6">Conversation</h3>
+    <section v-if="story.statut !== 'nouvelle'" aria-labelledby="titre-conversation">
+      <h3 id="titre-conversation" class="fr-h6">Suivi</h3>
       <p v-if="story.messages.length === 0" class="fr-text--sm">
-        Pas encore de message. L’assistant posera ici ses questions et son plan.
+        Rien pour l’instant. Si l’assistant a une question ou un plan à vous faire valider,
+        il apparaîtra ici.
       </p>
       <ol v-else class="fil" aria-live="polite">
         <li v-for="message in story.messages" :key="message.id">
@@ -106,7 +112,17 @@ function envoyer(): void {
         </li>
       </ol>
 
-      <form novalidate @submit.prevent="envoyer">
+      <form v-if="attendReponse" novalidate @submit.prevent="envoyer">
+        <DsfrAlert
+          type="info"
+          small
+          class="fr-mb-2w"
+          :description="
+            story.statut === 'questions'
+              ? 'L’assistant attend vos réponses à ses questions ci-dessus pour continuer.'
+              : 'L’assistant attend que vous validiez son plan ci-dessus (répondez « oui », ou dites ce qu’il faut changer).'
+          "
+        />
         <DsfrInputGroup
           v-model="reponse"
           label="Votre réponse"

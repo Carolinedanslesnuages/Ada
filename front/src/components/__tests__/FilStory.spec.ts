@@ -31,6 +31,32 @@ const monter = () =>
   mount(FilStory, { props: { story }, global: { plugins: [VueDsfr] }, attachTo: document.body })
 
 describe('Fil d’une story', () => {
+  it('ne demande rien d’écrire tant que la story n’est pas lancée', () => {
+    const wrapper = mount(FilStory, {
+      props: { story: { ...story, statut: 'nouvelle', messages: [] } },
+      global: { plugins: [VueDsfr] },
+    })
+    expect(wrapper.find('textarea').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Votre réponse')
+    wrapper.unmount()
+  })
+
+  it('ne demande rien d’écrire pendant que l’assistant travaille', () => {
+    const wrapper = mount(FilStory, {
+      props: { story: { ...story, statut: 'en-cours' } },
+      global: { plugins: [VueDsfr] },
+    })
+    expect(wrapper.find('textarea').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('demande une réponse quand l’assistant pose des questions', () => {
+    const wrapper = mount(FilStory, { props: { story }, global: { plugins: [VueDsfr] } })
+    expect(wrapper.text()).toContain('L’assistant attend vos réponses')
+    expect(wrapper.find('textarea').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
   it('affiche la story structurée, son statut et la conversation', () => {
     const wrapper = monter()
     expect(wrapper.text()).toContain("En tant que agent d'accueil")
