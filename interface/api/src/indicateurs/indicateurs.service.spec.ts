@@ -33,7 +33,8 @@ describe('IndicateursService', () => {
 
   it('calcule depuis GitHub : seules les demandes (pas les PR ni les issues libres) comptent', async () => {
     const indicateurs = await service.calculer('jeton', 'po');
-    expect(indicateurs).toMatchObject({ projets: 1, storiesLivrees: 1, partSansDev: 1, dureeMoyenneMinutes: 30 });
+    expect(indicateurs).toMatchObject({ projets: 1, storiesLivrees: 1, dureeMoyenneMinutes: 30 });
+    expect(indicateurs).not.toHaveProperty('partSansDev');
     expect(gh.paginate).toHaveBeenCalledWith(listForRepo, expect.objectContaining({ owner: 'proprio', repo: 'pret', state: 'all' }));
   });
 
