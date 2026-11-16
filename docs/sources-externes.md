@@ -13,6 +13,8 @@
 | gitleaks | [gitleaks/gitleaks](https://github.com/gitleaks/gitleaks) v8.30.1 | Binaire épinglé, empreinte vérifiée |
 | axe-core | [dequelabs/axe-core](https://github.com/dequelabs/axe-core) | Bibliothèque de test d'accessibilité |
 | Référentiel RGAA 4.1.2 (`skills/po/po-story/references/rgaa-4.1.2/`, `ressources/rgaa/`) | DINUM, [accessibilite.numerique.gouv.fr](https://accessibilite.numerique.gouv.fr), fichier `RGAA/criteres.json` du dépôt [DISIC/accessibilite.numerique.gouv.fr](https://github.com/DISIC/accessibilite.numerique.gouv.fr) | Licence ouverte 2.0 ; Markdown généré par `scripts/rgaa-generer.mjs`, source citée en tête de chaque fichier |
+| Skill `dsfr-skill` (utilisée par l'assistant d'ADA, non copiée) | DINUM, [numerique-gouv/dsfr-skill](https://github.com/numerique-gouv/dsfr-skill) | Licence ouverte 2.0 ; DSFR réservé aux services de l'État |
+| Skills `bug-investigate`, `repo-perimetre`, `controle-qualite-code`, `adr-new` (utilisées par l'assistant d'ADA, non copiées) | [IA-Generative/agent-skills](https://github.com/IA-Generative/agent-skills) | Reliées depuis le clone local, à jour par `git pull` |
 | DSFR / vue-dsfr | [@gouvfr/dsfr](https://www.systeme-de-design.gouv.fr/), [@gouvminint/vue-dsfr](https://github.com/dnum-mi/vue-dsfr) | Dépendances |
 
 Si l'atelier est versé dans agent-skills, les éléments « résumés » doivent céder la place à un

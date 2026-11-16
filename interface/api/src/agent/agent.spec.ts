@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  consigneSkills,
   brancheDe,
   consigneAnalyse,
   consigneRealisation,
@@ -22,7 +23,7 @@ const demande: Demande = {
 
 describe('Consignes données à l’agent', () => {
   it('l’analyse est en lecture seule et demande une réponse JSON', () => {
-    expect(OUTILS.analyse).toEqual(['Read', 'Glob', 'Grep']);
+    expect(OUTILS.analyse).toEqual(['Read', 'Glob', 'Grep', 'Skill']);
     const consigne = consigneAnalyse(demande);
     expect(consigne).toContain('PHASE : ANALYSE (lecture seule');
     expect(consigne).toContain('- titre « Ma journée »');
@@ -62,6 +63,15 @@ describe('Consignes données à l’agent', () => {
     expect(consigneAnalyse(demande)).not.toContain('Référentiel RGAA complet');
   });
 
+  it('indique à l’agent quand utiliser chaque skill disponible', () => {
+    const texte = consigneSkills(['dsfr-skill', 'repo-perimetre', 'skill-inconnue']);
+    expect(texte).toContain('- dsfr-skill : avant d’écrire ou de modifier un composant ou une page DSFR');
+    expect(texte).toContain('- repo-perimetre : avant de livrer');
+    expect(texte).toContain('- skill-inconnue');
+    expect(consigneSkills([])).toBe('');
+    expect(consigneRealisation(demande, 'story/1-x', null, ['bug-investigate'])).toContain('Skills disponibles (outil Skill)');
+  });
+
   it('nomme la branche d’après le numéro et le titre', () => {
     expect(brancheDe(demande)).toBe('story/1-page-d-accueil-ma-journee');
     expect(brancheDe({ numero: 4, titre: 'Liste vide !', type: 'bug' })).toBe('fix/4-liste-vide');
@@ -96,6 +106,10 @@ describe('Fil d’activité pour le PO', () => {
     expect(decrireEvenement(evt('Edit', { file_path: '/x/front/src/views/HomeView.vue' }))).toEqual(['Modifie views/HomeView.vue']);
     expect(decrireEvenement(evt('Bash', { command: 'docker compose -f ../compose.yml exec -T -u node app bash -lc "cd /app/front && npx vitest run"' }))).toEqual(['Lance les tests']);
     expect(decrireEvenement(evt('Bash', { command: 'git commit -m "feat: x"' }))).toEqual(['Enregistre le travail (commit)']);
+  });
+
+  it('montre au PO la méthode appliquée', () => {
+    expect(decrireEvenement(evt('Skill', { skill: 'repo-perimetre' }))).toEqual(['Applique la méthode « repo-perimetre »']);
   });
 
   it('ignore ce qui n’est pas une action', () => {

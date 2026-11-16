@@ -26,8 +26,9 @@ export const DANS_CONTENEUR = 'docker compose -f ../compose.yml exec -T -u node 
 
 /** Outils autorisés par phase : lecture seule pour l'analyse ; ni push ni commande hors conteneur. */
 export const OUTILS: Record<Phase, string[]> = {
-  analyse: ['Read', 'Glob', 'Grep'],
+  analyse: ['Read', 'Glob', 'Grep', 'Skill'],
   realisation: [
+    'Skill',
     'Read',
     'Glob',
     'Grep',
@@ -97,6 +98,24 @@ export const ACCESSIBILITE = `Accessibilité (RGAA, obligatoire) — toujours, �
 - jamais d'information par la couleur seule ; messages dynamiques annoncés (role="status") ;
 - tableaux avec titre et en-têtes ; animations qui respectent prefers-reduced-motion.`;
 
+/** Quand utiliser chaque skill connue ; les autres sont simplement listées. */
+const USAGE_SKILLS: Record<string, string> = {
+  'dsfr-skill': 'avant d’écrire ou de modifier un composant ou une page DSFR (version et balisage officiels ; en Vue, utiliser le composant vue-dsfr correspondant)',
+  'bug-investigate': 'pour un problème signalé : hypothèses de cause, puis test qui reproduit le bug avant toute correction',
+  'repo-perimetre': 'avant de livrer : vérifier que chaque modification sert la demande et retirer le hors-sujet',
+  'controle-qualite-code': 'pour relire ton propre code avant le contrôle final',
+  'adr-new': 'si tu prends une décision d’architecture (nouvelle dépendance, structure de données, etc.)',
+};
+
+export function consigneSkills(skills: string[]): string {
+  if (!skills.length) return '';
+  const lignes = skills.map((nom) => `- ${nom}${USAGE_SKILLS[nom] ? ` : ${USAGE_SKILLS[nom]}` : ''}`);
+  return `
+
+Skills disponibles (outil Skill) — utilise-les au bon moment plutôt que ta mémoire :
+${lignes.join('\n')}`;
+}
+
 /** Référentiel complet : l'index (106 critères) est joint ; le détail est dans le projet s'il existe. */
 function referentielRgaa(index: string | null): string {
   if (!index) return '';
@@ -114,8 +133,8 @@ Tu écris au PO en français, en langage métier, sans jargon, sans noms de fich
 
 ${ACCESSIBILITE}`;
 
-export function consigneAnalyse(d: Demande, indexRgaa: string | null = null): string {
-  return `${COMMUN}${referentielRgaa(indexRgaa)}
+export function consigneAnalyse(d: Demande, indexRgaa: string | null = null, skills: string[] = []): string {
+  return `${COMMUN}${consigneSkills(skills)}${referentielRgaa(indexRgaa)}
 
 PHASE : ANALYSE (lecture seule — tu ne modifies rien).
 
@@ -138,8 +157,13 @@ Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
 {"decision":"questions","texte":"<tes questions>"}  ou  {"decision":"plan","texte":"<ton plan>"}`;
 }
 
-export function consigneRealisation(d: Demande, branche: string, indexRgaa: string | null = null): string {
-  return `${COMMUN}${referentielRgaa(indexRgaa)}
+export function consigneRealisation(
+  d: Demande,
+  branche: string,
+  indexRgaa: string | null = null,
+  skills: string[] = [],
+): string {
+  return `${COMMUN}${consigneSkills(skills)}${referentielRgaa(indexRgaa)}
 
 PHASE : RÉALISATION. Le PO a validé le plan qui figure dans les échanges ci-dessous. Tu es sur la
 branche ${branche}. L'application tourne dans un conteneur : le PO voit tes changements en direct.
@@ -226,6 +250,8 @@ export function decrireEvenement(ligne: string): string[] {
         case 'Glob':
         case 'Grep':
           return 'Parcourt le projet';
+        case 'Skill':
+          return `Applique la méthode « ${String(entree.skill ?? entree.name ?? 'skill')} »`;
         case 'Bash': {
           const commande = String(entree.command ?? '');
           if (/vitest|test:unit|npm test|test:e2e/.test(commande)) return 'Lance les tests';

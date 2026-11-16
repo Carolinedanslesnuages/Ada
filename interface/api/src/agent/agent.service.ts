@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { appendFile, lstat, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
 import { ApercuService } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
 import { GithubService } from '../github/github.service.js';
@@ -82,6 +83,32 @@ export class AgentService {
       this.indexRgaa = null;
     }
     return this.indexRgaa;
+  }
+
+  /**
+   * Relie les skills configurées dans le projet (.claude/skills pour Claude Code, .agents/skills
+   * pour les autres agents), exclues localement de git : rien n'est commité, le dépôt reste propre.
+   * Renvoie les noms des skills disponibles.
+   */
+  async equiperSkills(cwd: string): Promise<string[]> {
+    const disponibles = this.config.AGENT_SKILLS.filter((dossier) => existsSync(join(dossier, 'SKILL.md')));
+    if (!disponibles.length) return [];
+    const exclusion = join(cwd, '.git', 'info', 'exclude');
+    const exclus = await readFile(exclusion, 'utf8').catch(() => '');
+    const aAjouter = ['/.claude/skills/', '/.agents/skills/'].filter((motif) => !exclus.split('\n').includes(motif));
+    if (aAjouter.length) {
+      await mkdir(dirname(exclusion), { recursive: true });
+      await appendFile(exclusion, `${exclus && !exclus.endsWith('\n') ? '\n' : ''}${aAjouter.join('\n')}\n`);
+    }
+    for (const racine of ['.claude/skills', '.agents/skills']) {
+      await mkdir(join(cwd, racine), { recursive: true });
+      for (const dossier of disponibles) {
+        const lien = join(cwd, racine, basename(dossier));
+        const existant = await lstat(lien).catch(() => null);
+        if (!existant) await symlink(resolve(dossier), lien);
+      }
+    }
+    return disponibles.map((dossier) => basename(dossier));
   }
 
   private fichier(depot: string, numero: number): string {
@@ -219,8 +246,10 @@ export class AgentService {
     this.demarrerTache(depot, numero, 'analyse', async () => {
       await this.noter(depot, numero, 'Prépare le projet');
       const cwd = await this.apercu.preparerDepot(jeton, depot);
+      const skills = await this.equiperSkills(cwd);
       await this.noter(depot, numero, 'Lit la story et le projet');
-      const reponse = await this.executer(depot, numero, 'analyse', consigneAnalyse(await this.demande(jeton, depot, numero), await this.lireIndexRgaa()), cwd);
+      const consigne = consigneAnalyse(await this.demande(jeton, depot, numero), await this.lireIndexRgaa(), skills);
+      const reponse = await this.executer(depot, numero, 'analyse', consigne, cwd);
       const decision = lireDecision(reponse);
       if (!decision) {
         await this.bloquer(jeton, depot, numero, 'L’assistant n’a pas réussi à analyser la demande.');
@@ -248,8 +277,10 @@ export class AgentService {
       const demande = await this.demande(jeton, depot, numero);
       const branche = brancheDe(demande);
       const cwd = await this.preparerBranche(jeton, login, depot, branche);
+      const skills = await this.equiperSkills(cwd);
       await this.noter(depot, numero, `Travaille sur la branche ${branche}`);
-      const reponse = await this.executer(depot, numero, 'realisation', consigneRealisation(demande, branche, await this.lireIndexRgaa()), cwd);
+      const consigne = consigneRealisation(demande, branche, await this.lireIndexRgaa(), skills);
+      const reponse = await this.executer(depot, numero, 'realisation', consigne, cwd);
       const resultat = lireResultat(reponse);
       if (!resultat || resultat.resultat === 'bloque') {
         await this.bloquer(jeton, depot, numero, resultat?.resultat === 'bloque' ? resultat.raison : 'L’assistant n’a pas terminé la réalisation.');

@@ -28,6 +28,21 @@ En cas de doute, une fois connecté : `http://localhost:5180/api/diagnostic` mon
 l'installation (`all` / `selected`), les permissions accordées et la visibilité des modèles,
 sans aucun secret.
 
+## Skills de l'assistant
+
+ADA relie dans chaque projet, avant chaque exécution, les skills listées dans `AGENT_SKILLS`
+(`.claude/skills/` et `.agents/skills/`, exclus localement de git : rien n'est commité).
+Installation recommandée, à l'emplacement prévu par leurs auteurs :
+
+```bash
+git clone https://github.com/numerique-gouv/dsfr-skill.git ~/.local/share/dsfr-skill     # DINUM, licence ouverte 2.0
+git clone https://github.com/IA-Generative/agent-skills.git ~/.local/share/agent-skills  # IA-Generative
+```
+
+Skills utilisées par défaut : `dsfr-skill` (composants et pages DSFR), `bug-investigate`
+(problèmes signalés), `repo-perimetre` (avant de livrer), `controle-qualite-code` (relecture),
+`adr-new` (décisions d'architecture). Mise à jour : `git -C ~/.local/share/<catalogue> pull`.
+
 ## Limites connues
 
 - Sessions en mémoire : un redémarrage de l'API déconnecte tout le monde (magasin persistant

@@ -25,6 +25,14 @@ const schema = z.object({
    * Démo : l'exécutable Claude Code. Remplaçable par un autre agent (voir src/agent/agent.ts).
    */
   AGENT_COMMANDE: z.string().default(''),
+  /**
+   * Skills mises à disposition de l'assistant (chemins de dossiers contenant un SKILL.md,
+   * séparés par des virgules) : reliées dans le projet avant chaque exécution, jamais commitées.
+   */
+  AGENT_SKILLS: z
+    .string()
+    .default('')
+    .transform((v) => v.split(',').map((chemin) => chemin.trim()).filter(Boolean)),
   /** Index du référentiel RGAA (DINUM) joint à chaque consigne de l'assistant. */
   RGAA_INDEX: z.string().default('../../skills/po/po-story/references/rgaa-4.1.2/README.md'),
   /** Sessions chiffrées sur disque (hors git) : un redémarrage ne déconnecte personne. */
