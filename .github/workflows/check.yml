@@ -1,0 +1,44 @@
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  skills:
+    name: Skills conformes (invariants agent-skills)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+      - name: Conformité des SKILL.md
+        run: node scripts/verifier-skills.mjs
+      - name: Catalogues index.json à jour (node scripts/skills-index.mjs pour les régénérer)
+        run: node scripts/skills-index.mjs --check
+      - name: Liens .claude/skills et .agents/skills vers chaque skill
+        run: |
+          for s in skills/po/*/; do
+            n=$(basename "$s")
+            test -f ".claude/skills/$n/SKILL.md" || { echo "lien manquant .claude/skills/$n"; exit 1; }
+            test -f ".agents/skills/$n/SKILL.md" || { echo "lien manquant .agents/skills/$n"; exit 1; }
+          done
+
+  secrets:
+    name: Anti-fuite (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - name: gitleaks 8.30.1 (binaire vérifié)
+        run: |
+          curl -sSfL -o gitleaks.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+          ./gitleaks git --redact --verbose .
