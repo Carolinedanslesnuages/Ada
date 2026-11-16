@@ -58,6 +58,7 @@ describe('Fil d’une story', () => {
       },
     })
     expect(wrapper.text()).toContain('L’assistant réalise la demande…')
+    expect(wrapper.text()).toContain('ce n’est pas encore terminé')
     expect(wrapper.text()).toContain('Lance les tests')
     expect(wrapper.find('textarea').exists()).toBe(false)
     expect(await violationsAccessibilite(document.body)).toEqual([])
@@ -115,6 +116,39 @@ describe('Fil d’une story', () => {
     await bouton(wrapper, 'Relancer l’assistant')!.trigger('click')
     expect(wrapper.emitted('relancer')).toHaveLength(1)
     wrapper.unmount()
+  })
+
+  describe('Vérification et fusion', () => {
+    const controle = (etat: 'reussi' | 'en-cours' | 'echec') => [
+      { nom: 'Anti-fuite (gitleaks)', etat: 'reussi' as const, lien: null },
+      { nom: 'Front', etat, lien: null },
+    ]
+    const verification = (etat: 'reussi' | 'en-cours' | 'echec', fusionnable: boolean, raison: string | null) => ({
+      pullRequest: { numero: 3, url: 'https://github.com/p/poc/pull/3', etat: 'ouverte' as const },
+      controles: controle(etat),
+      fusionnable,
+      raison,
+    })
+
+    it('n’active « Valider et fusionner » que si tous les contrôles sont réussis', async () => {
+      const wrapper = monterAvec({ story: { ...story, statut: 'en-verification' }, verification: verification('reussi', true, null) })
+      expect(wrapper.text()).toContain('À vous de vérifier')
+      expect(wrapper.text()).toContain('Front : réussi')
+      const fusion = bouton(wrapper, 'Valider et fusionner')!
+      expect(fusion.attributes('disabled')).toBeUndefined()
+      await fusion.trigger('click')
+      expect(wrapper.emitted('fusionner')).toHaveLength(1)
+      expect(await violationsAccessibilite(document.body)).toEqual([])
+      wrapper.unmount()
+    })
+
+    it('garde le bouton inactif pendant les contrôles, et dit pourquoi', () => {
+      const wrapper = monterAvec({ story: { ...story, statut: 'en-verification' }, verification: verification('en-cours', false, 'Contrôles en cours…') })
+      expect(bouton(wrapper, 'Valider et fusionner')!.attributes('disabled')).toBeDefined()
+      expect(wrapper.text()).toContain('Contrôles en cours…')
+      expect(wrapper.text()).toContain('Front : en cours')
+      wrapper.unmount()
+    })
   })
 
   it('montre le lien vers la pull request une fois la réalisation terminée', () => {

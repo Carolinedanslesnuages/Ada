@@ -123,3 +123,16 @@
 .fil__assistant {
   border-left: 4px solid var(--border-action-high-blue-france);
 }
+
+.controles {
+  list-style: none;
+  padding-left: 0;
+}
+
+.controle--ok {
+  color: var(--text-default-success);
+}
+
+.controle--ko {
+  color: var(--text-default-error);
+}

@@ -125,6 +125,25 @@ export class ApercuService {
     return depot;
   }
 
+  /**
+   * Après une fusion : la copie de l'aperçu revient sur main, à jour. Les retouches npm des
+   * package-lock.json sont rétablies ; le rechargement à chaud affiche le projet fusionné.
+   */
+  async revenirSurMain(jeton: string, projet: string): Promise<void> {
+    const depot = this.cheminDepot(projet);
+    const env = this.environnementGit(jeton);
+    const git = (...args: string[]) => this.executer('git', ['-C', depot, ...args], { env });
+    await git('fetch', '--quiet', 'origin');
+    const { stdout } = await git('status', '--porcelain');
+    const verrous = stdout
+      .split('\n')
+      .map((l) => l.slice(3).trim())
+      .filter((f) => f.endsWith('package-lock.json'));
+    if (verrous.length) await git('checkout', '--', ...verrous);
+    await git('checkout', '--quiet', 'main');
+    await git('merge', '--ff-only', '--quiet', 'origin/main');
+  }
+
   /** Prépare le dépôt avec les droits du PO, puis démarre les conteneurs. */
   async demarrer(jeton: string, projet: string): Promise<Apercu> {
     this.verifier(projet);

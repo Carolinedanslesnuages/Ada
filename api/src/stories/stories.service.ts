@@ -188,6 +188,18 @@ export class StoriesService {
     }
   }
 
+  /** Retire tout label de statut (demande livrée : l'issue fermée suffit). */
+  async retirerStatut(jeton: string, depot: string, numero: number): Promise<void> {
+    const gh = this.github.client(jeton);
+    try {
+      const { data } = await gh.issues.get({ owner: this.owner, repo: depot, issue_number: numero });
+      const garder = nomsLabels((data as Issue).labels).filter((l) => !l.startsWith('story:'));
+      await gh.issues.setLabels({ owner: this.owner, repo: depot, issue_number: numero, labels: garder });
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+  }
+
   /** Message de l'assistant dans l'issue, reconnaissable par son marqueur. */
   async commenterAssistant(jeton: string, depot: string, numero: number, titre: string, texte: string): Promise<void> {
     try {

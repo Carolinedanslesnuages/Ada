@@ -1,17 +1,31 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { LIBELLES_STATUT, presenterMessage, type Activite, type DetailStory } from '@/lib/story'
+import {
+  LIBELLES_CONTROLE,
+  LIBELLES_STATUT,
+  presenterMessage,
+  type Activite,
+  type DetailStory,
+  type Verification,
+} from '@/lib/story'
 
 const props = defineProps<{
   story: DetailStory
   /** Numéro et titre de la demande en cours sur le projet, s'il y en a une autre. */
   autreEnCours?: { numero: number; titre: string } | null
   activite?: Activite | null
+  verification?: Verification | null
   erreurLancement?: string | null
   lancementEnCours?: boolean
   actionEnCours?: boolean
 }>()
-const emit = defineEmits<{ lancer: []; valider: []; relancer: []; repondre: [texte: string] }>()
+const emit = defineEmits<{
+  lancer: []
+  valider: []
+  relancer: []
+  fusionner: []
+  repondre: [texte: string]
+}>()
 
 /** Pourquoi la demande ne peut pas être lancée, ou null si elle peut l'être. */
 const blocage = computed(() => {
@@ -113,7 +127,10 @@ function envoyer(): void {
           <strong>
             L’assistant {{ activite?.phase === 'realisation' ? 'réalise la demande' : 'analyse la demande' }}…
           </strong>
-          <span v-if="activite?.phase === 'realisation'" class="fr-text--sm"> L’aperçu se met à jour au fil de son travail.</span>
+          <span v-if="activite?.phase === 'realisation'" class="fr-text--sm">
+            L’aperçu montre son travail en cours : ce n’est pas encore terminé. Vous serez prévenu
+            ici quand ce sera prêt à vérifier.
+          </span>
         </p>
         <div v-else-if="(story.statut === 'en-cours' || story.statut === 'besoin-dev') && activite" class="fr-mb-1w">
           <p class="fr-text--sm fr-mb-1w">
@@ -133,6 +150,42 @@ function envoyer(): void {
           </a>
         </p>
       </div>
+
+      <section
+        v-if="story.statut === 'en-verification'"
+        class="fr-callout fr-mb-3w"
+        aria-labelledby="titre-verification"
+      >
+        <h4 id="titre-verification" class="fr-callout__title fr-h6">À vous de vérifier</h4>
+        <p class="fr-callout__text fr-text--sm">
+          Regardez le résultat dans l’aperçu. Quand tous les contrôles sont réussis, validez :
+          la demande sera ajoutée au projet et la suivante pourra être lancée.
+        </p>
+        <p v-if="!verification" class="fr-text--sm">Lecture des contrôles…</p>
+        <template v-else>
+          <ul class="fr-text--sm controles">
+            <li v-for="controle in verification.controles" :key="controle.nom">
+              <span
+                :class="{
+                  'fr-icon-checkbox-circle-fill controle--ok': controle.etat === 'reussi',
+                  'fr-icon-close-circle-fill controle--ko': controle.etat === 'echec',
+                  'fr-icon-time-line': controle.etat === 'en-cours' || controle.etat === 'en-attente',
+                }"
+                class="fr-icon--sm"
+                aria-hidden="true"
+              />
+              {{ controle.nom }} : {{ LIBELLES_CONTROLE[controle.etat] }}
+            </li>
+          </ul>
+          <p v-if="verification.raison" class="fr-text--sm fr-mb-2w">{{ verification.raison }}</p>
+          <DsfrButton
+            icon="fr-icon-check-line"
+            label="Valider et fusionner"
+            :disabled="!verification.fusionnable || actionEnCours"
+            @click="emit('fusionner')"
+          />
+        </template>
+      </section>
 
       <ol v-if="messages.length" class="fil">
         <li v-for="message in messages" :key="message.id" :class="{ 'fil__assistant': message.assistant }">

@@ -99,3 +99,24 @@ export function presenterMessage(message: Message): { auteur: string; texte: str
     assistant,
   }
 }
+
+export interface Controle {
+  nom: string
+  etat: 'en-attente' | 'en-cours' | 'reussi' | 'echec'
+  lien: string | null
+}
+
+/** Vérification d'une demande réalisée : PR, contrôles de la CI, fusion possible ou non. */
+export interface Verification {
+  pullRequest: { numero: number; url: string; etat: 'ouverte' | 'fusionnee' | 'fermee' } | null
+  controles: Controle[]
+  fusionnable: boolean
+  raison: string | null
+}
+
+export const LIBELLES_CONTROLE: Record<Controle['etat'], string> = {
+  'en-attente': 'en attente',
+  'en-cours': 'en cours',
+  reussi: 'réussi',
+  echec: 'échoué',
+}

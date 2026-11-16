@@ -12,10 +12,12 @@ import { ProjetsController } from './projets/projets.controller.js';
 import { ProjetsService } from './projets/projets.service.js';
 import { StoriesController } from './stories/stories.controller.js';
 import { StoriesService } from './stories/stories.service.js';
+import { VerificationController } from './verification/verification.controller.js';
+import { VerificationService } from './verification/verification.service.js';
 import { VersionController } from './version/version.controller.js';
 
 @Module({
-  controllers: [AgentController, ApercuController, AuthController, DiagnosticController, ProjetsController, StoriesController, VersionController],
+  controllers: [AgentController, ApercuController, AuthController, DiagnosticController, ProjetsController, StoriesController, VerificationController, VersionController],
   providers: [
     { provide: CONFIG, useFactory: () => lireConfig() },
     AgentService,
@@ -24,6 +26,7 @@ import { VersionController } from './version/version.controller.js';
     GithubOAuthService,
     ProjetsService,
     StoriesService,
+    VerificationService,
   ],
 })
 export class AppModule {}

@@ -1,7 +1,13 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/services/api'
-import { STATUTS_ACTIFS, type Activite, type DetailStory, type ResumeStory } from '@/lib/story'
+import {
+  STATUTS_ACTIFS,
+  type Activite,
+  type DetailStory,
+  type ResumeStory,
+  type Verification,
+} from '@/lib/story'
 
 export const useStoriesStore = defineStore('stories', () => {
   const liste = ref<ResumeStory[]>([])
@@ -10,6 +16,7 @@ export const useStoriesStore = defineStore('stories', () => {
   const erreur = ref<string | null>(null)
   const erreurLancement = ref<string | null>(null)
   const activite = ref<Activite | null>(null)
+  const verification = ref<Verification | null>(null)
   const erreurAction = ref<string | null>(null)
 
   /** La demande qui occupe le projet : tant qu'elle existe, on n'en lance pas d'autre. */
@@ -34,7 +41,10 @@ export const useStoriesStore = defineStore('stories', () => {
   async function ouvrir(projet: string, numero: number): Promise<void> {
     erreur.value = null
     erreurLancement.value = null
-    if (courante.value?.numero !== numero) activite.value = null
+    if (courante.value?.numero !== numero) {
+      activite.value = null
+      verification.value = null
+    }
     try {
       courante.value = await api.lire<DetailStory>(`${chemin(projet)}/${numero}`)
     } catch (e) {
@@ -62,11 +72,26 @@ export const useStoriesStore = defineStore('stories', () => {
     }
   }
 
+  async function chargerVerification(projet: string, numero: number): Promise<void> {
+    try {
+      verification.value = await api.lire<Verification>(`${chemin(projet)}/${numero}/verification`)
+    } catch {
+      /* indisponible : on garde la précédente */
+    }
+  }
+
+  /** Fusionne la demande (contrôles verts) : elle devient livrée, la suivante peut être lancée. */
+  const fusionner = (projet: string, numero: number) =>
+    agir(projet, numero, async () => {
+      verification.value = await api.envoyer<Verification>(`${chemin(projet)}/${numero}/fusionner`, {})
+    })
+
   /** Relit la demande ouverte, son activité et la liste (statuts changés par l'assistant). */
   async function suivre(projet: string): Promise<void> {
     const numero = courante.value?.numero
     if (!numero) return
     await Promise.all([chargerActivite(projet, numero), charger(projet, true)])
+    if (courante.value?.statut === 'en-verification') await chargerVerification(projet, numero)
     const resume = liste.value.find((s) => s.numero === numero)
     if (resume && resume.statut !== courante.value?.statut) await ouvrir(projet, numero)
     else if (courante.value?.numero === numero) {
@@ -99,6 +124,7 @@ export const useStoriesStore = defineStore('stories', () => {
   function fermer(): void {
     courante.value = null
     activite.value = null
+    verification.value = null
   }
 
   return {
@@ -109,7 +135,10 @@ export const useStoriesStore = defineStore('stories', () => {
     erreur,
     erreurLancement,
     activite,
+    verification,
     erreurAction,
+    chargerVerification,
+    fusionner,
     charger,
     chargerActivite,
     suivre,

@@ -99,6 +99,17 @@ describe('Store des stories', () => {
     expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/3/reponse', { texte: 'Oui' })
   })
 
+  it('fusionne la demande et garde le résultat de la vérification', async () => {
+    const store = useStoriesStore()
+    store.courante = detail(2, { statut: 'en-verification' })
+    envoyer.mockResolvedValue({ pullRequest: { numero: 3, url: 'u', etat: 'fusionnee' }, controles: [], fusionnable: false, raison: 'Déjà fusionnée' })
+    lire.mockImplementation(async (chemin: string) => (chemin.endsWith('/stories') ? [resume(2, { statut: 'livree' })] : detail(2, { statut: 'livree' })))
+    await store.fusionner('mon-poc', 2)
+    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/2/fusionner', {})
+    expect(store.verification?.pullRequest?.etat).toBe('fusionnee')
+    expect(store.active).toBeNull()
+  })
+
   it('garde le message si l’action est refusée', async () => {
     const store = useStoriesStore()
     envoyer.mockRejectedValue(new ErreurApi(409, 'Aucun plan n’attend votre validation'))

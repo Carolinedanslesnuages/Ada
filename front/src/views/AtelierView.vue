@@ -111,6 +111,7 @@ async function agir(action: (projet: string, numero: number) => Promise<void>): 
 
 const valider = () => agir((p, n) => stories.validerPlan(p, n))
 const relancer = () => agir((p, n) => stories.relancer(p, n))
+const fusionner = () => agir((p, n) => stories.fusionner(p, n))
 const repondre = (texte: string) => agir((p, n) => stories.repondre(p, n, texte))
 
 /** Suivi automatique tant que la demande ouverte est active ou que l'assistant travaille. */
@@ -123,6 +124,7 @@ watch(
     const actif = statut !== undefined && STATUTS_ACTIFS.includes(statut)
     if (numero && (actif || travaille)) {
       if (projets.nomCourant && stories.activite === null) void stories.chargerActivite(projets.nomCourant, numero)
+      if (projets.nomCourant && statut === 'en-verification') void stories.chargerVerification(projets.nomCourant, numero)
       minuteurSuivi = setInterval(() => {
         if (projets.nomCourant) void stories.suivre(projets.nomCourant)
       }, 4000)
@@ -232,10 +234,12 @@ onUnmounted(() => {
         :erreur-lancement="stories.erreurLancement"
         :lancement-en-cours="lancementEnCours"
         :activite="stories.activite"
+        :verification="stories.verification"
         :action-en-cours="actionEnCours"
         @lancer="lancer"
         @valider="valider"
         @relancer="relancer"
+        @fusionner="fusionner"
         @repondre="repondre"
       />
       <DsfrAlert v-if="stories.erreurAction" type="error" small :description="stories.erreurAction" />
