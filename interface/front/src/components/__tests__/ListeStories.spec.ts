@@ -5,9 +5,9 @@ import ListeStories from '../ListeStories.vue'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
 
 const stories = [
-  { numero: 2, type: 'bug' as const, titre: 'Filtre visio', statut: 'en-cours' as const, creeeLe: '', url: '', prete: true, raison: null },
-  { numero: 1, type: 'story' as const, titre: 'Salles libres', statut: 'livree' as const, creeeLe: '', url: '', prete: true, raison: null },
-  { numero: 3, type: 'story' as const, titre: 'Trop grosse', statut: 'nouvelle' as const, creeeLe: '', url: '', prete: false, raison: 'Plus de 4 critères' },
+  { numero: 2, type: 'bug' as const, titre: 'Filtre visio', statut: 'en-cours' as const, creeeLe: '', fermeeLe: null, url: '', prete: true, raison: null },
+  { numero: 1, type: 'story' as const, titre: 'Salles libres', statut: 'livree' as const, creeeLe: '', fermeeLe: null, url: '', prete: true, raison: null },
+  { numero: 3, type: 'story' as const, titre: 'Trop grosse', statut: 'nouvelle' as const, creeeLe: '', fermeeLe: null, url: '', prete: false, raison: 'Plus de 4 critères' },
 ]
 
 describe('Liste des stories', () => {

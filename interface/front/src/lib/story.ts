@@ -39,6 +39,8 @@ export interface ResumeStory {
   titre: string
   statut: Statut
   creeeLe: string
+  /** Date de livraison (issue fermée), null sinon. */
+  fermeeLe: string | null
   url: string
   prete: boolean
   raison: string | null

@@ -20,6 +20,7 @@ const resume = (numero: number, extra: Partial<ResumeStory> = {}): ResumeStory =
   titre: `Story ${numero}`,
   statut: 'nouvelle',
   creeeLe: '2026-11-16T10:00:00Z',
+  fermeeLe: null,
   url: 'https://github.com/x',
   prete: true,
   raison: null,
@@ -100,15 +101,41 @@ describe('Store des stories', () => {
     expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/3/reponse', { texte: 'Oui' })
   })
 
-  it('fusionne la demande et garde le résultat de la vérification', async () => {
+  it('fusionne la demande : livrée, elle passe dans « Déjà livrées » et son détail se ferme', async () => {
     const store = useStoriesStore()
     store.courante = detail(2, { statut: 'en-verification' })
     envoyer.mockResolvedValue({ pullRequest: { numero: 3, url: 'u', etat: 'fusionnee' }, controles: [], fusionnable: false, raison: 'Déjà fusionnée' })
     lire.mockImplementation(async (chemin: string) => (chemin.endsWith('/stories') ? [resume(2, { statut: 'livree' })] : detail(2, { statut: 'livree' })))
     await store.fusionner('mon-poc', 2)
     expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/2/fusionner', {})
-    expect(store.verification?.pullRequest?.etat).toBe('fusionnee')
     expect(store.active).toBeNull()
+    expect(store.courante).toBeNull()
+    expect(store.aFaire).toEqual([])
+    expect(store.livrees.map((story) => story.numero)).toEqual([2])
+  })
+
+  it('fusion différée (branche mise à jour, contrôles relancés) : la demande reste ouverte', async () => {
+    const store = useStoriesStore()
+    store.courante = detail(2, { statut: 'en-verification' })
+    envoyer.mockResolvedValue({ pullRequest: { numero: 3, url: 'u', etat: 'ouverte' }, controles: [], fusionnable: false, raison: 'Le projet a évolué' })
+    lire.mockImplementation(async (chemin: string) =>
+      chemin.endsWith('/stories') ? [resume(2, { statut: 'en-verification' })] : chemin.endsWith('/activite') ? null : detail(2, { statut: 'en-verification' }),
+    )
+    await store.fusionner('mon-poc', 2)
+    expect(store.courante?.numero).toBe(2)
+    expect(store.verification?.raison).toBe('Le projet a évolué')
+  })
+
+  it('sépare ce qui reste à faire des livrées, les plus récentes d’abord', () => {
+    const store = useStoriesStore()
+    store.liste = [
+      resume(1, { statut: 'livree', fermeeLe: '2026-11-10T10:00:00Z' }),
+      resume(2, { statut: 'en-cours' }),
+      resume(3, { statut: 'livree', fermeeLe: '2026-11-12T10:00:00Z' }),
+      resume(4),
+    ]
+    expect(store.aFaire.map((story) => story.numero)).toEqual([2, 4])
+    expect(store.livrees.map((story) => story.numero)).toEqual([3, 1])
   })
 
   it('mode sauvage : envoie le prompt, puis ouvre la demande créée', async () => {

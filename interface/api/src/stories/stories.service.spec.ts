@@ -74,6 +74,15 @@ describe('StoriesService', () => {
     expect(liste[1]!.raison).toMatch(/Plus de 4 critères/);
   });
 
+  it('donne la date de livraison d’une story fermée (rangée dans « Déjà livrées »)', async () => {
+    depot([issue(1, { state: 'closed', closed_at: '2026-11-16T18:00:00Z' }), issue(2)]);
+    const liste = await service.lister('jeton', 'poc');
+    expect(liste.map((s) => [s.numero, s.statut, s.fermeeLe])).toEqual([
+      [2, 'nouvelle', null],
+      [1, 'livree', '2026-11-16T18:00:00Z'],
+    ]);
+  });
+
   it('montre une story écrite avec le formulaire même si le label manquait dans le dépôt', async () => {
     depot([issue(1, { labels: [] }), issue(2, { labels: [], body: 'Question libre' })]);
     const liste = await service.lister('jeton', 'poc');

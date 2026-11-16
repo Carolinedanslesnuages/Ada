@@ -4,6 +4,7 @@ import FilStory from '@/components/FilStory.vue'
 import FormulairePrompt from '@/components/FormulairePrompt.vue'
 import FormulaireProjet from '@/components/FormulaireProjet.vue'
 import ListeStories from '@/components/ListeStories.vue'
+import StoriesLivrees from '@/components/StoriesLivrees.vue'
 import PanneauApercu from '@/components/PanneauApercu.vue'
 import PanneauVersions from '@/components/PanneauVersions.vue'
 import ResultatProjet from '@/components/ResultatProjet.vue'
@@ -255,16 +256,25 @@ onUnmounted(() => {
 
       <p v-if="stories.chargement">Chargement des stories…</p>
       <DsfrAlert v-else-if="stories.erreur" type="error" small :description="stories.erreur" />
-      <p v-else-if="stories.liste.length === 0" class="fr-text--sm">
-        Aucune story pour l’instant. Écrivez-la sur GitHub, puis revenez ici : elle apparaîtra
-        dans la liste.
-      </p>
-      <ListeStories
-        v-else
-        :stories="stories.liste"
-        :numero-courant="stories.courante?.numero ?? null"
-        @ouvrir="ouvrir"
-      />
+      <template v-else>
+        <p v-if="stories.aFaire.length === 0" class="fr-text--sm">
+          Aucune story pour l’instant. Écrivez-la sur GitHub, puis revenez ici : elle apparaîtra
+          dans la liste.
+        </p>
+        <ListeStories
+          v-else
+          :stories="stories.aFaire"
+          :numero-courant="stories.courante?.numero ?? null"
+          @ouvrir="ouvrir"
+        />
+        <StoriesLivrees
+          v-if="stories.livrees.length > 0 && projets.courant"
+          :stories="stories.livrees"
+          :url-depot="projets.courant.url"
+          :numero-courant="stories.courante?.numero ?? null"
+          @ouvrir="ouvrir"
+        />
+      </template>
 
       <FormulairePrompt
         v-if="modePrompt"
