@@ -26,3 +26,6 @@ node_modules/
 
 # Dépôts modèles (hébergés à part sur GitHub)
 modeles/
+
+# Vérification locale des modèles Python (scripts/verifier-modele.mjs)
+.venv-verification/

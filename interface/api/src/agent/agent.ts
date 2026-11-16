@@ -23,7 +23,8 @@ export type DecisionAnalyse = { decision: 'questions' | 'plan'; texte: string };
 export type ResultatRealisation = { resultat: 'ok'; resume: string } | { resultat: 'bloque'; raison: string };
 
 /** Commande pour exécuter une commande dans le conteneur de l'aperçu (depuis le dépôt cloné). */
-export const DANS_CONTENEUR = 'docker compose -f ../compose.yml exec -T -u node app bash -lc';
+/** Commande dans l'aperçu, en utilisateur non privilégié (1000 : « node » ou « ada » selon l'image). */
+export const DANS_CONTENEUR = 'docker compose -f ../compose.yml exec -T -u 1000 app bash -lc';
 
 /**
  * Outils autorisés par phase, limités au projet (répertoire courant) : l'agent ne peut ni lire

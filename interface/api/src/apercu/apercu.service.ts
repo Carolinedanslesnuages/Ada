@@ -13,7 +13,7 @@ import {
   genererScriptDemarrage,
   genererScriptTravail,
   NOM_DEPOT,
-  VOLUME_CACHE_NPM,
+  volumesPartages,
   type EtatApercu,
 } from './apercu.js';
 
@@ -189,7 +189,7 @@ export class ApercuService {
       await writeFile(join(dossier, 'compose.yml'), genererCompose(projet, await this.port(projet), config));
       await writeFile(join(dossier, 'demarrer.sh'), genererScriptDemarrage(config), { mode: 0o755 });
       await writeFile(join(dossier, 'travail.sh'), genererScriptTravail(config), { mode: 0o755 });
-      await this.executer('docker', ['volume', 'create', VOLUME_CACHE_NPM]);
+      for (const volume of volumesPartages(config)) await this.executer('docker', ['volume', 'create', volume]);
       await this.executer('docker', ['compose', '-f', 'compose.yml', 'up', '-d', '--remove-orphans'], { cwd: dossier });
     } catch (e) {
       this.journal.warn(`Aperçu de ${projet} : ${(e as Error).message.split('\n')[0]}`);
