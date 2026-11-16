@@ -40,6 +40,15 @@ async function charger(): Promise<void> {
   }
 }
 
+/** Relit les versions sans effacer le message d'erreur affiché. */
+async function relire(): Promise<void> {
+  try {
+    versions.value = await api.lire<Versions>(chemin())
+  } catch {
+    /* toujours indisponible : l'erreur affichée suffit */
+  }
+}
+
 async function publier(): Promise<void> {
   const version = versions.value?.proposee?.version
   publication.value = true
@@ -50,6 +59,8 @@ async function publier(): Promise<void> {
     ouvert.value = false
   } catch (e) {
     erreur.value = (e as Error).message
+    // La publication a pu aboutir malgré l'erreur (réponse perdue) : on relit l'état réel.
+    setTimeout(() => void relire(), 4000)
   } finally {
     publication.value = false
   }
