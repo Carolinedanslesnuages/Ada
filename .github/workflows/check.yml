@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        modele: [vue-nest-dsfr, vue-node, formulaire, tableau-de-bord, api-nest, carte, quiz, extension, maquette]
+        modele: [vue-nest-dsfr, vue-node, formulaire, tableau-de-bord, api-nest, carte, quiz, composant, extension, maquette]
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
