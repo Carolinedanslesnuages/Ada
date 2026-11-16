@@ -29,7 +29,9 @@ pull request « chore(main): release x.y.z » à jour, et crée le tag, la relea
 
 `version.txt` contenant `0.1.0` (lu et mis à jour par le type `simple`).
 
-`.github/workflows/release-please.yml` :
+`.github/workflows/release-please.yml` : le workflow commun de la DNUM
+([dnum-mi/fabnum-cicd](https://github.com/dnum-mi/fabnum-cicd), `release-app.yml`), épinglé à
+une version **et** à son SHA, identique à celui des modèles d'ADA :
 ```yaml
 name: release-please
 
@@ -37,18 +39,21 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
-  release-please:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: googleapis/release-please-action@v5.0.0
-        with:
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
+  release:
+    uses: dnum-mi/fabnum-cicd/.github/workflows/release-app.yml@30674ee6f969b4e0ff4ffdcadd179658c87f2295 # v0.25.3
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    with:
+      ENABLE_PRERELEASE: false
+      TAG_MAJOR_AND_MINOR: false
+      AUTOMERGE_RELEASE: false
+      RELEASE_CONFIG_FILE: release-please-config.json
+      RELEASE_MANIFEST_FILE: .release-please-manifest.json
 ```
 
 ## Messages de commit (obligatoire ensuite)
