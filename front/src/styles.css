@@ -90,3 +90,36 @@
   white-space: pre-wrap;
   text-align: left;
 }
+
+.activite__journal {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.5rem 0;
+  border-left: 2px solid var(--border-default-blue-france);
+  padding-left: 0.75rem;
+}
+
+.activite__journal li {
+  padding: 0.1rem 0;
+}
+
+.activite__icone {
+  display: inline-block;
+  animation: tourner 1.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activite__icone {
+    animation: none;
+  }
+}
+
+@keyframes tourner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fil__assistant {
+  border-left: 4px solid var(--border-action-high-blue-france);
+}

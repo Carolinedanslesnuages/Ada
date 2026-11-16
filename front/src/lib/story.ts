@@ -77,3 +77,25 @@ export interface DetailStory extends ResumeStory {
 export function lienNouvelleIssue(urlDepot: string, modele: 'user-story.yml' | 'bug.yml'): string {
   return `${urlDepot}/issues/new?template=${modele}`
 }
+
+/** Ce que fait l'assistant sur une demande (journal lisible par le PO). */
+export interface Activite {
+  phase: 'analyse' | 'realisation' | null
+  enCours: boolean
+  debut: string | null
+  journal: { le: string; texte: string }[]
+  erreur: string | null
+  pullRequest: string | null
+}
+
+export const MARQUEUR_ASSISTANT = '<!-- atelier-po:assistant -->'
+
+/** Message affiché au PO : les messages de l'assistant sont signés « Assistant », sans marqueur. */
+export function presenterMessage(message: Message): { auteur: string; texte: string; assistant: boolean } {
+  const assistant = message.texte.startsWith(MARQUEUR_ASSISTANT)
+  return {
+    auteur: assistant ? 'Assistant' : message.auteur,
+    texte: assistant ? message.texte.replace(MARQUEUR_ASSISTANT, '').trim() : message.texte,
+    assistant,
+  }
+}

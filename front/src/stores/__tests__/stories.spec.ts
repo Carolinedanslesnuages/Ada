@@ -75,12 +75,34 @@ describe('Store des stories', () => {
     expect(store.erreurLancement).toMatch(/une seule demande à la fois/)
   })
 
-  it('ajoute la réponse du PO au fil de la story ouverte', async () => {
+  it('valide le plan puis relit la demande et son activité', async () => {
     const store = useStoriesStore()
-    store.courante = detail(3)
-    envoyer.mockResolvedValue({ id: 5, auteur: 'po', avatar: null, texte: 'Oui', le: 'x' })
+    envoyer.mockResolvedValue({ ok: true })
+    lire.mockImplementation(async (chemin: string) =>
+      chemin.endsWith('/activite')
+        ? { phase: 'realisation', enCours: true, debut: null, journal: [], erreur: null, pullRequest: null }
+        : chemin.endsWith('/stories')
+          ? [resume(2, { statut: 'en-cours' })]
+          : detail(2, { statut: 'en-cours' }),
+    )
+    await store.validerPlan('mon-poc', 2)
+    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/2/plan/valider', {})
+    expect(store.activite?.enCours).toBe(true)
+    expect(store.courante?.statut).toBe('en-cours')
+  })
+
+  it('envoie la réponse du PO à l’assistant', async () => {
+    const store = useStoriesStore()
+    envoyer.mockResolvedValue({ ok: true })
+    lire.mockImplementation(async (chemin: string) => (chemin.endsWith('/stories') ? [] : detail(3)))
     await store.repondre('mon-poc', 3, 'Oui')
-    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/3/messages', { texte: 'Oui' })
-    expect(store.courante.messages.map((m) => m.texte)).toEqual(['Oui'])
+    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/3/reponse', { texte: 'Oui' })
+  })
+
+  it('garde le message si l’action est refusée', async () => {
+    const store = useStoriesStore()
+    envoyer.mockRejectedValue(new ErreurApi(409, 'Aucun plan n’attend votre validation'))
+    await store.validerPlan('mon-poc', 2)
+    expect(store.erreurAction).toBe('Aucun plan n’attend votre validation')
   })
 })

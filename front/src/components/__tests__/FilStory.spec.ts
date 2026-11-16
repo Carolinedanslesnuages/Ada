@@ -31,29 +31,98 @@ const monter = () =>
   mount(FilStory, { props: { story }, global: { plugins: [VueDsfr] }, attachTo: document.body })
 
 describe('Fil d’une story', () => {
+  const monterAvec = (props: Record<string, unknown>) =>
+    mount(FilStory, { props: { story, ...props }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+  const bouton = (wrapper: ReturnType<typeof monterAvec>, texte: string) =>
+    wrapper.findAll('button').find((b) => b.text().includes(texte))
+
   it('ne demande rien d’écrire tant que la story n’est pas lancée', () => {
-    const wrapper = mount(FilStory, {
-      props: { story: { ...story, statut: 'nouvelle', messages: [] } },
-      global: { plugins: [VueDsfr] },
-    })
-    expect(wrapper.find('textarea').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('Votre réponse')
-    wrapper.unmount()
-  })
-
-  it('ne demande rien d’écrire pendant que l’assistant travaille', () => {
-    const wrapper = mount(FilStory, {
-      props: { story: { ...story, statut: 'en-cours' } },
-      global: { plugins: [VueDsfr] },
-    })
+    const wrapper = monterAvec({ story: { ...story, statut: 'nouvelle', messages: [] } })
     expect(wrapper.find('textarea').exists()).toBe(false)
     wrapper.unmount()
   })
 
-  it('demande une réponse quand l’assistant pose des questions', () => {
-    const wrapper = mount(FilStory, { props: { story }, global: { plugins: [VueDsfr] } })
+  it('montre que l’assistant travaille, avec ses dernières actions, sans rien demander', async () => {
+    const wrapper = monterAvec({
+      story: { ...story, statut: 'en-cours' },
+      activite: {
+        phase: 'realisation',
+        enCours: true,
+        debut: '2026-11-16T14:00:00Z',
+        journal: [
+          { le: '2026-11-16T14:01:00Z', texte: 'Lit src/App.vue' },
+          { le: '2026-11-16T14:02:00Z', texte: 'Lance les tests' },
+        ],
+        erreur: null,
+        pullRequest: null,
+      },
+    })
+    expect(wrapper.text()).toContain('L’assistant réalise la demande…')
+    expect(wrapper.text()).toContain('Lance les tests')
+    expect(wrapper.find('textarea').exists()).toBe(false)
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('signe « Assistant » les messages de l’assistant, sans marqueur technique', () => {
+    const wrapper = monterAvec({
+      story: {
+        ...story,
+        messages: [{ id: 9, auteur: 'po1', avatar: null, texte: '<!-- atelier-po:assistant -->\n🤖 **Plan proposé**\n\nJe vais…', le: '2026-11-16T10:05:00Z' }],
+      },
+    })
+    expect(wrapper.text()).toContain('Assistant')
+    expect(wrapper.text()).not.toContain('atelier-po:assistant')
+    wrapper.unmount()
+  })
+
+  it('fait valider le plan par un bouton', async () => {
+    const wrapper = monterAvec({ story: { ...story, statut: 'plan-a-valider' } })
+    expect(wrapper.find('textarea').exists()).toBe(false)
+    await bouton(wrapper, 'Valider le plan')!.trigger('click')
+    expect(wrapper.emitted('valider')).toHaveLength(1)
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('permet de demander une modification du plan', async () => {
+    const wrapper = monterAvec({ story: { ...story, statut: 'plan-a-valider' } })
+    await bouton(wrapper, 'Demander une modification')!.trigger('click')
+    await wrapper.find('textarea').setValue('Ajouter la météo')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('repondre')?.[0]).toEqual(['Ajouter la météo'])
+    wrapper.unmount()
+  })
+
+  it('demande une réponse quand l’assistant pose des questions', async () => {
+    const wrapper = monterAvec({})
     expect(wrapper.text()).toContain('L’assistant attend vos réponses')
-    expect(wrapper.find('textarea').exists()).toBe(true)
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('repondre')).toBeUndefined()
+    expect(wrapper.text()).toContain('Écrivez vos réponses')
+    await wrapper.find('textarea').setValue('  En toutes lettres.  ')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('repondre')?.[0]).toEqual(['En toutes lettres.'])
+    wrapper.unmount()
+  })
+
+  it('propose de relancer l’assistant sur une demande en cours où rien ne tourne', async () => {
+    const wrapper = monterAvec({
+      story: { ...story, statut: 'en-cours' },
+      activite: { phase: null, enCours: false, debut: null, journal: [], erreur: null, pullRequest: null },
+    })
+    expect(wrapper.text()).toContain('L’assistant ne travaille pas sur cette demande en ce moment')
+    await bouton(wrapper, 'Relancer l’assistant')!.trigger('click')
+    expect(wrapper.emitted('relancer')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('montre le lien vers la pull request une fois la réalisation terminée', () => {
+    const wrapper = monterAvec({
+      story: { ...story, statut: 'en-verification' },
+      activite: { phase: 'realisation', enCours: false, debut: null, journal: [], erreur: null, pullRequest: 'https://github.com/p/poc/pull/2' },
+    })
+    expect(wrapper.find('a[href="https://github.com/p/poc/pull/2"]').exists()).toBe(true)
     wrapper.unmount()
   })
 
@@ -63,22 +132,6 @@ describe('Fil d’une story', () => {
     expect(wrapper.text()).toContain('une salle sans réservation en cours est libre')
     expect(wrapper.text()).toContain('Questions')
     expect(wrapper.text()).toContain('Que veut dire « en ce moment » ?')
-    wrapper.unmount()
-  })
-
-  it('envoie la réponse du PO', async () => {
-    const wrapper = monter()
-    await wrapper.find('textarea').setValue('  L’heure actuelle.  ')
-    await wrapper.find('form').trigger('submit')
-    expect(wrapper.emitted('repondre')?.[0]).toEqual(['L’heure actuelle.'])
-    wrapper.unmount()
-  })
-
-  it('refuse un message vide', async () => {
-    const wrapper = monter()
-    await wrapper.find('form').trigger('submit')
-    expect(wrapper.emitted('repondre')).toBeUndefined()
-    expect(wrapper.text()).toContain('Écrivez votre message')
     wrapper.unmount()
   })
 

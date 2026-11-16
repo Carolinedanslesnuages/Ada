@@ -12,6 +12,7 @@ describe('ApercuService', () => {
   let racine: string;
   let service: ApercuService;
   let executer: ReturnType<typeof vi.fn<Executer>>;
+  let brancheCourante = 'main';
 
   beforeEach(() => {
     racine = mkdtempSync(join(tmpdir(), 'apercus-'));
@@ -27,6 +28,7 @@ describe('ApercuService', () => {
     executer = vi.fn<Executer>(async (commande, args) => {
       if (commande === 'git' && args[0] === 'clone') mkdirSync(join(args[3]!, '.git'), { recursive: true });
       if (args.includes('ps')) return { stdout: JSON.stringify({ Service: 'app', State: 'running' }) };
+      if (args.includes('rev-parse')) return { stdout: brancheCourante + '\n' };
       return { stdout: '' };
     });
     service.executer = executer;
@@ -53,12 +55,24 @@ describe('ApercuService', () => {
     });
   });
 
-  it('met à jour un dépôt déjà cloné au lieu de le recloner', async () => {
+  it('met à jour un dépôt déjà cloné (sur main) au lieu de le recloner', async () => {
+    brancheCourante = 'main';
     await service.demarrer(JETON, 'poc-portail');
     executer.mockClear();
     await service.demarrer(JETON, 'poc-portail');
-    expect(executer.mock.calls.some(([c, a]) => c === 'git' && a.includes('pull'))).toBe(true);
+    expect(executer.mock.calls.some(([c, a]) => c === 'git' && a.includes('fetch'))).toBe(true);
+    expect(executer.mock.calls.some(([c, a]) => c === 'git' && a.includes('origin/main'))).toBe(true);
     expect(executer.mock.calls.some(([c, a]) => c === 'git' && a[0] === 'clone')).toBe(false);
+  });
+
+  it('ne touche pas au travail en cours quand le dépôt est sur une branche de story', async () => {
+    await service.demarrer(JETON, 'poc-portail');
+    brancheCourante = 'story/1-accueil';
+    executer.mockClear();
+    await service.demarrer(JETON, 'poc-portail');
+    expect(executer.mock.calls.some(([c, a]) => c === 'git' && a.includes('fetch'))).toBe(true);
+    expect(executer.mock.calls.some(([c, a]) => c === 'git' && a.includes('origin/main'))).toBe(false);
+    brancheCourante = 'main';
   });
 
   it('donne un port différent à chaque projet, et le garde', async () => {

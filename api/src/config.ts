@@ -20,6 +20,11 @@ const schema = z.object({
     .transform((v) => v.split(',').map((l) => l.trim().toLowerCase()).filter(Boolean)),
   /** Dépôt modèle « proprietaire/depot » (défaut : <GITHUB_PROPRIETAIRE>/modele-vue-nest-dsfr). */
   MODELE_VUE_NEST_DSFR: z.string().default(''),
+  /**
+   * Commande de l'agent de code (mode non interactif, sortie stream-json). Vide : agent désactivé.
+   * Démo : l'exécutable Claude Code. Remplaçable par un autre agent (voir src/agent/agent.ts).
+   */
+  AGENT_COMMANDE: z.string().default(''),
   /** Sessions chiffrées sur disque (hors git) : un redémarrage ne déconnecte personne. */
   DOSSIER_SESSIONS: z.string().default('../sessions'),
   /** Dossier de travail des aperçus (clones et conteneurs), hors de tout dépôt git. */

@@ -1,20 +1,17 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { LIBELLES_STATUT, type DetailStory } from '@/lib/story'
+import { LIBELLES_STATUT, presenterMessage, type Activite, type DetailStory } from '@/lib/story'
 
 const props = defineProps<{
   story: DetailStory
   /** Numéro et titre de la demande en cours sur le projet, s'il y en a une autre. */
   autreEnCours?: { numero: number; titre: string } | null
+  activite?: Activite | null
   erreurLancement?: string | null
   lancementEnCours?: boolean
+  actionEnCours?: boolean
 }>()
-const emit = defineEmits<{ repondre: [texte: string]; lancer: [] }>()
-
-/** Le PO n'écrit que lorsque l'assistant attend quelque chose de lui. */
-const attendReponse = computed(
-  () => props.story.statut === 'questions' || props.story.statut === 'plan-a-valider',
-)
+const emit = defineEmits<{ lancer: []; valider: []; relancer: []; repondre: [texte: string] }>()
 
 /** Pourquoi la demande ne peut pas être lancée, ou null si elle peut l'être. */
 const blocage = computed(() => {
@@ -25,20 +22,30 @@ const blocage = computed(() => {
   return null
 })
 
-const reponse = ref('')
-const erreur = ref('')
+const messages = computed(() => props.story.messages.map((m) => ({ id: m.id, le: m.le, ...presenterMessage(m) })))
+const travaille = computed(() => props.activite?.enCours === true)
+const dernieresActions = computed(() => (props.activite?.journal ?? []).slice(-8).reverse())
 
-const date = (iso: string) =>
-  new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+/** Champ de texte : réponse aux questions, ou modification demandée sur le plan. */
+const modeModification = ref(false)
+const texte = ref('')
+const erreur = ref('')
+const champVisible = computed(
+  () => !travaille.value && (props.story.statut === 'questions' || (props.story.statut === 'plan-a-valider' && modeModification.value)),
+)
+
+const heure = (iso: string) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+const date = (iso: string) => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 
 function envoyer(): void {
-  if (!reponse.value.trim()) {
-    erreur.value = 'Écrivez votre message avant de l’envoyer'
+  if (!texte.value.trim()) {
+    erreur.value = props.story.statut === 'questions' ? 'Écrivez vos réponses avant d’envoyer' : 'Dites ce qu’il faut changer dans le plan'
     return
   }
   erreur.value = ''
-  emit('repondre', reponse.value.trim())
-  reponse.value = ''
+  emit('repondre', texte.value.trim())
+  texte.value = ''
+  modeModification.value = false
 }
 </script>
 
@@ -97,14 +104,38 @@ function envoyer(): void {
     </section>
     <p v-else class="fr-text--sm">{{ story.texteBrut }}</p>
 
-    <section v-if="story.statut !== 'nouvelle'" aria-labelledby="titre-conversation">
-      <h3 id="titre-conversation" class="fr-h6">Suivi</h3>
-      <p v-if="story.messages.length === 0" class="fr-text--sm">
-        Rien pour l’instant. Si l’assistant a une question ou un plan à vous faire valider,
-        il apparaîtra ici.
-      </p>
-      <ol v-else class="fil" aria-live="polite">
-        <li v-for="message in story.messages" :key="message.id">
+    <section v-if="story.statut !== 'nouvelle'" aria-labelledby="titre-suivi">
+      <h3 id="titre-suivi" class="fr-h6">Suivi</h3>
+
+      <div class="activite fr-mb-3w" role="status" aria-live="polite">
+        <p v-if="travaille" class="fr-mb-1w">
+          <span class="fr-icon-refresh-line fr-icon--sm activite__icone" aria-hidden="true" />
+          <strong>
+            L’assistant {{ activite?.phase === 'realisation' ? 'réalise la demande' : 'analyse la demande' }}…
+          </strong>
+          <span v-if="activite?.phase === 'realisation'" class="fr-text--sm"> L’aperçu se met à jour au fil de son travail.</span>
+        </p>
+        <div v-else-if="(story.statut === 'en-cours' || story.statut === 'besoin-dev') && activite" class="fr-mb-1w">
+          <p class="fr-text--sm fr-mb-1w">
+            {{ story.statut === 'besoin-dev' ? 'L’assistant est bloqué sur cette demande.' : 'L’assistant ne travaille pas sur cette demande en ce moment.' }}
+          </p>
+          <DsfrButton size="sm" secondary icon="fr-icon-refresh-line" label="Relancer l’assistant" :disabled="actionEnCours" @click="emit('relancer')" />
+        </div>
+        <ol v-if="dernieresActions.length" class="activite__journal fr-text--sm">
+          <li v-for="action in dernieresActions" :key="action.le + action.texte">
+            <span class="fr-text--xs">{{ heure(action.le) }}</span> {{ action.texte }}
+          </li>
+        </ol>
+        <DsfrAlert v-if="activite?.erreur && !travaille" type="error" small :description="activite.erreur" />
+        <p v-if="activite?.pullRequest" class="fr-mt-1w">
+          <a class="fr-link" :href="activite.pullRequest" target="_blank" rel="noopener">
+            Voir la demande de fusion (pull request) et ses contrôles<span class="fr-sr-only"> (nouvelle fenêtre)</span>
+          </a>
+        </p>
+      </div>
+
+      <ol v-if="messages.length" class="fil">
+        <li v-for="message in messages" :key="message.id" :class="{ 'fil__assistant': message.assistant }">
           <p class="fr-text--xs fr-mb-1v">
             <strong>{{ message.auteur }}</strong> — {{ date(message.le) }}
           </p>
@@ -112,25 +143,39 @@ function envoyer(): void {
         </li>
       </ol>
 
-      <form v-if="attendReponse" novalidate @submit.prevent="envoyer">
+      <div v-if="story.statut === 'plan-a-valider' && !travaille && !modeModification" class="fr-mt-2w">
+        <DsfrAlert type="info" small class="fr-mb-2w" description="L’assistant attend votre accord sur le plan ci-dessus avant de commencer." />
+        <ul class="fr-btns-group fr-btns-group--inline-md">
+          <li>
+            <DsfrButton icon="fr-icon-check-line" label="Valider le plan" :disabled="actionEnCours" @click="emit('valider')" />
+          </li>
+          <li>
+            <DsfrButton secondary label="Demander une modification" :disabled="actionEnCours" @click="modeModification = true" />
+          </li>
+        </ul>
+      </div>
+
+      <form v-if="champVisible" novalidate class="fr-mt-2w" @submit.prevent="envoyer">
         <DsfrAlert
+          v-if="story.statut === 'questions'"
           type="info"
           small
           class="fr-mb-2w"
-          :description="
-            story.statut === 'questions'
-              ? 'L’assistant attend vos réponses à ses questions ci-dessus pour continuer.'
-              : 'L’assistant attend que vous validiez son plan ci-dessus (répondez « oui », ou dites ce qu’il faut changer).'
-          "
+          description="L’assistant attend vos réponses à ses questions ci-dessus pour continuer."
         />
         <DsfrInputGroup
-          v-model="reponse"
-          label="Votre réponse"
+          v-model="texte"
+          :label="story.statut === 'questions' ? 'Vos réponses' : 'Ce qu’il faut changer dans le plan'"
           label-visible
           is-textarea
           :error-message="erreur"
         />
-        <DsfrButton type="submit" label="Envoyer" />
+        <ul class="fr-btns-group fr-btns-group--inline-md">
+          <li><DsfrButton type="submit" label="Envoyer" :disabled="actionEnCours" /></li>
+          <li v-if="modeModification">
+            <DsfrButton type="button" tertiary label="Annuler" @click="modeModification = false" />
+          </li>
+        </ul>
       </form>
     </section>
   </article>

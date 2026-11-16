@@ -87,30 +87,52 @@ export class ApercuService {
     return { etat, url: etat === 'pret' ? url : null, journal: etat === 'pret' ? null : await this.dernieresLignes(dossier) };
   }
 
-  /** Clone (ou met à jour) le dépôt avec les droits du PO, puis démarre les conteneurs. */
+  cheminDepot(projet: string): string {
+    this.verifier(projet);
+    return join(this.racine, projet, 'depot');
+  }
+
+  /** Environnement git authentifié : le jeton passe par l'environnement, jamais en argument ni dans .git/config. */
+  environnementGit(jeton: string): NodeJS.ProcessEnv {
+    const auth = Buffer.from(`x-access-token:${jeton}`).toString('base64');
+    return {
+      ...process.env,
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: 'http.https://github.com/.extraheader',
+      GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${auth}`,
+    };
+  }
+
+  /**
+   * Clone le dépôt, ou le met à jour sans toucher au travail en cours : on récupère GitHub, et on
+   * n'avance la copie locale que si elle est sur main (une branche de story reste telle quelle).
+   */
+  async preparerDepot(jeton: string, projet: string): Promise<string> {
+    const depot = this.cheminDepot(projet);
+    await mkdir(join(this.racine, projet), { recursive: true });
+    const env = this.environnementGit(jeton);
+    if (existsSync(join(depot, '.git'))) {
+      await this.executer('git', ['-C', depot, 'fetch', '--quiet', 'origin'], { env });
+      const { stdout } = await this.executer('git', ['-C', depot, 'rev-parse', '--abbrev-ref', 'HEAD']);
+      if (stdout.trim() === 'main') {
+        await this.executer('git', ['-C', depot, 'merge', '--ff-only', '--quiet', 'origin/main'], { env });
+      }
+    } else {
+      const url = `https://github.com/${this.config.GITHUB_PROPRIETAIRE}/${projet}.git`;
+      await this.executer('git', ['clone', '--quiet', url, depot], { env });
+    }
+    return depot;
+  }
+
+  /** Prépare le dépôt avec les droits du PO, puis démarre les conteneurs. */
   async demarrer(jeton: string, projet: string): Promise<Apercu> {
     this.verifier(projet);
     if (this.enPreparation.has(projet)) return this.etat(projet);
     this.enPreparation.add(projet);
     const dossier = join(this.racine, projet);
     try {
-      await mkdir(dossier, { recursive: true });
-      // Le jeton passe par l'environnement : jamais dans la ligne de commande ni dans .git/config.
-      const auth = Buffer.from(`x-access-token:${jeton}`).toString('base64');
-      const env = {
-        ...process.env,
-        GIT_TERMINAL_PROMPT: '0',
-        GIT_CONFIG_COUNT: '1',
-        GIT_CONFIG_KEY_0: 'http.https://github.com/.extraheader',
-        GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${auth}`,
-      };
-      const depot = join(dossier, 'depot');
-      if (existsSync(join(depot, '.git'))) {
-        await this.executer('git', ['-C', depot, 'pull', '--ff-only', '--quiet'], { env });
-      } else {
-        const url = `https://github.com/${this.config.GITHUB_PROPRIETAIRE}/${projet}.git`;
-        await this.executer('git', ['clone', '--quiet', url, depot], { env });
-      }
+      await this.preparerDepot(jeton, projet);
       await writeFile(join(dossier, 'compose.yml'), genererCompose(projet, await this.port(projet)));
       await writeFile(join(dossier, 'demarrer.sh'), SCRIPT_DEMARRAGE, { mode: 0o755 });
       await this.executer('docker', ['volume', 'create', VOLUME_CACHE_NPM]);

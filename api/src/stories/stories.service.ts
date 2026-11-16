@@ -18,6 +18,11 @@ import {
   type TypeDemande,
 } from './story.js';
 
+/** Marque les commentaires écrits par l'assistant, pour reconstituer les échanges. */
+export const MARQUEUR_ASSISTANT = '<!-- atelier-po:assistant -->';
+/** Marque le commentaire de lancement : les échanges utiles à l'agent commencent après. */
+export const MARQUEUR_LANCEMENT = '▶️ Lancée depuis l’atelier PO';
+
 export interface ResumeStory {
   numero: number;
   type: TypeDemande;
@@ -162,12 +167,39 @@ export class StoriesService {
         owner: this.owner,
         repo: depot,
         issue_number: numero,
-        body: `▶️ Lancée depuis l’atelier PO par ${login}.`,
+        body: `${MARQUEUR_LANCEMENT} par ${login}.`,
       });
     } catch (e) {
       traduireErreurGithub(e);
     }
     return { ...cible, statut: 'en-cours' };
+  }
+
+  /** Remplace le statut de l'issue (un seul label story:* à la fois). */
+  async changerStatut(jeton: string, depot: string, numero: number, statut: keyof typeof STATUTS): Promise<void> {
+    const gh = this.github.client(jeton);
+    try {
+      const { data } = await gh.issues.get({ owner: this.owner, repo: depot, issue_number: numero });
+      const autres = nomsLabels((data as Issue).labels).filter((l) => !l.startsWith('story:'));
+      await this.assurerLabel(jeton, depot, STATUTS[statut]);
+      await gh.issues.setLabels({ owner: this.owner, repo: depot, issue_number: numero, labels: [...autres, STATUTS[statut]] });
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+  }
+
+  /** Message de l'assistant dans l'issue, reconnaissable par son marqueur. */
+  async commenterAssistant(jeton: string, depot: string, numero: number, titre: string, texte: string): Promise<void> {
+    try {
+      await this.github.client(jeton).issues.createComment({
+        owner: this.owner,
+        repo: depot,
+        issue_number: numero,
+        body: `${MARQUEUR_ASSISTANT}\n🤖 **${titre}**\n\n${texte}`,
+      });
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
   }
 
   async repondre(jeton: string, depot: string, numero: number, texte: string): Promise<Message> {

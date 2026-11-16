@@ -6,7 +6,7 @@ import ListeStories from '@/components/ListeStories.vue'
 import PanneauApercu from '@/components/PanneauApercu.vue'
 import ResultatProjet from '@/components/ResultatProjet.vue'
 import type { ErreursProjet, NouveauProjet, ResultatCreation } from '@/lib/projet'
-import { lienNouvelleIssue } from '@/lib/story'
+import { lienNouvelleIssue, STATUTS_ACTIFS } from '@/lib/story'
 import { useProjetsStore } from '@/stores/projets'
 import { useStoriesStore } from '@/stores/stories'
 
@@ -97,11 +97,41 @@ const autreEnCours = computed(() =>
   stories.active && stories.active.numero !== stories.courante?.numero ? stories.active : null,
 )
 
-async function repondre(texte: string): Promise<void> {
-  if (projets.nomCourant && stories.courante) {
-    await stories.repondre(projets.nomCourant, stories.courante.numero, texte)
+const actionEnCours = ref(false)
+
+async function agir(action: (projet: string, numero: number) => Promise<void>): Promise<void> {
+  if (!projets.nomCourant || !stories.courante) return
+  actionEnCours.value = true
+  try {
+    await action(projets.nomCourant, stories.courante.numero)
+  } finally {
+    actionEnCours.value = false
   }
 }
+
+const valider = () => agir((p, n) => stories.validerPlan(p, n))
+const relancer = () => agir((p, n) => stories.relancer(p, n))
+const repondre = (texte: string) => agir((p, n) => stories.repondre(p, n, texte))
+
+/** Suivi automatique tant que la demande ouverte est active ou que l'assistant travaille. */
+let minuteurSuivi: ReturnType<typeof setInterval> | null = null
+watch(
+  () => [stories.courante?.numero, stories.courante?.statut, stories.activite?.enCours] as const,
+  ([numero, statut, travaille]) => {
+    if (minuteurSuivi) clearInterval(minuteurSuivi)
+    minuteurSuivi = null
+    const actif = statut !== undefined && STATUTS_ACTIFS.includes(statut)
+    if (numero && (actif || travaille)) {
+      if (projets.nomCourant && stories.activite === null) void stories.chargerActivite(projets.nomCourant, numero)
+      minuteurSuivi = setInterval(() => {
+        if (projets.nomCourant) void stories.suivre(projets.nomCourant)
+      }, 4000)
+    }
+  },
+)
+onUnmounted(() => {
+  if (minuteurSuivi) clearInterval(minuteurSuivi)
+})
 </script>
 
 <template>
@@ -201,9 +231,14 @@ async function repondre(texte: string): Promise<void> {
         :autre-en-cours="autreEnCours"
         :erreur-lancement="stories.erreurLancement"
         :lancement-en-cours="lancementEnCours"
+        :activite="stories.activite"
+        :action-en-cours="actionEnCours"
         @lancer="lancer"
+        @valider="valider"
+        @relancer="relancer"
         @repondre="repondre"
       />
+      <DsfrAlert v-if="stories.erreurAction" type="error" small :description="stories.erreurAction" />
     </section>
 
     <PanneauApercu :projet="projets.nomCourant" />
