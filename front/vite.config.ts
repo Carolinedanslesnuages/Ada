@@ -22,6 +22,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': 'http://localhost:3100',
+      '/__version__': 'http://localhost:3100',
     },
   },
 })
