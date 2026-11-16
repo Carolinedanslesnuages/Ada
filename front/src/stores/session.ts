@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { acceptHMRUpdate, defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api, ErreurApi } from '@/services/api'
 
@@ -31,3 +31,6 @@ export const useSessionStore = defineStore('session', () => {
 
   return { utilisateur, verifiee, connecte, verifier, deconnecter }
 })
+
+// Mise à jour à chaud en développement : sans cela, un onglet ouvert garde l'ancienne version du store.
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useSessionStore, import.meta.hot))

@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { acceptHMRUpdate, defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/services/api'
 import { STATUTS_ACTIFS, type Activite, type DetailStory, type ResumeStory } from '@/lib/story'
@@ -121,3 +121,6 @@ export const useStoriesStore = defineStore('stories', () => {
     fermer,
   }
 })
+
+// Mise à jour à chaud en développement : sans cela, un onglet ouvert garde l'ancienne version du store.
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useStoriesStore, import.meta.hot))
