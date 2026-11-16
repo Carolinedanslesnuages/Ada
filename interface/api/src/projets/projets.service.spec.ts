@@ -128,8 +128,11 @@ describe('ProjetsService', () => {
   });
 
   it('ne propose que les modèles livrés dans le catalogue d’ADA, sans dépôt modèle GitHub', () => {
-    const { types, modeles } = service.modeles();
-    expect(types.map((t) => t.id)).toEqual(['service', 'formulaire', 'extension', 'maquette']);
+    const { familles, types, modeles } = service.modeles();
+    expect(types.map((t) => t.id)).toEqual(expect.arrayContaining(['service', 'formulaire', 'extension', 'api', 'maquette']));
+    for (const type of types) expect(familles.map((f) => f.id)).toContain(type.famille);
+    for (const modele of modeles) expect(types.map((t) => t.id)).toContain(modele.type);
+    for (const type of types) expect(modeles.some((m) => m.type === type.id)).toBe(true);
     expect(modeles.filter((m) => m.disponible).map((m) => m.id)).toEqual(['vue-nest-dsfr', 'maquette']);
     expect(modeles.find((m) => m.id === 'formulaire')).toMatchObject({ type: 'formulaire', disponible: false });
     expect(gh.repos.get).not.toHaveBeenCalled();

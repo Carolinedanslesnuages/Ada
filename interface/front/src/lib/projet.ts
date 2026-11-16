@@ -1,8 +1,15 @@
 /** Règles partagées avec l'API (api/src/projets/projet.ts). */
-export type TypeProjet = 'service' | 'formulaire' | 'extension' | 'maquette'
+/** Identifiant d'un type de projet (liste fournie par l'API : api/src/projets/modeles.ts). */
+export type TypeProjet = string
+
+export interface FamilleDeProjet {
+  id: string
+  libelle: string
+}
 
 export interface TypeDeProjet {
   id: TypeProjet
+  famille: string
   libelle: string
   description: string
 }

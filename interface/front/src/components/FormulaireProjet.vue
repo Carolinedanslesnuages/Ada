@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import {
+  type FamilleDeProjet,
   type TypeDeProjet,
   type TypeProjet,
   normaliserNom,
@@ -12,6 +13,7 @@ import {
 } from '@/lib/projet'
 
 const props = defineProps<{
+  familles: FamilleDeProjet[]
   types: TypeDeProjet[]
   modeles: Modele[]
   erreursServeur?: ErreursProjet | null
@@ -27,6 +29,12 @@ const adresse = computed(() => slugifier(normaliserNom(projet.nom)))
 /** D'abord le type de projet, puis la stack de ce type (choisie d'office s'il n'y en a qu'une). */
 const typeChoisi = ref<TypeProjet | null>(null)
 const modelesDuType = computed(() => props.modeles.filter((modele) => modele.type === typeChoisi.value))
+/** Types regroupés par famille (familles sans type omises). */
+const famillesAvecTypes = computed(() =>
+  props.familles
+    .map((famille) => ({ ...famille, types: props.types.filter((type) => type.famille === famille.id) }))
+    .filter((famille) => famille.types.length > 0),
+)
 const typeDisponible = (type: TypeProjet) => props.modeles.some((modele) => modele.type === type && modele.disponible)
 watch(typeChoisi, () => {
   const disponibles = modelesDuType.value.filter((modele) => modele.disponible)
@@ -77,21 +85,28 @@ function envoyer(): void {
 
     <fieldset class="fr-fieldset" :class="{ 'fr-fieldset--error': erreurs.modele && !typeChoisi }">
       <legend class="fr-fieldset__legend">Que voulez-vous créer ?</legend>
-      <div v-for="type in types" :key="type.id" class="fr-fieldset__element">
-        <div class="fr-radio-group">
-          <input
-            :id="`type-${type.id}`"
-            v-model="typeChoisi"
-            type="radio"
-            name="type-projet"
-            :value="type.id"
-            :disabled="!typeDisponible(type.id)"
-          />
-          <label class="fr-label" :for="`type-${type.id}`">
-            {{ type.libelle }}{{ typeDisponible(type.id) ? '' : ' (bientôt disponible)' }}
-            <span class="fr-hint-text">{{ type.description }}</span>
-          </label>
-        </div>
+      <div v-for="famille in famillesAvecTypes" :key="famille.id" class="fr-fieldset__element">
+        <fieldset class="fr-fieldset">
+          <legend class="fr-fieldset__legend fr-fieldset__legend--regular fr-text--bold">
+            {{ famille.libelle }}
+          </legend>
+          <div v-for="type in famille.types" :key="type.id" class="fr-fieldset__element">
+            <div class="fr-radio-group">
+              <input
+                :id="`type-${type.id}`"
+                v-model="typeChoisi"
+                type="radio"
+                name="type-projet"
+                :value="type.id"
+                :disabled="!typeDisponible(type.id)"
+              />
+              <label class="fr-label" :for="`type-${type.id}`">
+                {{ type.libelle }}{{ typeDisponible(type.id) ? '' : ' (bientôt disponible)' }}
+                <span class="fr-hint-text">{{ type.description }}</span>
+              </label>
+            </div>
+          </div>
+        </fieldset>
       </div>
     </fieldset>
 

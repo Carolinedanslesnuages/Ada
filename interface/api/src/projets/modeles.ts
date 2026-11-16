@@ -1,11 +1,35 @@
 import type { TypeProjet } from '../ada/ada-config.js';
 
-/** Les types de projet proposés au PO, dans l'ordre d'affichage. */
-export const TYPES: { id: TypeProjet; libelle: string; description: string }[] = [
-  { id: 'service', libelle: 'Service en ligne', description: 'Une application avec des données et plusieurs écrans' },
-  { id: 'formulaire', libelle: 'Formulaire', description: 'Recueillir des informations : inscription, demande, enquête' },
-  { id: 'extension', libelle: 'Extension de navigateur', description: 'Un outil dans Chrome, Firefox ou Edge' },
-  { id: 'maquette', libelle: 'Maquette', description: 'Montrer un parcours avant de le développer, sans serveur' },
+/** Familles de projets, dans l'ordre d'affichage de « Que voulez-vous créer ? ». */
+export const FAMILLES = [
+  { id: 'service', libelle: 'Un service pour les usagers ou les agents' },
+  { id: 'outil-existant', libelle: 'Dans un outil déjà utilisé' },
+  { id: 'sans-ecran', libelle: 'Sans écran : données et automatisation' },
+  { id: 'idee', libelle: 'Pour montrer une idée' },
+] as const;
+
+export type Famille = (typeof FAMILLES)[number]['id'];
+
+/** Tous les types de projet imaginables ; seuls ceux qui ont un modèle livré sont sélectionnables. */
+export const TYPES: { id: TypeProjet; famille: Famille; libelle: string; description: string }[] = [
+  { id: 'service', famille: 'service', libelle: 'Application en ligne', description: 'Des données, plusieurs écrans, des règles métier : réservation, suivi, inventaire…' },
+  { id: 'formulaire', famille: 'service', libelle: 'Formulaire ou démarche', description: 'Recueillir des informations (inscription, demande, enquête) et consulter les réponses' },
+  { id: 'tableau-de-bord', famille: 'service', libelle: 'Tableau de bord', description: 'Indicateurs, graphiques et tableaux pour suivre une activité' },
+  { id: 'gestion', famille: 'service', libelle: 'Outil de gestion (back-office)', description: 'Administrer des données : listes, fiches, recherche, validation' },
+  { id: 'site', famille: 'service', libelle: 'Site d’information', description: 'Pages publiques, actualités, bien référencées par les moteurs de recherche' },
+  { id: 'documentation', famille: 'service', libelle: 'Guide ou documentation', description: 'Pages de documentation avec sommaire et recherche' },
+  { id: 'carte', famille: 'service', libelle: 'Carte interactive', description: 'Des lieux, équipements ou zones sur une carte, avec filtres' },
+  { id: 'mobile', famille: 'service', libelle: 'Application mobile', description: 'Installable sur téléphone depuis le navigateur, utilisable hors connexion' },
+  { id: 'assistant', famille: 'service', libelle: 'Assistant conversationnel', description: 'Répondre aux questions à partir de vos propres contenus' },
+  { id: 'formation', famille: 'service', libelle: 'Formation ou quiz', description: 'Apprendre, s’entraîner, s’auto-évaluer' },
+  { id: 'extension', famille: 'outil-existant', libelle: 'Extension de navigateur', description: 'Un outil dans Chrome, Firefox ou Edge' },
+  { id: 'composant', famille: 'outil-existant', libelle: 'Composant à intégrer', description: 'Un bloc à insérer dans un autre site : simulateur, calculette, recherche' },
+  { id: 'robot', famille: 'outil-existant', libelle: 'Robot de messagerie (Tchap)', description: 'Notifications et réponses automatiques dans un salon' },
+  { id: 'connecteur', famille: 'outil-existant', libelle: 'Connecteur entre outils', description: 'Relier deux applications : synchronisation, réaction à un événement' },
+  { id: 'api', famille: 'sans-ecran', libelle: 'API', description: 'Mettre des données ou un calcul à disposition d’autres services' },
+  { id: 'traitement', famille: 'sans-ecran', libelle: 'Traitement de données', description: 'Importer, nettoyer, convertir des fichiers ; tâche planifiée' },
+  { id: 'documents', famille: 'sans-ecran', libelle: 'Génération de documents', description: 'Courriers, attestations, PDF à partir de modèles' },
+  { id: 'maquette', famille: 'idee', libelle: 'Maquette cliquable', description: 'Montrer un parcours avant de le développer : données fictives, aucun serveur' },
 ];
 
 export interface Modele {
@@ -18,23 +42,32 @@ export interface Modele {
 }
 
 /**
- * Tous les modèles prévus. Ils vivent dans le dépôt d'ADA (`catalogue/<id>/`), pas dans des dépôts
- * modèles GitHub : un modèle est disponible dès que son dossier est livré (voir docs/adr).
+ * Toutes les stacks prévues, par type. Elles vivent dans le dépôt d'ADA (`catalogue/<id>/`), pas
+ * dans des dépôts modèles GitHub : une stack est disponible dès que son dossier est livré.
+ * Vue 3 + NestJS d'abord ; Python quand le besoin l'appelle (données, IA, back-office).
  */
 export function catalogue(): Omit<Modele, 'disponible'>[] {
   return [
-    {
-      id: 'vue-nest-dsfr',
-      type: 'service',
-      libelle: 'Vue 3 + NestJS + PostgreSQL, avec DSFR',
-      pourQuoi: 'Application métier structurée, nombreuses règles, durée de vie longue',
-    },
-    { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express), avec DSFR', pourQuoi: 'Petite application ou API simple' },
+    { id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS + PostgreSQL, avec DSFR', pourQuoi: 'Application métier structurée, nombreuses règles, durée de vie longue' },
+    { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express), avec DSFR', pourQuoi: 'Petite application, peu de règles' },
     { id: 'vue-fastapi', type: 'service', libelle: 'Vue 3 + Python (FastAPI) + PostgreSQL', pourQuoi: 'Données, calculs, IA, import/export de fichiers' },
-    { id: 'django', type: 'service', libelle: 'Python (Django)', pourQuoi: 'Back-office, formulaires, administration des données' },
-    { id: 'nuxt', type: 'service', libelle: 'Nuxt', pourQuoi: 'Site public bien référencé (SEO)' },
-    { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR', pourQuoi: 'Réponses enregistrées dans le projet, page « Réponses » et export CSV' },
+    { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR (Vue 3 + NestJS)', pourQuoi: 'Réponses enregistrées dans le projet, page « Réponses » et export CSV' },
+    { id: 'tableau-de-bord', type: 'tableau-de-bord', libelle: 'Vue 3 + NestJS, graphiques DSFR', pourQuoi: 'Indicateurs calculés côté serveur, graphiques accessibles' },
+    { id: 'django', type: 'gestion', libelle: 'Python (Django), administration intégrée', pourQuoi: 'Listes, fiches et droits prêts à l’emploi' },
+    { id: 'nuxt', type: 'site', libelle: 'Nuxt, avec DSFR', pourQuoi: 'Pages générées pour un bon référencement (SEO)' },
+    { id: 'vitepress', type: 'documentation', libelle: 'VitePress, avec DSFR', pourQuoi: 'Pages écrites en Markdown, recherche intégrée' },
+    { id: 'carte', type: 'carte', libelle: 'Vue 3 + MapLibre, avec DSFR', pourQuoi: 'Fonds de carte IGN, données GeoJSON' },
+    { id: 'pwa', type: 'mobile', libelle: 'Vue 3 installable (PWA), avec DSFR', pourQuoi: 'Une seule application pour téléphone et ordinateur' },
+    { id: 'assistant', type: 'assistant', libelle: 'Vue 3 + NestJS, IA branchable', pourQuoi: 'Réponses citant leurs sources ; modèle d’IA choisi par l’équipe' },
+    { id: 'quiz', type: 'formation', libelle: 'Vue 3, avec DSFR, sans serveur', pourQuoi: 'Questions et parcours décrits dans des fichiers' },
     { id: 'extension', type: 'extension', libelle: 'Extension de navigateur (Vue)', pourQuoi: 'Chrome, Firefox, Edge ; sans identité de l’État' },
+    { id: 'composant', type: 'composant', libelle: 'Composant web (Vue)', pourQuoi: 'Une balise à coller dans n’importe quelle page' },
+    { id: 'robot-tchap', type: 'robot', libelle: 'Node.js (Matrix)', pourQuoi: 'Tchap repose sur le protocole Matrix' },
+    { id: 'connecteur', type: 'connecteur', libelle: 'NestJS (webhooks)', pourQuoi: 'Événements reçus, vérifiés, relayés ; journal consultable' },
+    { id: 'api-nest', type: 'api', libelle: 'NestJS + PostgreSQL, documentation OpenAPI', pourQuoi: 'API documentée et testée' },
+    { id: 'api-fastapi', type: 'api', libelle: 'Python (FastAPI) + PostgreSQL', pourQuoi: 'Calculs, données, IA' },
+    { id: 'traitement-python', type: 'traitement', libelle: 'Python (scripts planifiés)', pourQuoi: 'Fichiers CSV, Excel ; exécution planifiée par la CI' },
+    { id: 'documents', type: 'documents', libelle: 'NestJS, génération de PDF', pourQuoi: 'Modèles de documents, PDF accessibles' },
     { id: 'maquette', type: 'maquette', libelle: 'Maquette Vue 3, avec DSFR', pourQuoi: 'Parcours cliquable, données fictives, aucun serveur' },
   ];
 }

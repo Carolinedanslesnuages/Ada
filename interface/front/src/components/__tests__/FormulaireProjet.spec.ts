@@ -2,14 +2,20 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import VueDsfr from '@gouvminint/vue-dsfr'
 import FormulaireProjet from '../FormulaireProjet.vue'
-import type { Modele, TypeDeProjet } from '@/lib/projet'
+import type { FamilleDeProjet, Modele, TypeDeProjet } from '@/lib/projet'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
 
+const familles: FamilleDeProjet[] = [
+  { id: 'service', libelle: 'Un service pour les usagers ou les agents' },
+  { id: 'outil-existant', libelle: 'Dans un outil déjà utilisé' },
+  { id: 'sans-ecran', libelle: 'Sans écran : données et automatisation' },
+  { id: 'idee', libelle: 'Pour montrer une idée' },
+]
 const types: TypeDeProjet[] = [
-  { id: 'service', libelle: 'Service en ligne', description: 'Une application' },
-  { id: 'formulaire', libelle: 'Formulaire', description: 'Recueillir des informations' },
-  { id: 'extension', libelle: 'Extension de navigateur', description: 'Un outil dans le navigateur' },
-  { id: 'maquette', libelle: 'Maquette', description: 'Un parcours cliquable' },
+  { id: 'service', famille: 'service', libelle: 'Service en ligne', description: 'Une application' },
+  { id: 'formulaire', famille: 'service', libelle: 'Formulaire', description: 'Recueillir des informations' },
+  { id: 'extension', famille: 'outil-existant', libelle: 'Extension de navigateur', description: 'Un outil dans le navigateur' },
+  { id: 'maquette', famille: 'idee', libelle: 'Maquette', description: 'Un parcours cliquable' },
 ]
 const modeles: Modele[] = [
   { id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS', pourQuoi: 'Métier', disponible: true },
@@ -20,7 +26,7 @@ const modeles: Modele[] = [
 ]
 
 const monter = () =>
-  mount(FormulaireProjet, { props: { types, modeles }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+  mount(FormulaireProjet, { props: { familles, types, modeles }, global: { plugins: [VueDsfr] }, attachTo: document.body })
 
 const remplir = async (wrapper: ReturnType<typeof monter>) => {
   await wrapper.find('input:not([type="radio"])').setValue('Annuaire')
@@ -28,6 +34,14 @@ const remplir = async (wrapper: ReturnType<typeof monter>) => {
 }
 
 describe('Formulaire de nouveau projet', () => {
+  it('regroupe les types par famille, sans afficher une famille vide', () => {
+    const wrapper = monter()
+    const legendes = wrapper.findAll('fieldset fieldset legend').map((legende) => legende.text())
+    expect(legendes).toEqual(['Un service pour les usagers ou les agents', 'Dans un outil déjà utilisé', 'Pour montrer une idée'])
+    expect(wrapper.findAll('input[name="type-projet"]')).toHaveLength(4)
+    wrapper.unmount()
+  })
+
   it('demande d’abord ce que l’on veut créer ; les types sans modèle publié sont grisés', () => {
     const wrapper = monter()
     expect(wrapper.text()).toContain('Que voulez-vous créer ?')
