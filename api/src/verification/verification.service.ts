@@ -61,17 +61,41 @@ export class VerificationService {
         commit_title: `${pr.title} (#${pr.number})`,
         commit_message: `Closes #${numero}`,
       });
-      await gh.issues.update({ owner, repo: depot, issue_number: numero, state: 'closed', state_reason: 'completed' });
     } catch (e) {
       traduireErreurGithub(e);
     }
-    await this.stories.retirerStatut(jeton, depot, numero);
-    try {
-      await this.apercu.revenirSurMain(jeton, depot);
-    } catch (e) {
-      // La fusion est faite : un aperçu pas encore à jour n'est pas bloquant (il le sera au prochain démarrage).
-      this.log.warn(`Aperçu de ${depot} non remis sur main : ${(e as Error).message.split('\n')[0]}`);
-    }
+    // La fusion est faite : la suite (ménage) ne doit jamais faire échouer la réponse au PO.
+    await this.apresFusion(jeton, depot, numero);
     return this.verifier(jeton, depot, numero);
+  }
+
+  /**
+   * « Closes #n » ferme l'issue en même temps que la fusion : on ne la ferme que si elle est
+   * encore ouverte, puis on retire le statut et on remet l'aperçu sur main. Chaque étape est
+   * indépendante : un échec est journalisé, sans annuler ni masquer la fusion.
+   */
+  private async apresFusion(jeton: string, depot: string, numero: number): Promise<void> {
+    const gh = this.github.client(jeton);
+    const owner = this.config.GITHUB_PROPRIETAIRE;
+    const etapes: [string, () => Promise<unknown>][] = [
+      [
+        'fermeture de l’issue',
+        async () => {
+          const { data: issue } = await gh.issues.get({ owner, repo: depot, issue_number: numero });
+          if (issue.state === 'open') {
+            await gh.issues.update({ owner, repo: depot, issue_number: numero, state: 'closed', state_reason: 'completed' });
+          }
+        },
+      ],
+      ['retrait du statut', () => this.stories.retirerStatut(jeton, depot, numero)],
+      ['retour de l’aperçu sur main', () => this.apercu.revenirSurMain(jeton, depot)],
+    ];
+    for (const [etape, action] of etapes) {
+      try {
+        await action();
+      } catch (e) {
+        this.log.warn(`Après fusion de ${depot}#${numero}, ${etape} : ${(e as Error).message.split('\n')[0]}`);
+      }
+    }
   }
 }

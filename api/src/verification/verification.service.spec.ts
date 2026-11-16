@@ -17,7 +17,7 @@ describe('VerificationService', () => {
   const gh = {
     pulls: { get: vi.fn(), merge: vi.fn() },
     checks: { listForRef: vi.fn() },
-    issues: { update: vi.fn() },
+    issues: { update: vi.fn(), get: vi.fn() },
   };
   const agent = { activite: vi.fn(async (): Promise<{ pullRequest: string | null }> => ({ pullRequest: 'https://github.com/proprio/poc/pull/3' })) };
   const stories = { retirerStatut: vi.fn() };
@@ -26,6 +26,7 @@ describe('VerificationService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    gh.issues.get.mockResolvedValue({ data: { state: 'open' } });
     gh.pulls.get.mockResolvedValue({
       data: { number: 3, html_url: 'https://github.com/proprio/poc/pull/3', merged: false, state: 'open', mergeable: true, title: 'feat: Page d’accueil', head: { sha: 'abc' } },
     });
@@ -68,6 +69,23 @@ describe('VerificationService', () => {
     expect(gh.issues.update).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 1, state: 'closed' }));
     expect(stories.retirerStatut).toHaveBeenCalledWith('jeton', 'poc', 1);
     expect(apercu.revenirSurMain).toHaveBeenCalledWith('jeton', 'poc');
+  });
+
+  it('ne refait pas la fermeture si « Closes #n » a déjà fermé l’issue (pas d’erreur 500)', async () => {
+    gh.checks.listForRef.mockResolvedValue(runs('success'));
+    gh.issues.get.mockResolvedValue({ data: { state: 'closed' } });
+    await expect(service.fusionner('jeton', 'poc', 1)).resolves.toBeDefined();
+    expect(gh.issues.update).not.toHaveBeenCalled();
+    expect(stories.retirerStatut).toHaveBeenCalled();
+    expect(apercu.revenirSurMain).toHaveBeenCalled();
+  });
+
+  it('continue le ménage même si GitHub refuse la fermeture (fermée entre-temps)', async () => {
+    gh.checks.listForRef.mockResolvedValue(runs('success'));
+    gh.issues.update.mockRejectedValueOnce({ status: 422, message: 'This issue was closed by another request' });
+    await expect(service.fusionner('jeton', 'poc', 1)).resolves.toBeDefined();
+    expect(stories.retirerStatut).toHaveBeenCalled();
+    expect(apercu.revenirSurMain).toHaveBeenCalled();
   });
 
   it('considère la fusion faite même si l’aperçu ne peut pas être remis à jour', async () => {
