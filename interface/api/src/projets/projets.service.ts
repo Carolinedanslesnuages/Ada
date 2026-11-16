@@ -18,7 +18,7 @@ import { CONFIG, type Config } from '../config.js';
 import { decrireErreurGithub, traduireErreurGithub } from '../github/erreurs.js';
 import { GithubService } from '../github/github.service.js';
 import { lireAdaConfig, type AdaConfig } from '../ada/ada-config.js';
-import { catalogue, LABELS_ATELIER, TYPES, type Modele } from './modeles.js';
+import { catalogue, FAMILLES, LABELS_ATELIER, TYPES, type Modele } from './modeles.js';
 import { personnaliser, validerProjet, type ValeursProjet } from './projet.js';
 
 export interface Projet {
@@ -93,12 +93,12 @@ export class ProjetsService {
   }
 
   /** Catalogue : un modèle n'est proposé que si son dossier est livré avec son ada.json. */
-  modeles(): { types: typeof TYPES; modeles: Modele[] } {
+  modeles(): { familles: typeof FAMILLES; types: typeof TYPES; modeles: Modele[] } {
     const modeles = catalogue().map((modele) => ({
       ...modele,
       disponible: existsSync(join(this.dossierCatalogue, modele.id, 'ada.json')),
     }));
-    return { types: TYPES, modeles };
+    return { familles: FAMILLES, types: TYPES, modeles };
   }
 
   /** ada.json d'un dépôt (sur GitHub) ; absent → comportement Vue + NestJS. */

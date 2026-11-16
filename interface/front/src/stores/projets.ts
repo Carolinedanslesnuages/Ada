@@ -1,7 +1,7 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api, ErreurApi } from '@/services/api'
-import type { ErreursProjet, Modele, NouveauProjet, ResultatCreation, TypeDeProjet } from '@/lib/projet'
+import type { ErreursProjet, FamilleDeProjet, Modele, NouveauProjet, ResultatCreation, TypeDeProjet } from '@/lib/projet'
 
 export interface Projet {
   nom: string
@@ -19,6 +19,7 @@ export const useProjetsStore = defineStore('projets', () => {
 
   const modeles = ref<Modele[]>([])
   const types = ref<TypeDeProjet[]>([])
+  const familles = ref<FamilleDeProjet[]>([])
 
   const courant = computed(() => liste.value.find((p) => p.nom === nomCourant.value) ?? null)
 
@@ -37,7 +38,10 @@ export const useProjetsStore = defineStore('projets', () => {
 
   async function chargerModeles(): Promise<void> {
     if (modeles.value.length > 0) return
-    const catalogue = await api.lire<{ types: TypeDeProjet[]; modeles: Modele[] }>('/projets/modeles')
+    const catalogue = await api.lire<{ familles: FamilleDeProjet[]; types: TypeDeProjet[]; modeles: Modele[] }>(
+      '/projets/modeles',
+    )
+    familles.value = catalogue.familles
     types.value = catalogue.types
     modeles.value = catalogue.modeles
   }
@@ -67,6 +71,7 @@ export const useProjetsStore = defineStore('projets', () => {
     liste,
     modeles,
     types,
+    familles,
     nomCourant,
     courant,
     chargement,

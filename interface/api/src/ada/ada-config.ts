@@ -5,7 +5,26 @@ import { z } from 'zod';
  * le lancer dans l'aperçu, quels fichiers personnaliser, quels contrôles exiger. ADA s'adapte ainsi
  * à n'importe quelle stack sans supposer « front + API NestJS + PostgreSQL ».
  */
-export const TYPES_PROJET = ['service', 'formulaire', 'extension', 'maquette'] as const;
+export const TYPES_PROJET = [
+  'service',
+  'formulaire',
+  'tableau-de-bord',
+  'gestion',
+  'site',
+  'documentation',
+  'carte',
+  'mobile',
+  'assistant',
+  'formation',
+  'extension',
+  'composant',
+  'robot',
+  'connecteur',
+  'api',
+  'traitement',
+  'documents',
+  'maquette',
+] as const;
 export type TypeProjet = (typeof TYPES_PROJET)[number];
 
 const schema = z.object({
