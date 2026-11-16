@@ -89,6 +89,24 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
+  it('prévient que la validation du plan et les réponses sont enregistrées en commentaire GitHub', async () => {
+    const plan = monterAvec({ story: { ...story, statut: 'plan-a-valider' } })
+    expect(plan.find('#validation-enregistrement').text()).toContain('en commentaire de la story n° 12, à votre nom')
+    expect(bouton(plan, 'Valider le plan')!.attributes('aria-describedby')).toBe('validation-enregistrement')
+    plan.unmount()
+    const questions = monterAvec({})
+    expect(questions.find('#reponse-enregistrement').text()).toContain('enregistré tel quel sur GitHub, en commentaire de la story n° 12')
+    expect(bouton(questions, 'Envoyer')!.attributes('aria-describedby')).toBe('reponse-enregistrement')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    questions.unmount()
+    const nouvelle = monterAvec({ story: { ...story, statut: 'nouvelle' } })
+    expect(nouvelle.find('#lancement-enregistrement').text()).toContain('un commentaire et le statut de la story n° 12')
+    nouvelle.unmount()
+    const signalement = monterAvec({ story: { ...story, type: 'bug', numero: 4 } })
+    expect(signalement.find('#reponse-enregistrement').text()).toContain('en commentaire du signalement n° 4')
+    signalement.unmount()
+  })
+
   it('permet de demander une modification du plan', async () => {
     const wrapper = monterAvec({ story: { ...story, statut: 'plan-a-valider' } })
     await bouton(wrapper, 'Demander une modification')!.trigger('click')
