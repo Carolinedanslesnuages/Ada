@@ -52,7 +52,7 @@ export function catalogue(): Omit<Modele, 'disponible' | 'deployable'>[] {
   return [
     { id: 'vue-nest-dsfr', type: 'service', libelle: 'Vue 3 + NestJS + PostgreSQL, avec DSFR', pourQuoi: 'Application métier structurée, nombreuses règles, durée de vie longue' },
     { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express), avec DSFR', pourQuoi: 'Petite application, peu de règles' },
-    { id: 'vue-fastapi', type: 'service', libelle: 'Vue 3 + Python (FastAPI) + PostgreSQL', pourQuoi: 'Données, calculs, IA, import/export de fichiers' },
+    { id: 'vue-fastapi', type: 'service', libelle: 'Vue 3 + Python (FastAPI) + PostgreSQL, avec DSFR', pourQuoi: 'Données, calculs, IA, import/export de fichiers' },
     { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR (Vue 3 + Node.js)', pourQuoi: 'Réponses enregistrées dans le projet, page « Réponses » et export CSV' },
     { id: 'tableau-de-bord', type: 'tableau-de-bord', libelle: 'Vue 3 + NestJS, graphiques DSFR', pourQuoi: 'Indicateurs calculés côté serveur, graphiques accessibles' },
     { id: 'django', type: 'gestion', libelle: 'Python (Django), administration intégrée', pourQuoi: 'Listes, fiches et droits prêts à l’emploi' },

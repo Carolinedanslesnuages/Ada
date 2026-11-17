@@ -14,8 +14,23 @@ export const VOLUME_CACHE_NPM = 'atelier-po-cache-npm';
 /** Cache pip commun aux aperçus Python (créé une fois). */
 export const VOLUME_CACHE_PIP = 'atelier-po-cache-pip';
 
+/**
+ * Node ajouté aux images qui n'en ont pas (Python + Vue) : version figée, empreintes officielles
+ * (nodejs.org/dist/v24.11.0/SHASUMS256.txt) vérifiées, téléchargée une fois dans un volume partagé.
+ */
+export const VERSION_NODE = '24.11.0';
+export const EMPREINTES_NODE: Record<string, string> = {
+  x64: 'b3c071cdf47aab867c3b2aa287257df12ec5d7c962bf922b32fd33226c4295fd',
+  arm64: '4786d00c4d259d3ff0b2328307f764ef3ced65f2d6e9502d433e68d66238509d',
+};
+export const VOLUME_NODE = `atelier-po-node-${VERSION_NODE}`;
+
 /** Volumes partagés entre aperçus, à créer avant le premier démarrage. */
-export const volumesPartages = (config: AdaConfig): string[] => [VOLUME_CACHE_NPM, ...(config.apercu.pip.length ? [VOLUME_CACHE_PIP] : [])];
+export const volumesPartages = (config: AdaConfig): string[] => [
+  VOLUME_CACHE_NPM,
+  ...(config.apercu.pip.length ? [VOLUME_CACHE_PIP] : []),
+  ...(nodeAjoute(config) ? [VOLUME_NODE] : []),
+];
 
 /**
  * Les images Node ont l'utilisateur « node » (1000) ; les autres (Python…) reçoivent « ada », avec
@@ -23,6 +38,31 @@ export const volumesPartages = (config: AdaConfig): string[] => [VOLUME_CACHE_NP
  */
 const imageNode = (config: AdaConfig) => config.apercu.image.startsWith('node:');
 const MAISON_PYTHON = '/home/ada';
+/** Image sans Node (Python…) mais des dépendances npm (un front Vue) : ADA y ajoute Node. */
+export const nodeAjoute = (config: AdaConfig) => !imageNode(config) && config.apercu.npm.length > 0;
+
+/** Téléchargement de Node par Python (présent dans l'image), empreinte vérifiée avant extraction. */
+const installationNode = () => {
+  const empreintes = JSON.stringify(EMPREINTES_NODE);
+  return [
+    'if [ ! -x /opt/node/bin/node ]; then',
+    `  echo "[apercu] installation de Node ${VERSION_NODE}"`,
+    "  python3 - <<'PYTHON'",
+    'import hashlib, json, platform, shutil, tarfile, urllib.request',
+    `empreintes = json.loads('${empreintes}')`,
+    "architecture = {'x86_64': 'x64', 'aarch64': 'arm64', 'arm64': 'arm64'}[platform.machine()]",
+    `nom = f'node-v${VERSION_NODE}-linux-{architecture}'`,
+    `contenu = urllib.request.urlopen(f'https://nodejs.org/dist/v${VERSION_NODE}/{nom}.tar.gz', timeout=600).read()`,
+    "if hashlib.sha256(contenu).hexdigest() != empreintes[architecture]:",
+    "    raise SystemExit('Empreinte de Node invalide : installation refusée')",
+    "open('/tmp/node.tar.gz', 'wb').write(contenu)",
+    "with tarfile.open('/tmp/node.tar.gz') as archive:",
+    "    archive.extractall('/tmp', filter='data')",
+    "shutil.copytree(f'/tmp/{nom}', '/opt/node', symlinks=True, dirs_exist_ok=True)",
+    'PYTHON',
+    'fi',
+  ];
+};
 
 /** Premier port libre de la plage, ou celui déjà attribué au projet. */
 export function attribuerPort(
@@ -78,10 +118,14 @@ export function genererCompose(
     '    environment:',
     ...(base ? ['      DATABASE_URL: postgresql://apercu:apercu@db:5432/apercu?schema=public'] : []),
     '      NODE_ENV: development',
+    ...(apercu.pip.length || nodeAjoute(config)
+      ? [`      PATH: ${[...(apercu.pip.length ? ['/opt/venv/bin'] : []), ...(nodeAjoute(config) ? ['/opt/node/bin'] : []), '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'].join(':')}`]
+      : []),
+    // Cache npm partagé, au même endroit quel que soit l'utilisateur (node ou ada).
+    ...(nodeAjoute(config) ? ['      npm_config_cache: /home/node/.npm'] : []),
     ...(apercu.pip.length
       ? [
           '      VIRTUAL_ENV: /opt/venv',
-          '      PATH: /opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
           '      PIP_DISABLE_PIP_VERSION_CHECK: "1"',
           '      PYTHONDONTWRITEBYTECODE: "1"',
           '      PYTHONUNBUFFERED: "1"',
@@ -96,6 +140,7 @@ export function genererCompose(
     ...volumesModules,
     '      - cache_npm:/home/node/.npm',
     ...(apercu.pip.length ? ['      - venv:/opt/venv', `      - cache_pip:${MAISON_PYTHON}/.cache/pip`] : []),
+    ...(nodeAjoute(config) ? ['      - node:/opt/node'] : []),
     '    command: ["bash", "/demarrer.sh"]',
     '    ports:',
     `      - "127.0.0.1:${port}:${apercu.port}"`,
@@ -109,6 +154,7 @@ export function genererCompose(
     `    name: ${VOLUME_CACHE_NPM}`,
     '    external: true',
     ...(apercu.pip.length ? ['  venv: {}', '  cache_pip:', `    name: ${VOLUME_CACHE_PIP}`, '    external: true'] : []),
+    ...(nodeAjoute(config) ? ['  node:', `    name: ${VOLUME_NODE}`, '    external: true'] : []),
   ];
   return `${lignes.join('\n')}\n`;
 }
@@ -134,6 +180,9 @@ export function genererScriptDemarrage(config: AdaConfig = ADA_PAR_DEFAUT): stri
     // l'environnement virtuel Python y est déclaré, sinon pytest, ruff… sont introuvables.
     ...(config.apercu.pip.length
       ? [`printf 'export VIRTUAL_ENV=/opt/venv\\nexport PATH=/opt/venv/bin:$PATH\\n' > /etc/profile.d/ada-venv.sh`]
+      : []),
+    ...(nodeAjoute(config)
+      ? [...installationNode(), `printf 'export PATH=/opt/node/bin:$PATH\\nexport npm_config_cache=/home/node/.npm\\n' > /etc/profile.d/ada-node.sh`]
       : []),
     `mkdir -p ${volumes.join(' ')}`,
     `chown ${utilisateur}:${utilisateur} ${volumes.join(' ')}`,

@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ADA_PAR_DEFAUT, lireAdaConfig } from '../ada/ada-config.js';
-import { attribuerPort, etatDepuisPs, genererCompose, genererScriptDemarrage, genererScriptTravail, NOM_DEPOT, PORT_MIN, volumesPartages } from './apercu.js';
+import { attribuerPort, EMPREINTES_NODE, etatDepuisPs, genererCompose, genererScriptDemarrage, genererScriptTravail, NOM_DEPOT, nodeAjoute, PORT_MIN, VERSION_NODE, VOLUME_NODE, volumesPartages } from './apercu.js';
 
 describe('Ports des aperçus', () => {
   it('garde le port déjà attribué à un projet', () => {
@@ -147,5 +147,33 @@ describe('État d’un aperçu', () => {
         expect(() => execFileSync('bash', ['-n'], { input: script })).not.toThrow();
       }
     });
+  });
+});
+
+describe('Node ajouté à une image Python (Vue + FastAPI)', () => {
+  const pythonEtVue = { ...ADA_PAR_DEFAUT, apercu: { ...ADA_PAR_DEFAUT.apercu, image: 'python:3.13-slim', npm: ['front'], pip: ['api'] } };
+
+  it('seulement quand l’image n’a pas Node et que le projet a des dépendances npm', () => {
+    expect(nodeAjoute(pythonEtVue)).toBe(true);
+    expect(nodeAjoute(ADA_PAR_DEFAUT)).toBe(false);
+    expect(nodeAjoute({ ...pythonEtVue, apercu: { ...pythonEtVue.apercu, npm: [] } })).toBe(false);
+  });
+
+  it('version figée, empreinte vérifiée avant extraction, téléchargée une fois dans un volume partagé', () => {
+    const script = genererScriptDemarrage(pythonEtVue);
+    expect(script).toContain(`node-v${VERSION_NODE}-linux-`);
+    expect(script).toContain(EMPREINTES_NODE.x64);
+    expect(script).toContain('if [ ! -x /opt/node/bin/node ]; then');
+    expect(script.indexOf('hashlib.sha256')).toBeLessThan(script.indexOf('extractall'));
+    expect(volumesPartages(pythonEtVue)).toContain(VOLUME_NODE);
+    const compose = genererCompose('poc', 5300, pythonEtVue);
+    expect(compose).toContain('PATH: /opt/venv/bin:/opt/node/bin:');
+    expect(compose).toContain('- node:/opt/node');
+    expect(compose).toContain('npm_config_cache: /home/node/.npm');
+  });
+
+  it('une image Node reste inchangée', () => {
+    expect(genererScriptDemarrage(ADA_PAR_DEFAUT)).not.toContain('/opt/node');
+    expect(genererCompose('poc', 5300, ADA_PAR_DEFAUT)).not.toContain('/opt/node');
   });
 });
