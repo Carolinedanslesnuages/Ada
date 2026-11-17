@@ -172,9 +172,20 @@ d'un thème, ouvre docs/accessibilite/rgaa-4.1.2/<thème>.md dans le projet s'il
 ${index}`;
 }
 
+/** Mise en forme de tous les messages au PO : un gros pavé ne se lit pas. */
+export const MISE_EN_FORME = `Mise en forme de CHACUN de tes messages au PO (il lit vite, souvent sur un petit écran) :
+- phrases courtes : 20 mots au plus, une idée par phrase ;
+- un paragraphe = une idée, trois phrases au plus ;
+- une ligne vide entre deux paragraphes (dans un texte JSON : « \\n\\n ») ;
+- une liste à puces dès que tu énumères (étapes, choix, points d'attention) ;
+- l'essentiel en **gras**, avec parcimonie ;
+- jamais de gros pavé.`;
+
 const commun = (dsfr: boolean) => `Tu travailles pour un Product Owner (PO) non développeur, dans le dépôt de son projet
 (répertoire courant). Lis d'abord AGENTS.md et PROJET.md s'ils existent : ce sont les règles du projet.
 Tu écris au PO en français, en langage métier, sans jargon, sans noms de fichiers.
+
+${MISE_EN_FORME}
 
 ${accessibilite(dsfr)}`;
 

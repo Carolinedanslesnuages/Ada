@@ -1,5 +1,5 @@
 import { nettoyerStoriesProposees, type StoryProposee } from '../stories/story.js';
-import { accessibilite, consigneSkills, lireJson } from './agent.js';
+import { accessibilite, consigneSkills, lireJson, MISE_EN_FORME } from './agent.js';
 
 /**
  * Analyse d'un projet repris (#37) : l'assistant compare le projet à un projet créé avec ADA
@@ -61,6 +61,8 @@ adapter à ce projet :\n${options.stack.ada}`
   return `Tu travailles pour un Product Owner (PO) non développeur. Il fait reprendre par ADA un projet
 existant (répertoire courant), qui n'a pas été créé avec ADA. Tu écris au PO en français, en
 langage métier, sans jargon, sans noms de fichiers.
+
+${MISE_EN_FORME}
 ${consigneSkills(skills, options.dsfr)}
 
 PHASE : ANALYSE DE LA REPRISE (lecture seule — tu ne modifies rien).
