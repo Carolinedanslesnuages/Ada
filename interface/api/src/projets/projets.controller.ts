@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { ConnecteGuard } from '../auth/connecte.guard.js';
 import { ProjetsService } from './projets.service.js';
@@ -9,6 +9,8 @@ import { AgentService } from '../agent/agent.service.js';
 @Controller('projets')
 @UseGuards(ConnecteGuard)
 export class ProjetsController {
+  private readonly journal = new Logger(ProjetsController.name);
+
   constructor(
     private readonly projets: ProjetsService,
     private readonly reprise: RepriseService,
@@ -48,8 +50,18 @@ export class ProjetsController {
 
   @Post()
   async creer(@Req() req: Request, @Body() corps: unknown) {
-    const resultat = await this.projets.creer(req.session.jeton!, req.session.utilisateur!.login, corps);
-    await this.registre.noter(resultat.projet.id, 'cree', req.session.utilisateur!.login);
+    const login = req.session.utilisateur!.login;
+    const resultat = await this.projets.creer(req.session.jeton!, login, corps);
+    await this.registre.noter(resultat.projet.id, 'cree', login);
+    // L'idée de départ (#68) : l'assistant s'en saisit aussitôt, comme pour « Prompter ».
+    if (resultat.idee) {
+      try {
+        this.agent.verifierDisponible();
+        await this.agent.analyser(req.session.jeton!, resultat.projet.id, resultat.idee, login);
+      } catch (e) {
+        this.journal.warn(`Idée de ${resultat.projet.id} non lancée : ${(e as Error).message}`);
+      }
+    }
     return resultat;
   }
 }

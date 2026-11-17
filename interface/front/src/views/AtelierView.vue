@@ -60,6 +60,16 @@ function fermerCreationProjet(): void {
   resultatProjet.value = null
 }
 
+/** Idée de départ (#68) : le projet s'ouvre directement sur elle, où l'assistant travaille déjà. */
+async function suivreIdee(numero: number): Promise<void> {
+  const id = resultatProjet.value?.projet.id
+  fermerCreationProjet()
+  if (!id) return
+  projets.choisir(id)
+  await stories.charger(id)
+  await stories.ouvrir(id, numero)
+}
+
 /** Reprise d'un projet existant (#37) : ADA ouvre une PR que le PO valide sur GitHub. */
 const repriseProjet = ref(false)
 
@@ -225,7 +235,7 @@ onUnmounted(() => {
   <div v-else-if="creationProjet" class="fr-grid-row">
     <div class="fr-col-12 fr-col-md-8 fr-col-lg-6">
       <DsfrAlert v-if="erreurProjet" type="error" small :description="erreurProjet" class="fr-mb-3w" />
-      <ResultatProjet v-if="resultatProjet" :resultat="resultatProjet" @fermer="fermerCreationProjet" />
+      <ResultatProjet v-if="resultatProjet" :resultat="resultatProjet" @fermer="fermerCreationProjet" @suivre="suivreIdee" />
       <FormulaireProjet
         v-else
         :familles="projets.familles"

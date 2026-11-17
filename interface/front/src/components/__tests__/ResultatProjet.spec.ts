@@ -43,6 +43,9 @@ describe('Résultat de la création de projet', () => {
   it('annonce que l’idée est enregistrée et que l’assistant l’étudie (#68)', async () => {
     const wrapper = monter({ ...resultat('fait', 'fait'), idee: 1 })
     expect(wrapper.text()).toContain('Votre idée est enregistrée (demande n° 1)')
+    await wrapper.findAll('button').find((b) => b.text().includes('Suivre l’assistant'))!.trigger('click')
+    expect(wrapper.emitted('suivre')).toEqual([[1]])
+    expect(wrapper.text()).not.toContain('Écrire la première story')
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
