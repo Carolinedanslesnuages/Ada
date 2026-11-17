@@ -12,10 +12,10 @@ import {
   genererCompose,
   genererScriptDemarrage,
   genererScriptTravail,
-  NOM_DEPOT,
   volumesPartages,
   type EtatApercu,
 } from './apercu.js';
+import { lireIdentifiant } from '../projets/depot.js';
 
 export interface Apercu {
   etat: EtatApercu;
@@ -54,7 +54,13 @@ export class ApercuService {
   }
 
   private verifier(projet: string): void {
-    if (!NOM_DEPOT.test(projet)) throw new BadRequestException('Nom de projet invalide');
+    lireIdentifiant(projet, this.config.GITHUB_PROPRIETAIRE);
+  }
+
+  /** Adresse git du dépôt d'un projet (organisation d'ADA ou compte du PO). */
+  urlDepot(projet: string): string {
+    const { owner, repo } = lireIdentifiant(projet, this.config.GITHUB_PROPRIETAIRE);
+    return `https://github.com/${owner}/${repo}.git`;
   }
 
   private async ports(): Promise<Record<string, number>> {
@@ -137,7 +143,7 @@ export class ApercuService {
         await this.executer('git', ['-C', depot, 'merge', '--ff-only', '--quiet', 'origin/main'], { env });
       }
     } else {
-      const url = `https://github.com/${this.config.GITHUB_PROPRIETAIRE}/${projet}.git`;
+      const url = this.urlDepot(projet);
       await this.executer('git', ['clone', '--quiet', url, depot], { env });
     }
     return depot;

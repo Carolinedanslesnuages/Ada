@@ -18,6 +18,9 @@ l'aperçu du produit tourne à droite dès la création du projet.
   quand il valide un découpage proposé par l'assistant (stories préremplies, relues et
   éventuellement corrigées par lui, publiées à son nom ; la demande d'origine devient leur
   parent). Sinon, il lit, vérifie, lance.
+- Projets : identifiant `nom` (organisation d'ADA) ou `compte~nom` (compte personnel du PO),
+  lu par `api/src/projets/depot.ts` ; toute route `projets/:depot` passe par `ProjetGuard`. Un
+  projet existant entre dans ADA par une PR de reprise que le PO fusionne (`docs/adr/0010`).
 - Aperçu (`api/src/apercu/`) : clone du dépôt avec le jeton du PO (jeton passé par
   l'environnement, jamais en argument), puis `docker compose` (PostgreSQL + application, limites
   mémoire/CPU, ports 5300-5399 sur 127.0.0.1). Dossier de travail `apercus/`, hors git.

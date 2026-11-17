@@ -20,9 +20,18 @@ import { GithubService } from '../github/github.service.js';
 import { lireAdaConfig, type AdaConfig } from '../ada/ada-config.js';
 import { catalogue, FAMILLES, LABELS_ATELIER, TYPES, type Modele } from './modeles.js';
 import { personnaliser, validerProjet, type ValeursProjet } from './projet.js';
+import { identifiantProjet } from './depot.js';
+
+/** Topic posé par une reprise (#37) : le projet entre dans ADA quand sa PR de reprise est fusionnée. */
+export const TOPIC_REPRISE = 'ada-reprise';
 
 export interface Projet {
+  /** Identifiant dans ADA : « nom », ou « compte~nom » hors de l'organisation (voir depot.ts). */
+  id: string;
   nom: string;
+  proprietaire: string;
+  /** Dépôt de l'organisation d'ADA, ou du compte personnel du PO. */
+  compte: 'organisation' | 'personnel';
   description: string | null;
   prive: boolean;
   url: string;
@@ -40,8 +49,12 @@ export interface ResultatCreation {
   reglages: { versionsAutomatiques: Reglage; protectionMain: Reglage };
 }
 
-type DepotGithub = {
+export type DepotGithub = {
   name: string;
+  owner: { login: string };
+  default_branch?: string;
+  archived?: boolean;
+  permissions?: { admin?: boolean; push?: boolean };
   description: string | null;
   private: boolean;
   html_url: string;
@@ -49,8 +62,11 @@ type DepotGithub = {
   topics?: string[];
 };
 
-const versProjet = (d: DepotGithub): Projet => ({
+export const versProjet = (d: DepotGithub, proprietaireParDefaut: string): Projet => ({
+  id: identifiantProjet(d.owner.login, d.name, proprietaireParDefaut),
   nom: d.name,
+  proprietaire: d.owner.login,
+  compte: d.owner.login.toLowerCase() === proprietaireParDefaut.toLowerCase() ? 'organisation' : 'personnel',
   description: d.description,
   prive: d.private,
   url: d.html_url,
@@ -102,7 +118,7 @@ export class ProjetsService {
   }
 
   /** ada.json d'un modèle du catalogue ; null si le modèle n'est pas livré (ou illisible). */
-  private configCatalogue(id: string): AdaConfig | null {
+  configCatalogue(id: string): AdaConfig | null {
     const chemin = join(this.dossierCatalogue, id, 'ada.json');
     if (!existsSync(chemin)) return null;
     try {
@@ -126,24 +142,55 @@ export class ProjetsService {
   }
 
   /**
-   * Dépôts du propriétaire portant le topic de l'atelier. Lecture directe (pas la recherche
-   * GitHub, dont l'index met plusieurs minutes à voir un dépôt neuf).
+   * Dépôts que le PO peut voir dans l'organisation d'ADA et dans son compte personnel (lecture
+   * directe, pas la recherche GitHub, dont l'index met plusieurs minutes à voir un dépôt neuf).
+   * Le jeton de l'application ne voit que les dépôts où elle est installée.
+   */
+  async depotsAccessibles(gh: Octokit, login: string): Promise<DepotGithub[]> {
+    const personnels = (await gh.paginate(gh.repos.listForAuthenticatedUser, { affiliation: 'owner', per_page: 100 })) as DepotGithub[];
+    if (this.proprietaire.toLowerCase() === login.toLowerCase()) return personnels;
+    const organisation = (await gh.paginate(gh.repos.listForOrg, { org: this.proprietaire, per_page: 100 })) as DepotGithub[];
+    return [...organisation, ...personnels];
+  }
+
+  aLeTopic(depot: DepotGithub, ...topics: string[]): boolean {
+    return (depot.topics ?? []).some((topic) => topics.includes(topic));
+  }
+
+  /**
+   * Projets d'ADA : dépôts portant le topic de l'atelier, et reprises dont la PR est fusionnée
+   * (ada.json présent sur main) ; ces dernières reçoivent alors le topic définitif.
    */
   async lister(jeton: string, login: string): Promise<Projet[]> {
     const gh = this.github.client(jeton);
     try {
-      const depots = (
-        this.proprietaire.toLowerCase() === login.toLowerCase()
-          ? await gh.paginate(gh.repos.listForAuthenticatedUser, { affiliation: 'owner', per_page: 100 })
-          : await gh.paginate(gh.repos.listForOrg, { org: this.proprietaire, per_page: 100 })
-      ) as DepotGithub[];
-      return depots
-        .filter((d) => d.topics?.some((topic) => this.topics.includes(topic)))
+      const depots = await this.depotsAccessibles(gh, login);
+      const reprisesFusionnees = await Promise.all(
+        depots
+          .filter((d) => !this.aLeTopic(d, ...this.topics) && this.aLeTopic(d, TOPIC_REPRISE))
+          .map(async (d) => ((await this.repriseFusionnee(gh, d)) ? d : null)),
+      );
+      return [...depots.filter((d) => this.aLeTopic(d, ...this.topics)), ...reprisesFusionnees.filter((d) => d !== null)]
         .sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))
-        .map(versProjet);
+        .map((d) => versProjet(d, this.proprietaire));
     } catch (e) {
       traduireErreurGithub(e);
     }
+  }
+
+  private async repriseFusionnee(gh: Octokit, depot: DepotGithub): Promise<boolean> {
+    const owner = depot.owner.login;
+    try {
+      await gh.repos.getContent({ owner, repo: depot.name, path: 'ada.json', ref: depot.default_branch ?? 'main' });
+    } catch (e) {
+      if (statut(e) === 404) return false;
+      throw e;
+    }
+    const topics = [...(depot.topics ?? []).filter((topic) => topic !== TOPIC_REPRISE), this.config.TOPIC_ATELIER];
+    await gh.repos.replaceAllTopics({ owner, repo: depot.name, names: topics }).catch((e: unknown) => {
+      this.journal.warn(`Topic de ${owner}/${depot.name} non mis à jour : ${decrireErreurGithub(e)}`);
+    });
+    return true;
   }
 
   /**
@@ -213,7 +260,7 @@ export class ProjetsService {
 
     const base = `https://github.com/${owner}/${slug}/settings`;
     return {
-      projet: versProjet(depot),
+      projet: versProjet({ ...depot, owner: { login: owner } }, owner),
       reglages: {
         versionsAutomatiques: { etat: versionsAutomatiques, lien: `${base}/actions` },
         protectionMain: { etat: protectionMain, lien: `${base}/rules` },
@@ -312,7 +359,7 @@ export class ProjetsService {
    * Labels dont dépendent les formulaires d'issue (ils ne posent un label que s'il existe) et
    * les statuts de l'atelier. Un dépôt créé depuis un modèle n'hérite pas de ses labels.
    */
-  private async poserLabels(gh: Octokit, owner: string, repo: string): Promise<void> {
+  async poserLabels(gh: Octokit, owner: string, repo: string): Promise<void> {
     for (const label of LABELS_ATELIER) {
       try {
         await gh.issues.createLabel({ owner, repo, ...label });

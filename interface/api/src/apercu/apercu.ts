@@ -1,4 +1,5 @@
 import { ADA_PAR_DEFAUT, type AdaConfig } from '../ada/ada-config.js';
+import { nomTechnique } from '../projets/depot.js';
 
 /** Fichiers et règles de l'aperçu d'un projet : fonctions pures, testées sans Docker. */
 
@@ -6,7 +7,7 @@ export const PORT_MIN = 5300;
 export const PORT_MAX = 5399;
 /** Liens de démonstration : une autre plage, pour ne jamais confondre démo et aperçu de travail. */
 export const PLAGE_DEMO = { min: 5400, max: 5499 };
-export const NOM_DEPOT = /^[a-z0-9][a-z0-9._-]{0,99}$/;
+export { NOM_DEPOT } from '../projets/depot.js';
 
 /** Cache npm commun à tous les aperçus (créé une fois) : seuls les premiers téléchargements sont lents. */
 export const VOLUME_CACHE_NPM = 'atelier-po-cache-npm';
@@ -52,7 +53,7 @@ export function genererCompose(
   const volumesModules = apercu.npm.map((dossier, index) => `      - modules_${index}:${cheminDossier(dossier)}/node_modules`);
   const base = apercu.base === 'postgres';
   const lignes = [
-    `name: ${options.nom ?? `apercu-${projet}`}`,
+    `name: ${nomTechnique(options.nom ?? `apercu-${projet}`)}`,
     'services:',
     ...(base
       ? [
@@ -203,5 +204,5 @@ export function etatDepuisPs(sortie: string, repond: boolean): EtatApercu {
  * `{port}` y sont remplacés (ex. https://{projet}.demo.ada.gouv.fr, ou http://localhost:{port}).
  */
 export function adresseDemo(modele: string, projet: string, port: number): string {
-  return modele.replaceAll('{projet}', projet).replaceAll('{port}', String(port));
+  return modele.replaceAll('{projet}', nomTechnique(projet)).replaceAll('{port}', String(port));
 }
