@@ -1,21 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
-import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
 import { lireConfig } from '../config.js';
+import type { AgentService } from '../agent/agent.service.js';
 import type { GithubService } from '../github/github.service.js';
+import type { StoriesService } from '../stories/stories.service.js';
 import type { ProjetsService } from './projets.service.js';
-import { adaJsonReprise, BRANCHE_REPRISE, FICHIERS_REPRISE, RepriseService, TITRE_REPRISE } from './reprise.service.js';
-
-const catalogue = mkdtempSync(join(tmpdir(), 'ada-test-reprise-'));
-for (const fichier of [...FICHIERS_REPRISE, 'ada.json']) {
-  const chemin = join(catalogue, 'vue-node', fichier);
-  mkdirSync(dirname(chemin), { recursive: true });
-  writeFileSync(chemin, fichier === 'ada.json' ? JSON.stringify({ ...ADA_PAR_DEFAUT, personnaliser: ['README.md'], deploiement: { chart: 'charts/app' } }) : `contenu de ${fichier}`);
-}
-afterAll(() => rmSync(catalogue, { recursive: true, force: true }));
+import { RepriseService, texteDemandeAnalyse } from './reprise.service.js';
 
 const config = lireConfig({ GITHUB_PROPRIETAIRE: 'proprio', GITHUB_CLIENT_ID: 'Iv', GITHUB_CLIENT_SECRET: 's', SESSION_SECRET: 'x'.repeat(32) });
 const depot = (name: string, owner: string, topics: string[] = [], extra: object = {}) => ({
@@ -30,115 +20,95 @@ const depot = (name: string, owner: string, topics: string[] = [], extra: object
   html_url: `https://github.com/${owner}/${name}`,
   ...extra,
 });
-const absent = () => Object.assign(new Error('absent'), { status: 404 });
 
 describe('RepriseService (#37)', () => {
   const gh = {
-    repos: { get: vi.fn(), getContent: vi.fn(), replaceAllTopics: vi.fn() },
-    pulls: { list: vi.fn(), create: vi.fn() },
-    git: { getRef: vi.fn(), getCommit: vi.fn(), createTree: vi.fn(), createCommit: vi.fn(), createRef: vi.fn(), updateRef: vi.fn() },
+    repos: { get: vi.fn(), replaceAllTopics: vi.fn() },
+    pulls: { list: vi.fn() },
   };
   const github = { client: vi.fn(() => gh) } as unknown as GithubService;
   const projets = {
-    dossierCatalogue: catalogue,
     depotsAccessibles: vi.fn(),
     lister: vi.fn(),
     poserLabels: vi.fn(),
     aLeTopic: (d: { topics?: string[] }, ...topics: string[]) => (d.topics ?? []).some((topic) => topics.includes(topic)),
     modeles: () => ({ modeles: [{ id: 'vue-node', libelle: 'Vue + Node', disponible: true }, { id: 'pas-pret', libelle: 'X', disponible: false }] }),
   };
+  const stories = { prompter: vi.fn() };
+  const agent = { verifierDisponible: vi.fn(), verrouActif: vi.fn(), analyserReprise: vi.fn() };
   let service: RepriseService;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new RepriseService(config, github, projets as unknown as ProjetsService);
+    service = new RepriseService(config, github, projets as unknown as ProjetsService, stories as unknown as StoriesService, agent as unknown as AgentService);
     gh.repos.get.mockResolvedValue({ data: depot('mon-poc', 'un-po', ['vue']) });
-    gh.repos.getContent.mockRejectedValue(absent());
     gh.repos.replaceAllTopics.mockResolvedValue({});
     gh.pulls.list.mockResolvedValue({ data: [] });
-    gh.pulls.create.mockResolvedValue({ data: { html_url: 'https://github.com/un-po/mon-poc/pull/3' } });
-    gh.git.getRef.mockResolvedValue({ data: { object: { sha: 'sha-main' } } });
-    gh.git.getCommit.mockResolvedValue({ data: { tree: { sha: 'arbre-main' } } });
-    gh.git.createTree.mockResolvedValue({ data: { sha: 'arbre' } });
-    gh.git.createCommit.mockResolvedValue({ data: { sha: 'commit' } });
-    gh.git.createRef.mockResolvedValue({});
+    stories.prompter.mockResolvedValue({ numero: 7 });
+    agent.verrouActif.mockResolvedValue(null);
+    agent.analyserReprise.mockResolvedValue(undefined);
   });
 
-  it('liste les dépôts accessibles qui ne sont pas encore dans ADA, et signale une reprise en attente', async () => {
+  it('liste les dépôts pas encore dans ADA, avec l’état de leur reprise (analyse en cours, PR à fusionner)', async () => {
     projets.depotsAccessibles.mockResolvedValue([
       depot('deja', 'proprio', ['ada']),
       depot('commun', 'proprio'),
       depot('archive', 'proprio', [], { archived: true }),
       depot('lecture-seule', 'proprio', [], { permissions: { push: false } }),
+      depot('en-analyse', 'Un-PO', ['ada-reprise']),
       depot('mon-poc', 'Un-PO', ['ada-reprise']),
     ]);
     projets.lister.mockResolvedValue([{ id: 'deja' }]);
-    gh.pulls.list.mockResolvedValue({ data: [{ html_url: 'https://github.com/Un-PO/mon-poc/pull/3' }] });
-    const liste = await service.lister('jeton', 'un-po');
-    expect(liste).toEqual([
-      expect.objectContaining({ id: 'commun', compte: 'organisation', repriseEnCours: null }),
-      expect.objectContaining({ id: 'un-po~mon-poc', compte: 'personnel', repriseEnCours: 'https://github.com/Un-PO/mon-poc/pull/3' }),
+    gh.pulls.list.mockImplementation(async ({ repo }: { repo: string }) => ({ data: repo === 'mon-poc' ? [{ html_url: 'https://github.com/Un-PO/mon-poc/pull/3' }] : [] }));
+    agent.verrouActif.mockImplementation(async (id: string) => (id === 'un-po~en-analyse' ? { pid: 1 } : null));
+    expect(await service.lister('jeton', 'un-po')).toEqual([
+      expect.objectContaining({ id: 'commun', compte: 'organisation', repriseEnCours: null, analyseEnCours: false }),
+      expect.objectContaining({ id: 'un-po~en-analyse', compte: 'personnel', repriseEnCours: null, analyseEnCours: true }),
+      expect.objectContaining({ id: 'un-po~mon-poc', repriseEnCours: 'https://github.com/Un-PO/mon-poc/pull/3', analyseEnCours: false }),
     ]);
   });
 
-  it('ouvre une PR « reprise par ADA » avec les seuls fichiers manquants, sans toucher main', async () => {
-    gh.repos.getContent.mockImplementation(async ({ path }: { path: string }) => {
-      if (path === '.github/ISSUE_TEMPLATE/bug.yml') return { data: {} };
-      throw absent();
-    });
-    const resultat = await service.reprendre('jeton', 'un-po', { depot: 'un-po~mon-poc', modele: 'vue-node' });
-
-    expect(resultat.pullRequest).toBe('https://github.com/un-po/mon-poc/pull/3');
-    expect(resultat.fichiers).not.toContain('.github/ISSUE_TEMPLATE/bug.yml');
-    expect(resultat.fichiers).toEqual(expect.arrayContaining(['.github/ISSUE_TEMPLATE/user-story.yml', '.github/workflows/titre-pr.yml', 'ada.json']));
+  it('sans stack : marque le dépôt, enregistre la demande d’analyse au nom du PO et lance l’assistant', async () => {
+    const resultat = await service.reprendre('jeton', 'un-po', { depot: 'un-po~mon-poc' });
     expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'un-po', repo: 'mon-poc', names: ['vue', 'ada-reprise'] });
-    expect(gh.git.createTree).toHaveBeenCalledWith(expect.objectContaining({ base_tree: 'arbre-main' }));
-    expect(gh.git.createCommit).toHaveBeenCalledWith(expect.objectContaining({ parents: ['sha-main'], author: { name: 'un-po', email: 'un-po@users.noreply.github.com' } }));
-    expect(gh.git.createRef).toHaveBeenCalledWith(expect.objectContaining({ ref: `refs/heads/${BRANCHE_REPRISE}`, sha: 'commit' }));
-    expect(gh.git.updateRef).not.toHaveBeenCalledWith(expect.objectContaining({ ref: 'heads/main' }));
     expect(projets.poserLabels).toHaveBeenCalledWith(gh, 'un-po', 'mon-poc');
-    expect(gh.pulls.create).toHaveBeenCalledWith(expect.objectContaining({ head: BRANCHE_REPRISE, base: 'main', title: TITRE_REPRISE }));
+    expect(stories.prompter).toHaveBeenCalledWith('jeton', 'un-po~mon-poc', expect.stringContaining('comme s’il avait été créé avec ADA'), 'un-po');
+    expect(agent.analyserReprise).toHaveBeenCalledWith('jeton', 'un-po~mon-poc', 7, 'un-po', { modele: null, dsfr: false });
+    expect(resultat).toEqual({ analyse: 'https://github.com/un-po/mon-poc/issues/7', pullRequest: null });
   });
 
-  it('rejouée, renvoie la PR déjà ouverte sans rien repousser', async () => {
+  it('avec une stack et le DSFR : transmis à l’analyse', async () => {
+    await service.reprendre('jeton', 'un-po', { depot: 'mon-poc', modele: 'vue-node', dsfr: true });
+    expect(stories.prompter).toHaveBeenCalledWith('jeton', 'mon-poc', expect.stringContaining('Vue + Node'), 'un-po');
+    expect(agent.analyserReprise).toHaveBeenCalledWith('jeton', 'mon-poc', 7, 'un-po', { modele: 'vue-node', dsfr: true });
+  });
+
+  it('une reprise déjà proposée renvoie sa PR, sans nouvelle analyse', async () => {
     gh.pulls.list.mockResolvedValue({ data: [{ html_url: 'https://github.com/un-po/mon-poc/pull/3' }] });
-    const resultat = await service.reprendre('jeton', 'un-po', { depot: 'un-po~mon-poc', modele: 'vue-node' });
-    expect(resultat).toEqual({ pullRequest: 'https://github.com/un-po/mon-poc/pull/3', fichiers: [] });
-    expect(gh.git.createCommit).not.toHaveBeenCalled();
+    expect(await service.reprendre('jeton', 'un-po', { depot: 'un-po~mon-poc' })).toEqual({ analyse: null, pullRequest: 'https://github.com/un-po/mon-poc/pull/3' });
+    expect(agent.analyserReprise).not.toHaveBeenCalled();
   });
 
-  it('remplace la branche d’une reprise interrompue', async () => {
-    gh.git.createRef.mockRejectedValue(Object.assign(new Error('existe'), { status: 422 }));
-    await service.reprendre('jeton', 'un-po', { depot: 'un-po~mon-poc', modele: 'vue-node' });
-    expect(gh.git.updateRef).toHaveBeenCalledWith(expect.objectContaining({ ref: `heads/${BRANCHE_REPRISE}`, force: true }));
-  });
-
-  it('refuse le dépôt d’un autre compte, une stack indisponible, un projet déjà dans ADA ou une branche principale autre que main', async () => {
-    await expect(service.reprendre('jeton', 'un-po', { depot: 'autre~poc', modele: 'vue-node' })).rejects.toBeInstanceOf(ForbiddenException);
+  it('refuse : autre compte, stack indisponible, déjà dans ADA, branche autre que main, analyse déjà en cours', async () => {
+    await expect(service.reprendre('jeton', 'un-po', { depot: 'autre~poc' })).rejects.toBeInstanceOf(ForbiddenException);
     await expect(service.reprendre('jeton', 'un-po', { depot: 'poc', modele: 'pas-pret' })).rejects.toBeInstanceOf(BadRequestException);
     gh.repos.get.mockResolvedValueOnce({ data: depot('poc', 'proprio', ['ada']) });
-    await expect(service.reprendre('jeton', 'un-po', { depot: 'poc', modele: 'vue-node' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.reprendre('jeton', 'un-po', { depot: 'poc' })).rejects.toBeInstanceOf(ConflictException);
     gh.repos.get.mockResolvedValueOnce({ data: depot('poc', 'proprio', [], { default_branch: 'master' }) });
-    await expect(service.reprendre('jeton', 'un-po', { depot: 'poc', modele: 'vue-node' })).rejects.toThrow(/master/);
-    expect(gh.pulls.create).not.toHaveBeenCalled();
+    await expect(service.reprendre('jeton', 'un-po', { depot: 'poc' })).rejects.toThrow(/master/);
+    agent.verrouActif.mockResolvedValueOnce({ pid: 1 });
+    await expect(service.reprendre('jeton', 'un-po', { depot: 'poc' })).rejects.toThrow(/analyse déjà/);
+    expect(agent.analyserReprise).not.toHaveBeenCalled();
   });
 
   it('explique qu’il faut un administrateur quand GitHub refuse de marquer le dépôt', async () => {
     gh.repos.replaceAllTopics.mockRejectedValue(Object.assign(new Error('interdit'), { status: 403 }));
-    await expect(service.reprendre('jeton', 'un-po', { depot: 'poc', modele: 'vue-node' })).rejects.toThrow(/administrateur/);
-    expect(gh.git.createCommit).not.toHaveBeenCalled();
+    await expect(service.reprendre('jeton', 'un-po', { depot: 'poc' })).rejects.toThrow(/administrateur/);
+    expect(stories.prompter).not.toHaveBeenCalled();
   });
 
-  it('code existant : par défaut, ada.json garde l’apparence du projet (sans DSFR) ; DSFR sur demande du PO', async () => {
-    await service.reprendre('jeton', 'un-po', { depot: 'un-po~mon-poc', modele: 'vue-node' });
-    const ada = (gh.git.createTree.mock.calls[0]![0] as { tree: { path: string; content: string }[] }).tree.find((fichier) => fichier.path === 'ada.json')!;
-    expect(JSON.parse(ada.content)).toMatchObject({ dsfr: false });
-    expect(gh.pulls.create).toHaveBeenCalledWith(expect.objectContaining({ body: expect.stringContaining('celle du projet') }));
-    expect(JSON.parse(adaJsonReprise(JSON.stringify(ADA_PAR_DEFAUT), true))).toMatchObject({ dsfr: true });
-  });
-
-  it('ada.json repris : aperçu du modèle, aucun fichier à personnaliser, seul le titre de PR exigé, pas de chart', () => {
-    const ada = JSON.parse(adaJsonReprise(JSON.stringify({ ...ADA_PAR_DEFAUT, personnaliser: ['README.md'], deploiement: { chart: 'charts/app' } }))) as Record<string, unknown>;
-    expect(ada).toMatchObject({ personnaliser: [], controlesRequis: ['Titre de PR (Conventional Commits, semver)'], deploiement: null, apercu: ADA_PAR_DEFAUT.apercu });
+  it('demande d’analyse lisible : stack et apparence', () => {
+    expect(texteDemandeAnalyse(null, false)).toContain('Stack : à déduire du projet');
+    expect(texteDemandeAnalyse('Vue + Node', true)).toContain('Apparence : DSFR');
   });
 });

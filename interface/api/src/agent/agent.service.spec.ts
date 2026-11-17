@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BadRequestException, ConflictException } from '@nestjs/common';
@@ -7,6 +7,9 @@ import { lireConfig } from '../config.js';
 import type { ApercuService } from '../apercu/apercu.service.js';
 import type { GithubService } from '../github/github.service.js';
 import type { StoriesService } from '../stories/stories.service.js';
+import type { ProjetsService } from '../projets/projets.service.js';
+import { FICHIERS_REPRISE } from '../projets/reprise.js';
+import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
 import { AgentService, type LancerAgent } from './agent.service.js';
 
 const JETON = 'jeton-du-po';
@@ -22,6 +25,17 @@ const config = (agent = '/bin/agent') =>
 const resultat = (texte: string) => JSON.stringify({ type: 'result', subtype: 'success', result: texte });
 const action = (name: string, input: Record<string, unknown>) =>
   JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name, input }] } });
+
+/** Catalogue minimal pour la reprise (#37) : fichiers communs et ada.json du modèle de référence. */
+const catalogueReprise = mkdtempSync(join(tmpdir(), 'agent-catalogue-'));
+for (const fichier of [...FICHIERS_REPRISE, 'ada.json']) {
+  mkdirSync(join(catalogueReprise, 'vue-node', fichier, '..'), { recursive: true });
+  writeFileSync(join(catalogueReprise, 'vue-node', fichier), fichier === 'ada.json' ? JSON.stringify(ADA_PAR_DEFAUT) : `contenu de ${fichier}`);
+}
+const projets = {
+  dossierCatalogue: catalogueReprise,
+  modeles: () => ({ modeles: [{ id: 'vue-node', libelle: 'Vue 3 + Node.js (Express), avec DSFR', disponible: true }] }),
+};
 
 describe('AgentService', () => {
   let racine: string;
@@ -78,6 +92,7 @@ describe('AgentService', () => {
       { client: () => gh } as unknown as GithubService,
       stories as unknown as StoriesService,
       apercu as unknown as ApercuService,
+      projets as unknown as ProjetsService,
     );
     sortie = [];
     lancer = vi.fn<LancerAgent>(async (_args, _cwd, surLigne) => {
@@ -102,6 +117,82 @@ describe('AgentService', () => {
     const activite = await service.activite('poc', 1);
     expect(activite.enCours).toBe(false);
     expect(activite.journal.map((j) => j.texte)).toContain('Lit x/AGENTS.md');
+  });
+
+  describe('reprise d’un projet existant (#37)', () => {
+    const ghReprise = () => {
+      const appels = {
+        repos: { getContent: vi.fn(async () => Promise.reject(Object.assign(new Error('absent'), { status: 404 }))) },
+        pulls: { list: vi.fn(async () => ({ data: [] })), create: vi.fn(async () => ({ data: { html_url: 'https://github.com/un-po/mon-poc/pull/2' } })) },
+        git: {
+          getRef: vi.fn(async () => ({ data: { object: { sha: 'sha-main' } } })),
+          getCommit: vi.fn(async () => ({ data: { tree: { sha: 'arbre-main' } } })),
+          createTree: vi.fn(async () => ({ data: { sha: 'arbre' } })),
+          createCommit: vi.fn(async () => ({ data: { sha: 'commit' } })),
+          createRef: vi.fn(async () => ({})),
+        },
+        issues: { update: vi.fn(async () => ({})) },
+      };
+      Object.assign(gh, appels);
+      return appels;
+    };
+    const ameliorations = [
+      { titre: 'Tests d’accessibilité', role: 'PO du projet', besoin: 'un test axe par écran', benefice: 'garantir le RGAA', criteres: ['Chaque écran a son test'] },
+      { titre: 'Écrire AGENTS.md', role: 'PO du projet', besoin: 'les règles du projet', benefice: 'guider l’assistant', criteres: ['Commandes décrites'] },
+    ];
+    const adaAnalyse = { type: 'service', controles: ['cd /app && npm test'], apercu: { image: 'node:24-bookworm', npm: ['.'], principal: 'npx vite --host 0.0.0.0 --port 5173', port: 5173 } };
+
+    it('analyse en lecture seule comme un projet ADA, ouvre la PR avec l’aperçu déduit, et propose les améliorations', async () => {
+      const appels = ghReprise();
+      sortie = [resultat(JSON.stringify({ decision: 'reprise', texte: 'Projet Vue sans tests d’accessibilité.', stories: ameliorations, ada: adaAnalyse }))];
+      await service.analyserReprise(JETON, 'un-po~mon-poc', 7, 'un-po', { modele: null, dsfr: false });
+      await service.derniereTache;
+
+      const args = lancer.mock.calls[0]![0];
+      expect(args.slice(args.indexOf('--allowedTools') + 1)).toEqual(['Skill', 'Read(./**)', 'Glob(./**)', 'Grep(./**)']);
+      expect(args[1]).toContain('Analyse ce projet comme s\'il avait été créé avec ADA');
+      expect(args[1]).toContain('n\'utilise PAS le DSFR');
+      expect(args[1]).toContain('Le PO n’a pas indiqué de stack');
+
+      const arbre = (appels.git.createTree.mock.calls[0] as unknown as [{ tree: { path: string; content: string }[] }])[0].tree;
+      const ada = JSON.parse(arbre.find((fichier) => fichier.path === 'ada.json')!.content) as Record<string, unknown>;
+      expect(ada).toMatchObject({ dsfr: false, controles: ['cd /app && npm test'], controlesRequis: ['Titre de PR (Conventional Commits, semver)'], apercu: { principal: 'npx vite --host 0.0.0.0 --port 5173' } });
+      expect(appels.pulls.create).toHaveBeenCalledWith(expect.objectContaining({ owner: 'un-po', repo: 'mon-poc', head: 'ada/reprise', body: expect.stringContaining('/issues/7') }));
+
+      const [, , , titre, texte] = stories.commenterAssistant!.mock.calls[0] as string[];
+      expect(titre).toBe('Analyse de la reprise');
+      expect(texte).toContain('https://github.com/un-po/mon-poc/pull/2');
+      expect(texte).toContain('ada:decoupage');
+      expect(statut).toBe('decoupage');
+    });
+
+    it('aperçu inexploitable : reprend celui de la stack indiquée par le PO', async () => {
+      const appels = ghReprise();
+      sortie = [resultat(JSON.stringify({ decision: 'reprise', texte: 'Bilan.', stories: ameliorations, ada: { apercu: {} } }))];
+      await service.analyserReprise(JETON, 'mon-poc', 7, 'un-po', { modele: 'vue-node', dsfr: true });
+      await service.derniereTache;
+      expect(lancer.mock.calls[0]![0][1]).toContain('Vue 3 + Node.js (Express)');
+      const arbre = (appels.git.createTree.mock.calls[0] as unknown as [{ tree: { path: string; content: string }[] }])[0].tree;
+      expect(JSON.parse(arbre.find((fichier) => fichier.path === 'ada.json')!.content)).toMatchObject({ dsfr: true, apercu: { principal: ADA_PAR_DEFAUT.apercu.principal } });
+    });
+
+    it('sans aperçu ni stack : pas de PR, un développeur décrit l’aperçu', async () => {
+      const appels = ghReprise();
+      sortie = [resultat(JSON.stringify({ decision: 'reprise', texte: 'Bilan.', stories: ameliorations }))];
+      await service.analyserReprise(JETON, 'mon-poc', 7, 'un-po', { modele: null, dsfr: false });
+      await service.derniereTache;
+      expect(appels.pulls.create).not.toHaveBeenCalled();
+      expect(statut).toBe('besoin-dev');
+    });
+
+    it('rien à améliorer : bilan, PR de reprise, et la demande d’analyse est close', async () => {
+      const appels = ghReprise();
+      sortie = [resultat(JSON.stringify({ decision: 'reprise', texte: 'Projet déjà conforme.', stories: [], ada: adaAnalyse }))];
+      await service.analyserReprise(JETON, 'mon-poc', 7, 'un-po', { modele: null, dsfr: false });
+      await service.derniereTache;
+      expect(appels.pulls.create).toHaveBeenCalled();
+      expect(appels.issues.update).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 7, state: 'closed' }));
+    });
   });
 
   it('reconnaît aussi les lancements faits avant le renommage en ADA', async () => {
@@ -130,6 +221,7 @@ describe('AgentService', () => {
       { client: () => gh } as unknown as GithubService,
       stories as unknown as StoriesService,
       apercu as unknown as ApercuService,
+      projets as unknown as ProjetsService,
     );
     avecIndex.lancerAgent = lancer;
     sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
@@ -153,6 +245,7 @@ describe('AgentService', () => {
       {} as GithubService,
       stories as unknown as StoriesService,
       apercu as unknown as ApercuService,
+      projets as unknown as ProjetsService,
     );
     mkdirSync(join(catalogue, 'adr-new'), { recursive: true });
     writeFileSync(join(catalogue, 'adr-new', 'SKILL.md'), '---\nname: adr-new\nallowed-tools: Read Write\n---\n');
@@ -221,7 +314,7 @@ describe('AgentService', () => {
   });
 
   it('refuse de travailler sans agent configuré', () => {
-    const sansAgent = new AgentService(config(''), {} as GithubService, stories as unknown as StoriesService, apercu as unknown as ApercuService);
+    const sansAgent = new AgentService(config(''), {} as GithubService, stories as unknown as StoriesService, apercu as unknown as ApercuService, projets as unknown as ProjetsService);
     expect(() => sansAgent.verifierDisponible()).toThrow(BadRequestException);
   });
 
@@ -355,7 +448,7 @@ describe('AgentService', () => {
     sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
     await service.analyser(JETON, 'poc', 1);
     await service.derniereTache;
-    const autreInstance = new AgentService(config(), {} as GithubService, stories as unknown as StoriesService, apercu as unknown as ApercuService);
+    const autreInstance = new AgentService(config(), {} as GithubService, stories as unknown as StoriesService, apercu as unknown as ApercuService, projets as unknown as ProjetsService);
     const { writeFile } = await import('node:fs/promises');
     const fichier = join(racine, 'poc', 'agent', '1.json');
     const brut = JSON.parse(await (await import('node:fs/promises')).readFile(fichier, 'utf8'));

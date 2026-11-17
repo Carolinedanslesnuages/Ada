@@ -25,11 +25,14 @@ export interface DepotAReprendre {
   url: string
   /** PR de reprise déjà ouverte, en attente de fusion. */
   repriseEnCours: string | null
+  /** L'assistant analyse le projet ; la PR de reprise s'ouvrira à la fin. */
+  analyseEnCours: boolean
 }
 
 export interface ResultatReprise {
-  pullRequest: string
-  fichiers: string[]
+  /** Demande d'analyse, sur GitHub : bilan et améliorations proposées par l'assistant. */
+  analyse: string | null
+  pullRequest: string | null
 }
 
 export const useProjetsStore = defineStore('projets', () => {
@@ -92,8 +95,11 @@ export const useProjetsStore = defineStore('projets', () => {
     return api.lire<DepotAReprendre[]>('/projets/a-reprendre')
   }
 
-  /** ADA ouvre la PR de reprise ; le projet apparaît dans la liste une fois qu'elle est fusionnée. */
-  function reprendre(depot: string, modele: string, dsfr: boolean): Promise<ResultatReprise> {
+  /**
+   * L'assistant analyse le projet, puis ADA ouvre la PR de reprise ; le projet apparaît dans la
+   * liste une fois qu'elle est fusionnée. La stack est facultative.
+   */
+  function reprendre(depot: string, modele: string | null, dsfr: boolean): Promise<ResultatReprise> {
     return api.envoyer<ResultatReprise>('/projets/reprendre', { depot, modele, dsfr })
   }
 
