@@ -4,7 +4,7 @@ import { openSync } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { appendFile, lstat, mkdir, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
-import { PREFIXE_LIBRE } from '../stories/story.js';
+import { PREFIXE_LIBRE, texteDecoupage } from '../stories/story.js';
 import { ApercuService } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
 import { GithubService } from '../github/github.service.js';
@@ -388,6 +388,12 @@ export class AgentService {
         await this.bloquer(jeton, depot, numero, 'L’assistant n’a pas réussi à analyser la demande.');
         return;
       }
+      if (decision.decision === 'decoupage') {
+        await this.stories.commenterAssistant(jeton, depot, numero, 'Découpage proposé', texteDecoupage(decision.texte, decision.stories ?? []));
+        await this.stories.changerStatut(jeton, depot, numero, 'decoupage');
+        await this.noter(depot, numero, 'Attend que vous choisissiez les stories à créer');
+        return;
+      }
       const questions = decision.decision === 'questions';
       await this.stories.commenterAssistant(jeton, depot, numero, questions ? 'Questions de l’assistant' : 'Plan proposé', texteQuestions(decision));
       await this.stories.changerStatut(jeton, depot, numero, questions ? 'questions' : 'plan-a-valider');
@@ -455,7 +461,8 @@ export class AgentService {
   async reprendreAnalyse(jeton: string, depot: string, numero: number, texte: string): Promise<void> {
     this.verifierDisponible();
     const detail = await this.stories.detail(jeton, depot, numero);
-    if (detail.statut !== 'questions' && detail.statut !== 'plan-a-valider') {
+    // Un autre découpage peut aussi être demandé (#36).
+    if (detail.statut !== 'questions' && detail.statut !== 'plan-a-valider' && detail.statut !== 'decoupage') {
       throw new ConflictException('L’assistant n’attend pas de réponse sur cette demande');
     }
     await this.stories.repondre(jeton, depot, numero, texte);

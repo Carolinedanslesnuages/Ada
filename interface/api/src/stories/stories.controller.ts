@@ -51,6 +51,12 @@ export class StoriesController {
     return this.stories.assigner(req.session.jeton!, this.depot(depot), numero, login === undefined ? null : login);
   }
 
+  /** Découpage validé : ADA crée les stories cochées (indices dans la proposition de l'assistant). */
+  @Post(':numero/decoupage')
+  creerDecoupage(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number, @Body('indices') indices: unknown) {
+    return this.stories.creerDecoupage(req.session.jeton!, this.depot(depot), numero, indices, req.session.utilisateur!.login);
+  }
+
   /** Mode sauvage : le prompt est enregistré comme issue et lancé ; l'assistant propose un plan. */
   @Post('prompt')
   async prompter(@Req() req: Request, @Param('depot') depot: string, @Body('texte') texte: unknown) {

@@ -156,6 +156,10 @@ export const useStoriesStore = defineStore('stories', () => {
   const relancer = (projet: string, numero: number) =>
     agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/relancer`, {}))
 
+  /** Découpage validé : ADA crée les stories cochées ; la demande devient leur parent (#36). */
+  const creerDecoupage = (projet: string, numero: number, indices: number[]) =>
+    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/decoupage`, { indices }))
+
   /** Réponse aux questions, ou modification demandée sur le plan. */
   const repondre = (projet: string, numero: number, texte: string) =>
     agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/reponse`, { texte }))
@@ -186,6 +190,7 @@ export const useStoriesStore = defineStore('stories', () => {
   }
 
   return {
+    creerDecoupage,
     developpeurs,
     chargerDeveloppeurs,
     assigner,

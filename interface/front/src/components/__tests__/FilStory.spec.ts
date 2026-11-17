@@ -133,6 +133,32 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
+  it('découpage proposé : les stories à cocher, puis leur création demandée', async () => {
+    const stories = [
+      { titre: 'Voir', role: 'agent', besoin: 'voir', benefice: 'savoir', criteres: ['a'] },
+      { titre: 'Rendre', role: 'agent', besoin: 'rendre', benefice: 'libérer', criteres: ['b'] },
+    ]
+    const donnees = btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(stories))))
+    const texte = `<!-- atelier-po:assistant -->\n🤖 **Découpage proposé**\n\nTrop gros.\n\n<!-- ada:decoupage ${donnees} -->`
+    const wrapper = monterAvec({ story: { ...story, statut: 'decoupage', messages: [...story.messages, { id: 98, auteur: 'robot', avatar: null, le: '2026-11-16T10:00:00Z', texte }] } })
+    expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(2)
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('creerDecoupage')).toEqual([[[0, 1]]])
+    await bouton(wrapper, 'Demander un autre découpage')!.trigger('click')
+    expect(wrapper.find('textarea').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Ce qu’il faut changer dans le découpage')
+    wrapper.unmount()
+  })
+
+  it('demande parent : ses stories, livrées ou à faire, à ouvrir', async () => {
+    const wrapper = monterAvec({ story: { ...story, statut: 'parent', texteBrut: '### Demande\n\nTout\n\n### Découpage\n\n- [x] #7 Voir\n- [ ] #8 Rendre\n' } })
+    expect(wrapper.text()).toContain('Découpée en 2 stories')
+    await bouton(wrapper, '#8 Rendre — à faire')!.trigger('click')
+    expect(wrapper.emitted('ouvrir')).toEqual([[8]])
+    expect(bouton(wrapper, '#7 Voir — livrée')).toBeDefined()
+    wrapper.unmount()
+  })
+
   it('permet de demander une modification du plan', async () => {
     const wrapper = monterAvec({ story: { ...story, statut: 'plan-a-valider' } })
     await bouton(wrapper, 'Demander une modification')!.trigger('click')

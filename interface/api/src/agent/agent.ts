@@ -3,7 +3,7 @@ import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
  * Consignes données à l'agent de code, lecture de ses réponses et traduction de son activité
  * en phrases pour le PO. Fonctions pures : testées sans lancer d'agent.
  */
-import type { ContenuBug, ContenuStory, TypeDemande } from '../stories/story.js';
+import { nettoyerStoriesProposees, type ContenuBug, type ContenuStory, type StoryProposee, type TypeDemande } from '../stories/story.js';
 
 export type Phase = 'analyse' | 'realisation';
 
@@ -27,7 +27,13 @@ export interface QuestionAChoix {
   plusieurs: boolean;
 }
 
-export type DecisionAnalyse = { decision: 'questions' | 'plan'; texte: string; choix?: QuestionAChoix[] };
+export type DecisionAnalyse = {
+  decision: 'questions' | 'plan' | 'decoupage';
+  texte: string;
+  choix?: QuestionAChoix[];
+  /** Découpage : les stories proposées (le PO choisit lesquelles ADA crée, #36). */
+  stories?: StoryProposee[];
+};
 
 /** Marque, dans le commentaire GitHub, les choix structurés lus par ADA (invisibles sur GitHub). */
 export const MARQUEUR_CHOIX = 'ada:choix';
@@ -182,12 +188,15 @@ Ta tâche :
 3. Si le PO a déjà répondu à tes questions dans les échanges, tiens-en compte.
 4. Taille : une demande doit rester petite (un écran ou un parcours, une évolution des données au
    plus). Si elle est trop grosse — à plus forte raison une application entière ou plusieurs
-   fonctionnalités — ne propose PAS de plan : réponds par des questions qui proposent de la découper
-   en petites demandes successives (ou en user stories), en suggérant par quoi commencer.
+   fonctionnalités — ne propose PAS de plan : réponds par la décision « decoupage ». Explique en une
+   ou deux phrases pourquoi, et propose 2 à 8 stories courtes, dans l'ordre où les réaliser, chacune
+   avec un titre, « en tant que » (role), « je veux » (besoin), « afin de » (benefice) et 1 à 4
+   critères d'acceptation vérifiables. Le PO choisira lesquelles ADA crée pour lui.
 
 Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
 {"decision":"questions","texte":"<tes questions>","choix":[{"question":"<question 1>","choix":["<option>","<option>"],"plusieurs":false}]}
-ou {"decision":"plan","texte":"<ton plan>"}  (« choix » est facultatif).`;
+ou {"decision":"plan","texte":"<ton plan>"}  (« choix » est facultatif)
+ou {"decision":"decoupage","texte":"<pourquoi découper>","stories":[{"titre":"<titre court>","role":"<en tant que>","besoin":"<je veux>","benefice":"<afin de>","criteres":["<critère>"]}]}`;
 }
 
 export function consigneRealisation(
@@ -253,7 +262,12 @@ export function lireJson<T>(texte: string, accepter: (valeur: Record<string, unk
 
 export function lireDecision(texte: string): DecisionAnalyse | null {
   const r = lireJson<DecisionAnalyse>(texte, (valeur) => 'decision' in valeur);
-  if (!(r && (r.decision === 'questions' || r.decision === 'plan') && typeof r.texte === 'string' && r.texte.trim())) return null;
+  if (!(r && ['questions', 'plan', 'decoupage'].includes(r.decision) && typeof r.texte === 'string' && r.texte.trim())) return null;
+  if (r.decision === 'decoupage') {
+    const stories = nettoyerStoriesProposees(r.stories);
+    // Découpage inexploitable : on garde l'explication, comme des questions (comportement d'avant).
+    return stories.length ? { decision: 'decoupage', texte: r.texte, stories } : { decision: 'questions', texte: r.texte };
+  }
   const choix = r.decision === 'questions' ? nettoyerChoix(r.choix) : [];
   return { decision: r.decision, texte: r.texte, ...(choix.length ? { choix } : {}) };
 }

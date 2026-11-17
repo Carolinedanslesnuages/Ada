@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PropositionDecoupage from '@/components/PropositionDecoupage.vue'
 import ReponseChoix from '@/components/ReponseChoix.vue'
 import TexteRiche from '@/components/TexteRiche.vue'
 import { computed, ref } from 'vue'
@@ -7,6 +8,8 @@ import {
   LIBELLES_STATUT,
   presenterMessage,
   lireChoix,
+  lireDecoupage,
+  lireStoriesParent,
   MARQUEUR_ASSISTANT,
   type Activite,
   type DetailStory,
@@ -29,6 +32,8 @@ const emit = defineEmits<{
   relancer: []
   fusionner: []
   repondre: [texte: string]
+  creerDecoupage: [indices: number[]]
+  ouvrir: [numero: number]
 }>()
 
 /** Pourquoi la demande ne peut pas être lancée, ou null si elle peut l'être. */
@@ -57,8 +62,20 @@ const questionsAChoix = computed(() => {
 })
 
 const champVisible = computed(
-  () => !travaille.value && (props.story.statut === 'questions' || (props.story.statut === 'plan-a-valider' && modeModification.value)),
+  () =>
+    !travaille.value &&
+    (props.story.statut === 'questions' ||
+      ((props.story.statut === 'plan-a-valider' || props.story.statut === 'decoupage') && modeModification.value)),
 )
+
+/** Découpage proposé par l'assistant (#36) : stories à cocher. */
+const propositionDecoupage = computed(() => {
+  if (props.story.statut !== 'decoupage') return []
+  const dernier = [...props.story.messages].reverse().find((message) => message.texte.startsWith(MARQUEUR_ASSISTANT))
+  return dernier ? lireDecoupage(dernier.texte) : []
+})
+/** Demande découpée : ses stories, cochées une fois livrées. */
+const storiesParent = computed(() => lireStoriesParent(props.story.texteBrut ?? ''))
 
 /** « de la story n° 12 », « du signalement n° 4 »… : où la réponse est enregistrée sur GitHub. */
 const designation = computed(() => {
@@ -261,6 +278,29 @@ function envoyer(): void {
         </ul>
       </div>
 
+      <section v-if="storiesParent.length" class="fr-mb-3w" aria-labelledby="titre-parent">
+        <h4 id="titre-parent" class="fr-h6 fr-mb-1w">Découpée en {{ storiesParent.length }} stories</h4>
+        <ul class="fr-p-0 stories-parent">
+          <li v-for="enfant in storiesParent" :key="enfant.numero" class="fr-mb-1w">
+            <DsfrButton
+              size="sm"
+              tertiary
+              :label="`#${enfant.numero} ${enfant.titre} — ${enfant.livree ? 'livrée' : 'à faire'}`"
+              :icon="enfant.livree ? 'fr-icon-checkbox-circle-line' : 'fr-icon-time-line'"
+              @click="emit('ouvrir', enfant.numero)"
+            />
+          </li>
+        </ul>
+      </section>
+      <PropositionDecoupage
+        v-if="!travaille && propositionDecoupage.length && !modeModification"
+        :key="`decoupage-${story.messages.length}`"
+        :stories="propositionDecoupage"
+        :designation="`la demande n° ${story.numero}`"
+        :action-en-cours="actionEnCours"
+        @creer="(indices) => emit('creerDecoupage', indices)"
+        @autre-decoupage="modeModification = true"
+      />
       <ReponseChoix
         v-if="champVisible && questionsAChoix.length"
         :key="story.messages.length"
@@ -287,7 +327,7 @@ function envoyer(): void {
         />
         <DsfrInputGroup
           v-model="texte"
-          :label="story.statut === 'questions' ? 'Vos réponses' : 'Ce qu’il faut changer dans le plan'"
+          :label="story.statut === 'questions' ? 'Vos réponses' : story.statut === 'decoupage' ? 'Ce qu’il faut changer dans le découpage' : 'Ce qu’il faut changer dans le plan'"
           label-visible
           is-textarea
           :error-message="erreur"
@@ -308,3 +348,9 @@ function envoyer(): void {
     </section>
   </article>
 </template>
+
+<style scoped>
+.stories-parent {
+  list-style: none;
+}
+</style>
