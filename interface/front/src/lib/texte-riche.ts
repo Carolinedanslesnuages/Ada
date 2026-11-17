@@ -29,12 +29,31 @@ const PUCE = /^\s*[-*•]\s+(.*)$/
 const NUMERO = /^\s*\d+[.)]\s+(.*)$/
 const INTERTITRE = /^\s*#{1,6}\s+(.*)$/
 const LIGNE_EN_GRAS = /^\s*\*\*([^*]+?)\*\*\s*:?\s*$/
+/** Une ligne qui finit une phrase termine son paragraphe (l'assistant oublie parfois la ligne vide). */
+const FIN_DE_PHRASE = /[.!?…:]\s*$/
+/** Au-delà, un paragraphe est un pavé : il est découpé entre deux phrases. */
+const PARAGRAPHE_MAX = 280
+
+/** Découpe un paragraphe trop long en paragraphes de quelques phrases (jamais au milieu d'une phrase). */
+export function decouperPave(texte: string, max = PARAGRAPHE_MAX): string[] {
+  if (texte.length <= max) return [texte]
+  const phrases = texte.split(/(?<=[.!?…])\s+(?=[A-ZÀ-ÖØ-Ý0-9«"(])/)
+  const morceaux: string[] = []
+  for (const phrase of phrases) {
+    const dernier = morceaux[morceaux.length - 1]
+    if (dernier !== undefined && dernier.length + 1 + phrase.length <= max) morceaux[morceaux.length - 1] = `${dernier} ${phrase}`
+    else morceaux.push(phrase)
+  }
+  return morceaux
+}
 
 export function lireTexteRiche(texte: string): Bloc[] {
   const blocs: Bloc[] = []
   let paragraphe: string[] = []
   const finirParagraphe = () => {
-    if (paragraphe.length) blocs.push({ type: 'paragraphe', segments: lireSegments(paragraphe.join(' ')) })
+    for (const morceau of paragraphe.length ? decouperPave(paragraphe.join(' ')) : []) {
+      blocs.push({ type: 'paragraphe', segments: lireSegments(morceau) })
+    }
     paragraphe = []
   }
   for (const ligne of texte.replace(/\r\n/g, '\n').split('\n')) {
@@ -59,6 +78,7 @@ export function lireTexteRiche(texte: string): Bloc[] {
       finirParagraphe()
     } else {
       paragraphe.push(ligne.trim())
+      if (FIN_DE_PHRASE.test(ligne)) finirParagraphe()
     }
   }
   finirParagraphe()

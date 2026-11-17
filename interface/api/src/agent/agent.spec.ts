@@ -12,8 +12,10 @@ import {
   OUTILS_INTERDITS,
   outilsAutorises,
   skillSure,
+  MISE_EN_FORME,
   type Demande,
 } from './agent.js';
+import { consigneReprise } from './consigne-reprise.js';
 
 const demande: Demande = {
   numero: 1,
@@ -221,5 +223,14 @@ describe('Consigne d’analyse : bref, décisions à cocher, découpage si la de
   });
   it('retire le numéro que l’assistant ajoute à ses questions (ADA numérote elle-même)', () => {
     expect(nettoyerChoix([{ question: '2. Dans quel ordre ?', choix: ['A', 'B'] }])[0]!.question).toBe('Dans quel ordre ?')
+  });
+
+  it('chaque message au PO est aéré : phrases courtes, paragraphes séparés, listes (analyse, réalisation, reprise)', () => {
+    expect(MISE_EN_FORME).toContain('phrases courtes');
+    expect(MISE_EN_FORME).toContain('une ligne vide entre deux paragraphes');
+    expect(MISE_EN_FORME).toContain('jamais de gros pavé');
+    for (const consigne of [consigneAnalyse(demande), consigneRealisation(demande, 'story/1-x'), consigneReprise({ stack: null, dsfr: false })]) {
+      expect(consigne).toContain(MISE_EN_FORME);
+    }
   });
 });
