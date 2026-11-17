@@ -227,7 +227,9 @@ export class ProjetsService {
     const dossierModele = join(this.dossierCatalogue, modele.id);
     const configModele = lireAdaConfig(await readFile(join(dossierModele, 'ada.json'), 'utf8'));
     const gh = this.github.client(jeton);
-    const owner = this.proprietaire;
+    // Le projet appartient à la personne connectée : dépôt créé sur SON compte GitHub (avec son
+    // jeton), jamais sur celui qui a configuré ADA. Les projets plus anciens restent où ils sont.
+    const owner = login;
     const description = projet.objectif.slice(0, 350);
 
     // Un dépôt du même nom : si c'est une création d'ADA interrompue, on la reprend ; sinon le nom est pris.
@@ -251,7 +253,7 @@ export class ProjetsService {
         depot = existant;
         await gh.repos.update({ owner, repo: slug, description, private: projet.visibilite === 'prive' });
       } else {
-        depot = await this.creerDepotVide(gh, login, slug, description, projet.visibilite === 'prive');
+        depot = await this.creerDepotVide(gh, slug, description, projet.visibilite === 'prive');
         await gh.repos.replaceAllTopics({ owner, repo: slug, names: [TOPIC_CREATION] });
       }
       // Réglages AVANT le premier push : ce push déclenche la CI et release-please.
@@ -278,7 +280,7 @@ export class ProjetsService {
 
     const base = `https://github.com/${owner}/${slug}/settings`;
     return {
-      projet: versProjet({ ...depot, owner: { login: owner } }, owner),
+      projet: versProjet({ ...depot, owner: { login: owner } }, this.proprietaire),
       reglages: {
         versionsAutomatiques: { etat: versionsAutomatiques, lien: `${base}/actions` },
         protectionMain: { etat: protectionMain, lien: `${base}/rules` },
@@ -319,22 +321,19 @@ export class ProjetsService {
     return topics.includes(TOPIC_CREATION) || (depot.template_repository?.name ?? '').startsWith('modele-');
   }
 
-  /** Dépôt vide, privé ou public selon le choix du PO. */
-  private async creerDepotVide(gh: Octokit, login: string, slug: string, description: string, prive: boolean): Promise<DepotGithub> {
+  /** Dépôt vide sur le compte de la personne connectée, privé ou public selon son choix. */
+  private async creerDepotVide(gh: Octokit, slug: string, description: string, prive: boolean): Promise<DepotGithub> {
     const parametres = { name: slug, description, private: prive, auto_init: false };
     try {
-      const { data } =
-        this.proprietaire.toLowerCase() === login.toLowerCase()
-          ? await gh.repos.createForAuthenticatedUser(parametres)
-          : await gh.repos.createInOrg({ org: this.proprietaire, ...parametres });
+      const { data } = await gh.repos.createForAuthenticatedUser(parametres);
       return data;
     } catch (e) {
       if (statut(e) === 404 || statut(e) === 403) {
         this.journal.warn(`Création de dépôt refusée : ${decrireErreurGithub(e)}`);
         throw new ForbiddenException(
-          'L’application GitHub d’ADA ne peut pas créer de dépôt. ' +
-            'Dans GitHub : Settings → Applications → ADA → Configure → Repository access : « All repositories », ' +
-            'puis acceptez les permissions demandées s’il y a une demande en attente.',
+          'L’application GitHub d’ADA ne peut pas créer de dépôt sur votre compte. ' +
+            'Installez-la sur votre compte GitHub (page de l’application → Install → votre compte → « All repositories »), ' +
+            'ou, si elle l’est déjà, acceptez les permissions demandées s’il y a une demande en attente.',
         );
       }
       throw e;
@@ -362,7 +361,7 @@ export class ProjetsService {
     const env = this.apercu.environnementGit(jeton);
     const git = (...args: string[]) => this.executer('git', ['-C', copie, ...args], { env });
     try {
-      await this.executer('git', ['clone', '--quiet', this.urlDepot(this.proprietaire, slug), copie], { env });
+      await this.executer('git', ['clone', '--quiet', this.urlDepot(login, slug), copie], { env });
       await git('symbolic-ref', 'HEAD', 'refs/heads/main');
       await git('rm', '-r', '-q', '--ignore-unmatch', '--', '.');
       const { stdout } = await this.executer(

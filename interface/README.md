@@ -13,13 +13,17 @@ Décisions : [docs/adr/](docs/adr/README.md).
    - Webhook → Active : **décoché**
    - Permissions de dépôt : Contents, Issues, Pull requests, Workflows, Administration,
      Repository creation : *Read and write* ; Actions, Checks, Commit statuses, Metadata : *Read-only*
-   - Where can this GitHub App be installed : *Only on this account*
+   - Where can this GitHub App be installed : *Any account* (chaque personne crée ses projets sur
+     son propre compte). App déjà créée en *Only on this account* : page de l'App → **Advanced** →
+     *Danger zone* → **Make public**. Seuls les comptes de `LOGINS_AUTORISES` se connectent à ADA.
 2. **Récupérer les identifiants** (page de l'App, onglet General) : *Client ID*, puis
    *Generate a new client secret* (40 caractères hexadécimaux, affiché une seule fois — pas la
    section *Private keys*). Les mettre dans `api/.env` (modèle : `api/.env.example`).
-3. **Installer l'App** — étape indispensable, distincte de l'autorisation : page de l'App →
-   **Install App** → compte ou organisation → **All repositories**. Sans installation, l'App
-   est autorisée à agir au nom de l'utilisateur mais ne voit aucun dépôt : la création de projet échoue.
+3. **Installer l'App, pour chaque personne** — étape indispensable, distincte de l'autorisation :
+   page publique de l'App → **Install** → **son propre compte** → **All repositories**. ADA crée
+   les nouveaux projets sur le compte GitHub de la personne connectée, jamais sur celui qui a
+   configuré ADA. Sans installation, l'App est autorisée à agir au nom de la personne mais ne voit
+   aucun de ses dépôts : la création de projet échoue (ADA explique quoi faire).
 
 Aucun dépôt modèle à créer sur GitHub : les modèles de projet vivent dans ce dépôt, dans
 `catalogue/<modèle>/` (voir `docs/adr/0006`). Un type de projet n'est proposé à l'utilisateur que si son

@@ -146,7 +146,7 @@ function envoyer(): void {
   <form novalidate @submit.prevent="envoyer">
     <h2 class="fr-h4">Nouveau projet</h2>
     <p class="fr-text--sm">
-      Racontez votre idée : ADA crée le projet sur GitHub, en votre nom, et l’assistant s’en
+      Racontez votre idée : ADA crée le projet sur votre compte GitHub, et l’assistant s’en
       saisit aussitôt. L’objectif et la baseline sont facultatifs.
     </p>
 
