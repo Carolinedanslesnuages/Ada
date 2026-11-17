@@ -2,7 +2,7 @@
 import type { ResultatCreation } from '@/lib/projet'
 
 defineProps<{ resultat: ResultatCreation }>()
-const emit = defineEmits<{ fermer: [] }>()
+const emit = defineEmits<{ fermer: []; suivre: [numero: number] }>()
 </script>
 
 <template>
@@ -64,6 +64,12 @@ const emit = defineEmits<{ fermer: [] }>()
       </p>
     </div>
 
-    <DsfrButton class="fr-mt-3w" label="Écrire la première story" @click="emit('fermer')" />
+    <DsfrButton
+      v-if="resultat.idee"
+      class="fr-mt-3w"
+      label="Suivre l’assistant sur mon idée"
+      @click="emit('suivre', resultat.idee)"
+    />
+    <DsfrButton v-else class="fr-mt-3w" label="Écrire la première story" @click="emit('fermer')" />
   </section>
 </template>
