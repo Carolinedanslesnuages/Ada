@@ -87,7 +87,7 @@ describe('ProjetsService', () => {
       replaceAllTopics: vi.fn(),
       update: vi.fn(),
     },
-    issues: { createLabel: vi.fn() },
+    issues: { createLabel: vi.fn(), create: vi.fn(), createComment: vi.fn() },
     pulls: { list: vi.fn() },
   };
   const github = { client: vi.fn(() => gh) } as unknown as GithubService;
@@ -217,6 +217,31 @@ describe('ProjetsService', () => {
     expect(routes.indexOf('PUT /repos/{owner}/{repo}/actions/permissions/workflow')).toBeLessThan(routes.indexOf('POST /repos/{owner}/{repo}/rulesets'));
     expect(resultat.reglages.versionsAutomatiques.etat).toBe('fait');
     expect(resultat.reglages.protectionMain.etat).toBe('fait');
+  });
+
+  it('l’idée racontée à la création devient la première demande libre, lancée pour l’assistant (#68)', async () => {
+    preparerCreation();
+    gh.issues.create.mockResolvedValue({ data: { number: 1 } });
+    const idee = 'partager les trajets entre agents, le matin surtout';
+    const resultat = await service.creer('jeton', 'proprio', { nom: "L'annuaire", modele: 'vue-nest-dsfr', idee });
+    expect(resultat.idee).toBe(1);
+    expect(gh.issues.create).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: 'proprio', repo: 'l-annuaire', title: `Demande libre : ${idee}`, labels: ['mode-libre', 'story:en-cours'] }),
+    );
+    expect(gh.issues.create.mock.calls[0]![0].body).toContain(idee);
+    expect(gh.issues.createComment).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 1, body: expect.stringContaining('Lancée depuis ADA') }));
+    // L'objectif (description du dépôt, PROJET.md) vient de l'idée.
+    expect(lirePousse(distant, 'PROJET.md')).toContain('partager les trajets entre agents, le matin surtout.');
+  });
+
+  it('sans idée, aucune demande n’est créée ; un échec de l’idée ne défait pas la création', async () => {
+    preparerCreation();
+    expect((await service.creer('jeton', 'proprio', projetValide)).idee).toBeNull();
+    expect(gh.issues.create).not.toHaveBeenCalled();
+    rmSync(distant, { recursive: true, force: true });
+    distant = depotDistant();
+    gh.issues.create.mockRejectedValue({ status: 500 });
+    await expect(service.creer('jeton', 'proprio', { ...projetValide, nom: 'Autre projet', idee: 'une idée assez longue' })).resolves.toMatchObject({ idee: null });
   });
 
   it('crée le dépôt dans l’organisation quand le PO n’en est pas le propriétaire', async () => {

@@ -30,7 +30,8 @@ const monter = () =>
 
 const remplir = async (wrapper: ReturnType<typeof monter>) => {
   await wrapper.find('input:not([type="radio"])').setValue('Annuaire')
-  await wrapper.find('textarea').setValue('Trouver un collègue et son bureau')
+  // Premier champ long : l'idée, racontée librement (#68).
+  await wrapper.find('textarea').setValue('bon, trouver un collègue et son bureau, vite')
 }
 
 describe('Formulaire de nouveau projet', () => {
@@ -93,7 +94,8 @@ describe('Formulaire de nouveau projet', () => {
     await wrapper.find('form').trigger('submit')
     expect(wrapper.emitted('soumettre')?.[0]?.[0]).toEqual({
       nom: 'Annuaire',
-      objectif: 'Trouver un collègue et son bureau',
+      idee: 'bon, trouver un collègue et son bureau, vite',
+      objectif: '',
       modele: 'vue-node',
       baseline: 'Qui fait quoi dans l’équipe',
       deploye: false,
@@ -112,6 +114,21 @@ describe('Formulaire de nouveau projet', () => {
     expect(await violationsAccessibilite(document.body)).toEqual([])
     await wrapper.find('form').trigger('submit')
     expect(wrapper.emitted('soumettre')?.[0]?.[0]).toMatchObject({ modele: 'vue-node', deploye: true })
+    wrapper.unmount()
+  })
+
+  it('l’idée suffit : objectif facultatif ; sans idée ni objectif, on demande de raconter l’idée (#68)', async () => {
+    const wrapper = monter()
+    const champs = wrapper.findAll('textarea')
+    expect(champs).toHaveLength(2)
+    expect(wrapper.find(`label[for="${champs[0]!.attributes('id')}"]`).text()).toContain('Votre idée')
+    expect(wrapper.find(`label[for="${champs[1]!.attributes('id')}"]`).text()).toContain('facultatif')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.text()).toContain('Racontez votre idée, même en quelques mots')
+    await champs[0]!.setValue('trajets')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.text()).toContain('une phrase au moins')
+    expect(wrapper.emitted('soumettre')).toBeUndefined()
     wrapper.unmount()
   })
 

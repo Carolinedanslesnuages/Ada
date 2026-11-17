@@ -12,6 +12,9 @@ export const LABEL_BUG = 'bug';
 /** Demande libre (« mode sauvage ») : un prompt du PO, hors story, enregistré comme issue. */
 export const LABEL_LIBRE = 'mode-libre';
 const MARQUEUR_LIBRE = '<!-- ada:mode-libre -->';
+/** Commentaire qui marque le lancement d'une demande par ADA. */
+export const MARQUEUR_LANCEMENT = '▶️ Lancée depuis ADA';
+
 export const PROMPT_MIN = 10;
 export const PROMPT_MAX = 1000;
 

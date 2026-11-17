@@ -39,4 +39,11 @@ describe('Résultat de la création de projet', () => {
     expect(wrapper.emitted('fermer')).toHaveLength(1)
     wrapper.unmount()
   })
+
+  it('annonce que l’idée est enregistrée et que l’assistant l’étudie (#68)', async () => {
+    const wrapper = monter({ ...resultat('fait', 'fait'), idee: 1 })
+    expect(wrapper.text()).toContain('Votre idée est enregistrée (demande n° 1)')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
 })

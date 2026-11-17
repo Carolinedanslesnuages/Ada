@@ -33,7 +33,8 @@ import { lireIdentifiant, type CibleDepot } from '../projets/depot.js';
 export const MARQUEUR_ASSISTANT = '<!-- atelier-po:assistant -->';
 /** Marque le commentaire de lancement : les échanges utiles à l'agent commencent après. */
 /** Début du commentaire de lancement (« depuis ADA », ou « depuis l’atelier PO » avant le renommage). */
-export const MARQUEUR_LANCEMENT = '▶️ Lancée depuis ADA';
+export { MARQUEUR_LANCEMENT } from './story.js';
+import { MARQUEUR_LANCEMENT } from './story.js';
 export const DEBUT_LANCEMENT = '▶️ Lancée depuis ';
 
 export interface ResumeStory {

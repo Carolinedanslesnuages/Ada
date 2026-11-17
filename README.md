@@ -26,7 +26,7 @@ regarder le résultat dans l'aperçu et à valider.
 
 ![Atelier : story à vérifier, contrôles réussis](docs/captures/atelier-verification.png)
 
-**Nouveau projet** : un nom, un objectif, et le type de produit à créer.
+**Nouveau projet** : un nom, votre idée racontée librement, et le type de produit à créer.
 
 ![Formulaire de création d'un projet](docs/captures/nouveau-projet.png)
 

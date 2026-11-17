@@ -25,9 +25,15 @@ export interface Modele {
   deployable: boolean
 }
 
+/** Idée racontée librement à la création (même succincte ou décousue) (#68). */
+export const IDEE_MAX = 4000
+
 export interface NouveauProjet {
   nom: string
+  /** Facultatif si une idée est racontée : ADA le déduit alors de sa première phrase. */
   objectif: string
+  /** L'idée du PO, telle qu'elle vient : première demande du projet, étudiée par l'assistant. */
+  idee?: string
   modele: string
   /** Facultative : phrase courte sous le nom du service dans l'en-tête DSFR. */
   baseline: string
@@ -45,6 +51,8 @@ export interface Reglage {
 export interface ResultatCreation {
   projet: { id: string; nom: string; proprietaire: string; compte: 'organisation' | 'personnel'; reprise: { pullRequest: string | null } | null; repris: boolean; description: string | null; prive: boolean; url: string; misAJourLe: string | null }
   reglages: { versionsAutomatiques: Reglage; protectionMain: Reglage }
+  /** Numéro de la demande créée à partir de l'idée ; null sans idée (ou si elle n'a pu être enregistrée). */
+  idee?: number | null
 }
 
 export function normaliserNom(nom: string): string {
@@ -69,8 +77,13 @@ export function verifierProjet(projet: NouveauProjet): ErreursProjet {
   else if (!/^[\p{L}\p{N}][\p{L}\p{N} ’-]*$/u.test(nom))
     erreurs.nom = 'Lettres, chiffres, espaces, tirets et apostrophes uniquement'
   else if (nom.length > 60) erreurs.nom = '60 caractères au maximum'
-  if (projet.objectif.replace(/\s+/g, ' ').trim().length < 10)
-    erreurs.objectif = 'Décrivez l’objectif en une ou deux phrases'
+  const idee = (projet.idee ?? '').trim()
+  const objectif = projet.objectif.replace(/\s+/g, ' ').trim()
+  if (!idee && !objectif) erreurs.idee = 'Racontez votre idée, même en quelques mots'
+  else if (idee && idee.length < 10) erreurs.idee = 'Quelques mots de plus : une phrase au moins'
+  else if (idee.length > IDEE_MAX) erreurs.idee = `${IDEE_MAX} caractères au maximum`
+  if (objectif && objectif.length < 10) erreurs.objectif = 'Décrivez l’objectif en une ou deux phrases'
+  else if (objectif.length > 300) erreurs.objectif = '300 caractères au maximum'
   if (!projet.modele) erreurs.modele = 'Choisissez une stack'
   const baseline = normaliserNom(projet.baseline)
   if (baseline.length > 80) erreurs.baseline = '80 caractères au maximum'

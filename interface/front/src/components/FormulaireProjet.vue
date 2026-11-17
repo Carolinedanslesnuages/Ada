@@ -21,7 +21,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ soumettre: [projet: NouveauProjet]; annuler: [] }>()
 
-const projet = reactive<NouveauProjet>({ nom: '', objectif: '', modele: '', baseline: '', deploye: false })
+const projet = reactive<NouveauProjet>({ nom: '', idee: '', objectif: '', modele: '', baseline: '', deploye: false })
 const erreursLocales = ref<ErreursProjet>({})
 const erreurs = computed<ErreursProjet>(() => ({ ...erreursLocales.value, ...props.erreursServeur }))
 const adresse = computed(() => slugifier(normaliserNom(projet.nom)))
@@ -66,8 +66,8 @@ function envoyer(): void {
   <form novalidate @submit.prevent="envoyer">
     <h2 class="fr-h4">Nouveau projet</h2>
     <p class="fr-text--sm">
-      Le projet est créé sur GitHub, en votre nom, prêt à recevoir sa première story. Tous les
-      champs sont obligatoires, sauf la baseline.
+      Racontez votre idée : ADA crée le projet sur GitHub, en votre nom, et l’assistant s’en
+      saisit aussitôt. L’objectif et la baseline sont facultatifs.
     </p>
 
     <DsfrInputGroup
@@ -78,19 +78,28 @@ function envoyer(): void {
       :error-message="erreurs.nom"
     />
     <DsfrInputGroup
+      v-model="projet.idee"
+      label="Votre idée"
+      hint="Racontez-la comme elle vient, même en vrac : le besoin, pour qui, ce qui vous gêne aujourd’hui… L’assistant vous posera ses questions, puis vous proposera les premières stories à valider."
+      label-visible
+      is-textarea
+      rows="6"
+      :error-message="erreurs.idee"
+    />
+    <DsfrInputGroup
+      v-model="projet.objectif"
+      label="Objectif en une phrase (facultatif)"
+      hint="Si vous savez déjà le dire. Sinon, ADA reprend la première phrase de votre idée."
+      label-visible
+      is-textarea
+      :error-message="erreurs.objectif"
+    />
+    <DsfrInputGroup
       v-model="projet.baseline"
       label="Baseline (facultatif)"
       hint="Phrase courte affichée sous le nom du service dans l’en-tête. Exemple : Ma journée avec POC Portail"
       label-visible
       :error-message="erreurs.baseline"
-    />
-    <DsfrInputGroup
-      v-model="projet.objectif"
-      label="Objectif"
-      hint="En une ou deux phrases : à quoi va servir ce projet, et pour qui ?"
-      label-visible
-      is-textarea
-      :error-message="erreurs.objectif"
     />
 
     <fieldset class="fr-fieldset" :class="{ 'fr-fieldset--error': erreurs.modele && !typeChoisi }">
