@@ -119,7 +119,14 @@ onMounted(async () => {
 onUnmounted(() => window.removeEventListener('focus', actualiser))
 
 function choisirProjet(nom: string | number | null | undefined): void {
-  if (typeof nom === 'string') projets.choisir(nom)
+  if (typeof nom === 'string' && nom) projets.choisir(nom)
+}
+
+/** Masquer le projet ouvert (ex. avant de partager son écran) : il reste dans le sélecteur. */
+function masquerProjet(): void {
+  modePrompt.value = false
+  stories.fermer()
+  projets.fermer()
 }
 
 async function ouvrir(numero: number): Promise<void> {
@@ -248,22 +255,34 @@ onUnmounted(() => {
   </div>
 
   <div v-else class="atelier">
-    <section class="atelier__panneau" aria-labelledby="titre-stories">
+    <section class="atelier__panneau" aria-label="Projet et stories">
       <div class="fr-grid-row fr-grid-row--bottom fr-grid-row--gutters">
         <div class="fr-col">
           <DsfrSelect
             :model-value="projets.idCourant ?? undefined"
             label="Projet"
             :options="options"
+            default-unselected-text="Choisissez un projet"
             @update:model-value="choisirProjet"
           />
         </div>
         <div class="fr-col-auto fr-mb-3w">
+          <DsfrButton
+            v-if="projets.idCourant"
+            size="sm"
+            tertiary
+            icon="fr-icon-eye-off-line"
+            label="Masquer le projet"
+            class="fr-mr-1w"
+            @click="masquerProjet"
+          />
           <DsfrButton size="sm" tertiary icon="fr-icon-add-line" label="Nouveau projet" @click="nouveauProjet" />
           <DsfrButton size="sm" tertiary icon="fr-icon-download-line" label="Reprendre un projet" class="fr-ml-1w" @click="reprendreProjet" />
         </div>
       </div>
 
+      <p v-if="!projets.idCourant" class="fr-text--sm">Choisissez un projet dans la liste pour l’ouvrir.</p>
+      <template v-else>
       <RepriseEnAttente v-if="projets.courant?.reprise" :projet="projets.courant.id" @fusionnee="repriseFusionnee" />
       <PanneauVersions v-else-if="projets.idCourant" :projet="projets.idCourant" />
 
@@ -361,6 +380,7 @@ onUnmounted(() => {
         :story="stories.courante"
       />
       <DsfrAlert v-if="stories.erreurAction" type="error" small :description="stories.erreurAction" />
+      </template>
     </section>
 
     <PanneauApercu
