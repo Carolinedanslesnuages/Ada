@@ -35,8 +35,14 @@ dans son propre compte GitHub.
    n'introduit ni le DSFR ni une autre bibliothèque d'interface (l'accessibilité RGAA reste
    exigée). Les modèles sans identité de l'État (extension, composant, API) portent aussi
    `"dsfr": false`.
-5. **Le projet entre dans ADA quand `ada.json` est sur `main`** ; ADA remplace alors `ada-reprise`
-   par le topic `ada`.
+5. **Le projet entre dans ADA quand `ada.json` est sur `main`** ; ADA ajoute alors le topic `ada`
+   et garde `ada-reprise`, qui distingue un projet repris d'un projet créé par ADA.
+6. **Annuler ou désynchroniser, sans rien supprimer** (confirmation demandée) :
+   - reprise pas encore validée → « Annuler la reprise » : PR fermée, branche `ada/reprise` retirée,
+     demande d'analyse close avec une explication, marquage retiré ; `main` n'a jamais été modifié ;
+   - reprise validée → « Désynchroniser d'ADA » : seuls les topics d'ADA sont retirés ; fichiers,
+     stories et versions ajoutés par ADA restent dans le projet.
+   Un projet créé par ADA n'a ni l'un ni l'autre.
 
 ## Options écartées
 - **Pousser directement sur `main`** : contraire à la règle « le PO valide tout ».

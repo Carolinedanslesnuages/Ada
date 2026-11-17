@@ -20,6 +20,12 @@ export class RepriseController {
     return this.reprise.relancerControles(req.session.jeton!, depot);
   }
 
+  /** Annule une reprise en attente, ou désynchronise un projet repris ; rien n'est supprimé. */
+  @Post('annuler')
+  annuler(@Req() req: Request, @Param('depot') depot: string) {
+    return this.reprise.annuler(req.session.jeton!, req.session.utilisateur!.login, depot);
+  }
+
   @Post('fusionner')
   fusionner(@Req() req: Request, @Param('depot') depot: string) {
     return this.reprise.fusionner(req.session.jeton!, depot);

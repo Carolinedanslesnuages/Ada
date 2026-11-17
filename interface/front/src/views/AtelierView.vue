@@ -11,6 +11,7 @@ import PanneauVersions from '@/components/PanneauVersions.vue'
 import ResultatProjet from '@/components/ResultatProjet.vue'
 import RepriseProjet from '@/components/RepriseProjet.vue'
 import RepriseEnAttente from '@/components/RepriseEnAttente.vue'
+import AnnulerReprise from '@/components/AnnulerReprise.vue'
 import type { ErreursProjet, NouveauProjet, ResultatCreation } from '@/lib/projet'
 import { lienNouvelleIssue, STATUTS_ACTIFS, type StoryProposee } from '@/lib/story'
 import { useProjetsStore } from '@/stores/projets'
@@ -120,6 +121,12 @@ onUnmounted(() => window.removeEventListener('focus', actualiser))
 
 function choisirProjet(nom: string | number | null | undefined): void {
   if (typeof nom === 'string' && nom) projets.choisir(nom)
+}
+
+/** Reprise annulée ou projet désynchronisé : il n'est plus dans ADA, on revient à la liste. */
+async function repriseAnnulee(): Promise<void> {
+  masquerProjet()
+  await projets.charger()
 }
 
 /** Masquer le projet ouvert (ex. avant de partager son écran) : il reste dans le sélecteur. */
@@ -281,6 +288,7 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <AnnulerReprise v-if="projets.courant && (projets.courant.reprise || projets.courant.repris)" :key="projets.courant.id" :projet="projets.courant" @fait="repriseAnnulee" />
       <p v-if="!projets.idCourant" class="fr-text--sm">Choisissez un projet dans la liste pour l’ouvrir.</p>
       <template v-else>
       <RepriseEnAttente v-if="projets.courant?.reprise" :projet="projets.courant.id" @fusionnee="repriseFusionnee" />

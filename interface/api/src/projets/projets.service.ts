@@ -35,6 +35,8 @@ export interface Projet {
   compte: 'organisation' | 'personnel';
   /** Reprise pas encore validée (#37) : analyse en cours, ou PR de reprise à fusionner. */
   reprise: { pullRequest: string | null } | null;
+  /** Projet repris (pas créé par ADA) : il peut être désynchronisé, sans rien supprimer. */
+  repris: boolean;
   description: string | null;
   prive: boolean;
   url: string;
@@ -71,6 +73,7 @@ export const versProjet = (d: DepotGithub, proprietaireParDefaut: string): Proje
   proprietaire: d.owner.login,
   compte: d.owner.login.toLowerCase() === proprietaireParDefaut.toLowerCase() ? 'organisation' : 'personnel',
   reprise: null,
+  repris: (d.topics ?? []).includes(TOPIC_REPRISE),
   description: d.description,
   prive: d.private,
   url: d.html_url,
@@ -196,7 +199,8 @@ export class ProjetsService {
       if (statut(e) === 404) return false;
       throw e;
     }
-    const topics = [...(depot.topics ?? []).filter((topic) => topic !== TOPIC_REPRISE), this.config.TOPIC_ATELIER];
+    // Le marquage « reprise » est gardé : il distingue un projet repris d'un projet créé par ADA.
+    const topics = [...(depot.topics ?? []), this.config.TOPIC_ATELIER];
     await gh.repos.replaceAllTopics({ owner, repo: depot.name, names: topics }).catch((e: unknown) => {
       this.journal.warn(`Topic de ${owner}/${depot.name} non mis à jour : ${decrireErreurGithub(e)}`);
     });

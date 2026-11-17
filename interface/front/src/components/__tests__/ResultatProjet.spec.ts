@@ -6,7 +6,7 @@ import type { ResultatCreation } from '@/lib/projet'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
 
 const resultat = (versions: 'fait' | 'a-faire', protection: 'fait' | 'a-faire'): ResultatCreation => ({
-  projet: { id: 'annuaire', nom: 'annuaire', proprietaire: 'p', compte: 'organisation' as const, reprise: null, description: null, prive: true, url: 'https://github.com/p/annuaire', misAJourLe: null },
+  projet: { id: 'annuaire', nom: 'annuaire', proprietaire: 'p', compte: 'organisation' as const, reprise: null, repris: false, description: null, prive: true, url: 'https://github.com/p/annuaire', misAJourLe: null },
   reglages: {
     versionsAutomatiques: { etat: versions, lien: 'https://github.com/p/annuaire/settings/actions' },
     protectionMain: { etat: protection, lien: 'https://github.com/p/annuaire/settings/rules' },

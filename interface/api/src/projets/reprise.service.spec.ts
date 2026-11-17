@@ -24,7 +24,10 @@ const depot = (name: string, owner: string, topics: string[] = [], extra: object
 describe('RepriseService (#37)', () => {
   const gh = {
     repos: { get: vi.fn(), replaceAllTopics: vi.fn(), getContent: vi.fn() },
-    pulls: { list: vi.fn(), get: vi.fn(), merge: vi.fn() },
+    pulls: { list: vi.fn(), get: vi.fn(), merge: vi.fn(), update: vi.fn() },
+    git: { deleteRef: vi.fn() },
+    issues: { createComment: vi.fn(), update: vi.fn(), listForRepo: vi.fn() },
+    paginate: vi.fn(),
     checks: { listForRef: vi.fn() },
   };
   const github = { client: vi.fn(() => gh) } as unknown as GithubService;
@@ -139,7 +142,7 @@ describe('RepriseService (#37)', () => {
       gh.repos.get.mockResolvedValue({ data: depot('mon-poc', 'un-po', ['vue', 'ada-reprise']) });
       await service.fusionner('jeton', 'un-po~mon-poc');
       expect(gh.pulls.merge).toHaveBeenCalledWith(expect.objectContaining({ pull_number: 3, merge_method: 'squash', commit_title: 'chore: reprise du projet par ADA (#3)' }));
-      expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'un-po', repo: 'mon-poc', names: ['vue', 'ada'] });
+      expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'un-po', repo: 'mon-poc', names: ['vue', 'ada-reprise', 'ada'] });
     });
 
     it('aucune demande ne se lance tant que la reprise n’est pas fusionnée', async () => {
@@ -148,6 +151,44 @@ describe('RepriseService (#37)', () => {
       await expect(service.verifierRepriseTerminee('jeton', 'un-po~mon-poc')).rejects.toThrow(/Validez d’abord la reprise/);
       gh.repos.get.mockResolvedValue({ data: depot('mon-poc', 'un-po', ['ada']) });
       await expect(service.verifierRepriseTerminee('jeton', 'un-po~mon-poc')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('annuler une reprise, ou désynchroniser un projet repris (rien n’est supprimé)', () => {
+    beforeEach(() => {
+      gh.git.deleteRef.mockResolvedValue({});
+      gh.paginate.mockResolvedValue([
+        { number: 7, body: 'Analyser ce projet comme s’il avait été créé avec ADA, et proposer…' },
+        { number: 8, body: 'Autre demande libre' },
+      ]);
+    });
+
+    it('reprise en attente : PR fermée, branche retirée, analyse close, marquage retiré', async () => {
+      gh.repos.get.mockResolvedValue({ data: depot('mon-poc', 'un-po', ['vue', 'ada-reprise']) });
+      gh.pulls.list.mockResolvedValue({ data: [{ html_url: 'https://github.com/un-po/mon-poc/pull/3' }] });
+      expect(await service.annuler('jeton', 'un-po', 'un-po~mon-poc')).toEqual({ etat: 'annulee' });
+      expect(gh.pulls.update).toHaveBeenCalledWith({ owner: 'un-po', repo: 'mon-poc', pull_number: 3, state: 'closed' });
+      expect(gh.git.deleteRef).toHaveBeenCalledWith({ owner: 'un-po', repo: 'mon-poc', ref: 'heads/ada/reprise' });
+      expect(gh.issues.update).toHaveBeenCalledWith({ owner: 'un-po', repo: 'mon-poc', issue_number: 7, state: 'closed', state_reason: 'not_planned' });
+      expect(gh.issues.update).not.toHaveBeenCalledWith(expect.objectContaining({ issue_number: 8 }));
+      expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'un-po', repo: 'mon-poc', names: ['vue'] });
+    });
+
+    it('reprise validée : désynchronisée, seul le marquage d’ADA est retiré', async () => {
+      gh.repos.get.mockResolvedValue({ data: depot('mon-poc', 'un-po', ['vue', 'ada-reprise', 'ada']) });
+      expect(await service.annuler('jeton', 'un-po', 'un-po~mon-poc')).toEqual({ etat: 'desynchronisee' });
+      expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'un-po', repo: 'mon-poc', names: ['vue'] });
+      expect(gh.pulls.update).not.toHaveBeenCalled();
+      expect(gh.git.deleteRef).not.toHaveBeenCalled();
+      expect(gh.issues.update).not.toHaveBeenCalled();
+    });
+
+    it('refuse pour un projet créé par ADA, ou pendant que l’assistant travaille', async () => {
+      gh.repos.get.mockResolvedValue({ data: depot('signalements', 'proprio', ['ada']) });
+      await expect(service.annuler('jeton', 'un-po', 'signalements')).rejects.toThrow(/créé par ADA/);
+      agent.verrouActif.mockResolvedValueOnce({ pid: 1 });
+      await expect(service.annuler('jeton', 'un-po', 'un-po~mon-poc')).rejects.toBeInstanceOf(ConflictException);
+      expect(gh.repos.replaceAllTopics).not.toHaveBeenCalled();
     });
   });
 

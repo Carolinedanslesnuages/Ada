@@ -20,8 +20,8 @@ const story = { numero: 1, type: 'story', titre: 'Page d’accueil', statut: 'no
 
 const reponses: Record<string, unknown> = {
   '/projets': [
-    { id: 'poc-portail', nom: 'poc-portail', proprietaire: 'p', compte: 'organisation' as const, reprise: null, description: null, prive: true, url: 'https://github.com/p/poc-portail', misAJourLe: null },
-    { id: 'annuaire', nom: 'annuaire', proprietaire: 'p', compte: 'organisation' as const, reprise: null, description: null, prive: true, url: 'https://github.com/p/annuaire', misAJourLe: null },
+    { id: 'poc-portail', nom: 'poc-portail', proprietaire: 'p', compte: 'organisation' as const, reprise: null, repris: false, description: null, prive: true, url: 'https://github.com/p/poc-portail', misAJourLe: null },
+    { id: 'annuaire', nom: 'annuaire', proprietaire: 'p', compte: 'organisation' as const, reprise: null, repris: false, description: null, prive: true, url: 'https://github.com/p/annuaire', misAJourLe: null },
   ],
   '/projets/poc-portail/stories': [story],
   '/projets/annuaire/stories': [],
@@ -69,6 +69,12 @@ describe('Écran de l’atelier', () => {
     expect(wrapper.text()).toContain('Choisissez un projet dans la liste pour l’ouvrir.')
     expect(wrapper.findAll('select option').map((option) => option.text())).toContain('poc-portail')
     expect(wrapper.findAll('button').some((bouton) => bouton.text() === 'Masquer le projet')).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('un projet créé par ADA ne propose ni d’annuler une reprise ni de le désynchroniser', async () => {
+    const wrapper = await monter()
+    expect(wrapper.findAll('button').some((bouton) => /Annuler la reprise|Désynchroniser/.test(bouton.text()))).toBe(false)
     wrapper.unmount()
   })
 
