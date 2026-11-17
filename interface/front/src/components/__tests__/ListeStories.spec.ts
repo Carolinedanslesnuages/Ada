@@ -61,4 +61,25 @@ describe('Liste des stories', () => {
     expect(wrapper.find('button[aria-controls="stories-a-lancer"]').exists()).toBe(false)
     wrapper.unmount()
   })
+
+  it('conseille la prochaine story et range celles à lancer dans l’ordre conseillé', async () => {
+    const aOrdonner: ResumeStory[] = [
+      story(9, 'nouvelle', 'Récente, sans découpage'),
+      story(7, 'nouvelle', 'Envoyer les e-mails', { parent: 4 }),
+      story(6, 'nouvelle', 'Socle du site', { parent: 4 }),
+      story(3, 'nouvelle', 'À corriger', { prete: false, raison: 'Plus de 4 critères' }),
+      story(8, 'nouvelle', 'Bouton cassé', { type: 'bug' }),
+    ]
+    const wrapper = mount(ListeStories, { props: { stories: aOrdonner }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+    const conseil = wrapper.find('.prochaine-story')
+    expect(conseil.text()).toContain('Prochaine story conseillée')
+    expect(conseil.text()).toContain('#8')
+    await wrapper.find('button[aria-controls="stories-a-lancer"]').trigger('click')
+    const ordre = wrapper.findAll('ol.liste-stories > li').map((element) => Number(/#(\d+)/.exec(element.text())![1]))
+    expect(ordre).toEqual([8, 6, 7, 9, 3])
+    await conseil.find('button').trigger('click')
+    expect(wrapper.emitted('ouvrir')?.[0]).toEqual([8])
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
 })

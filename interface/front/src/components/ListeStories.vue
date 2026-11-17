@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { LIBELLES_STATUT, type ResumeStory } from '@/lib/story'
+import { LIBELLES_STATUT, ordonnerALancer, type ResumeStory } from '@/lib/story'
 
 /**
  * Stories du projet : celles en cours (avec l'assistant, à vérifier…) restent visibles ; celles
@@ -10,7 +10,9 @@ const props = defineProps<{ stories: ResumeStory[]; numeroCourant?: number | nul
 const emit = defineEmits<{ ouvrir: [numero: number] }>()
 
 const enCours = computed(() => props.stories.filter((story) => story.statut !== 'nouvelle'))
-const aLancer = computed(() => props.stories.filter((story) => story.statut === 'nouvelle'))
+/** Dans l'ordre conseillé par ADA ; la première prête est la prochaine à lancer. */
+const aLancer = computed(() => ordonnerALancer(props.stories.filter((story) => story.statut === 'nouvelle')))
+const prochaine = computed(() => aLancer.value.find((story) => story.prete) ?? null)
 const titreALancer = computed(() => `À lancer (${aLancer.value.length})`)
 
 /** Fermé par défaut ; ouvert d'office quand la story affichée en fait partie. */
@@ -49,9 +51,27 @@ watch(
       </li>
     </ul>
 
+    <div v-if="prochaine" class="prochaine-story fr-mt-2w">
+      <p class="fr-text--sm fr-text--bold fr-mb-1v">Prochaine story conseillée</p>
+      <button
+        type="button"
+        class="prochaine-story__bouton"
+        :aria-current="prochaine.numero === numeroCourant ? 'true' : undefined"
+        @click="emit('ouvrir', prochaine.numero)"
+      >
+        <span class="fr-text--xs fr-mb-0">#{{ prochaine.numero }}</span>
+        <span v-if="prochaine.type === 'bug'" class="fr-text--xs fr-mb-0"> Problème :</span>
+        {{ prochaine.titre }}
+      </button>
+    </div>
+
     <DsfrAccordionsGroup v-if="aLancer.length > 0" v-model="accordeonOuvert" class="fr-mt-1w">
       <DsfrAccordion id="stories-a-lancer" :title="titreALancer">
-        <ul class="liste-stories" aria-label="Stories à lancer">
+        <p class="fr-text--xs fr-mb-1w">
+          Dans l’ordre conseillé par ADA : les stories prêtes d’abord, les problèmes signalés en
+          premier, puis l’ordre de chaque découpage, enfin les plus anciennes.
+        </p>
+        <ol class="liste-stories" aria-label="Stories à lancer, dans l’ordre conseillé">
           <li v-for="story in aLancer" :key="story.numero">
             <button
               type="button"
@@ -80,8 +100,22 @@ watch(
               />
             </button>
           </li>
-        </ul>
+        </ol>
       </DsfrAccordion>
     </DsfrAccordionsGroup>
   </div>
 </template>
+
+<style scoped>
+.prochaine-story__bouton {
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem;
+  border: 1px solid var(--border-action-high-blue-france);
+  background-color: var(--background-alt-blue-france);
+  cursor: pointer;
+}
+.prochaine-story__bouton[aria-current='true'] {
+  box-shadow: inset 4px 0 0 var(--border-action-high-blue-france);
+}
+</style>

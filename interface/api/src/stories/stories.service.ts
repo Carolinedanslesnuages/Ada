@@ -49,6 +49,8 @@ export interface ResumeStory {
   /** Prête à être lancée (complète, assez petite) ; sinon la raison, à corriger sur GitHub. */
   prete: boolean;
   raison: string | null;
+  /** Demande découpée dont la story est issue (ordre du découpage) ; null sinon. */
+  parent: number | null;
 }
 
 export interface Message {
@@ -105,6 +107,7 @@ const resumer = (i: Issue): ResumeStory => {
     url: i.html_url,
     prete: verification.prete,
     raison: verification.prete ? null : verification.raison,
+    parent: lireParent(corps),
   };
 };
 
