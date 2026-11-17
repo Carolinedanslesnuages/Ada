@@ -232,7 +232,7 @@ onUnmounted(() => {
 
   <DsfrAlert v-if="projets.erreur" type="error" title="Projets indisponibles" :description="projets.erreur" />
 
-  <div v-else-if="creationProjet" class="fr-grid-row">
+  <div v-else-if="creationProjet" class="fr-grid-row fr-grid-row--center">
     <div class="fr-col-12 fr-col-md-8 fr-col-lg-6">
       <DsfrAlert v-if="erreurProjet" type="error" small :description="erreurProjet" class="fr-mb-3w" />
       <ResultatProjet v-if="resultatProjet" :resultat="resultatProjet" @fermer="fermerCreationProjet" @suivre="suivreIdee" />
@@ -250,7 +250,7 @@ onUnmounted(() => {
     </div>
   </div>
 
-  <div v-else-if="repriseProjet" class="fr-grid-row">
+  <div v-else-if="repriseProjet" class="fr-grid-row fr-grid-row--center">
     <div class="fr-col-12 fr-col-md-8 fr-col-lg-6">
       <DsfrAlert v-if="erreurProjet" type="error" small :description="erreurProjet" class="fr-mb-3w" />
       <RepriseProjet :modeles="projets.modeles" @annuler="fermerRepriseProjet" @lancee="repriseLancee" />
