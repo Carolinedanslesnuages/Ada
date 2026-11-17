@@ -11,3 +11,4 @@
 | [0007](0007-releases-fabnum-cicd.md) | Versions par le workflow commun de la DNUM (fabnum-cicd) | Accepted | 2026-11-16 |
 | [0008](0008-deploiement-des-projets.md) | Déploiement des projets : image Docker toujours, chart Helm sur demande | Accepted | 2026-11-16 |
 | [0009](0009-echanges-enregistres-dans-github.md) | Les échanges avec l'assistant sont enregistrés dans GitHub | Accepted | 2026-11-16 |
+| [0010](0010-reprise-et-proprietaire-par-projet.md) | Reprise d'un projet existant : un propriétaire par projet, une PR de reprise | Accepted | 2026-11-17 |

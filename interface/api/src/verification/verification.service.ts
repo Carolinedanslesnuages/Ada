@@ -8,6 +8,7 @@ import { DemoService } from '../demo/demo.service.js';
 import { ProjetsService } from '../projets/projets.service.js';
 import { StoriesService } from '../stories/stories.service.js';
 import { etatControles, numeroDepuisUrl, peutFusionner, type Verification } from './verification.js';
+import { lireIdentifiant } from '../projets/depot.js';
 
 @Injectable()
 export class VerificationService {
@@ -26,7 +27,7 @@ export class VerificationService {
   /** La PR de la demande, l'état de ses contrôles, et si le PO peut fusionner. */
   /** Nombre de commits de main absents de la branche (0 : la branche est à jour). */
   private async retard(gh: ReturnType<GithubService['client']>, depot: string, base: string, tete: string): Promise<number> {
-    const { data } = await gh.repos.compareCommits({ owner: this.config.GITHUB_PROPRIETAIRE, repo: depot, base: tete, head: base });
+    const { data } = await gh.repos.compareCommits({ ...lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE), base: tete, head: base });
     return data.ahead_by;
   }
 
@@ -34,12 +35,12 @@ export class VerificationService {
     const numeroPr = numeroDepuisUrl((await this.agent.activite(depot, numero)).pullRequest);
     if (!numeroPr) return { pullRequest: null, controles: [], fusionnable: false, raison: 'Aucune pull request pour cette demande' };
     const gh = this.github.client(jeton);
-    const owner = this.config.GITHUB_PROPRIETAIRE;
+    const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
     try {
-      const { data: pr } = await gh.pulls.get({ owner, repo: depot, pull_number: numeroPr });
-      const { data: runs } = await gh.checks.listForRef({ owner, repo: depot, ref: pr.head.sha, per_page: 100 });
+      const { data: pr } = await gh.pulls.get({ owner, repo, pull_number: numeroPr });
+      const { data: runs } = await gh.checks.listForRef({ owner, repo, ref: pr.head.sha, per_page: 100 });
       const etat = pr.merged ? 'fusionnee' : pr.state === 'closed' ? 'fermee' : 'ouverte';
-      const { controlesRequis } = await this.projets.lireConfigDepot(gh, owner, depot, pr.base.ref);
+      const { controlesRequis } = await this.projets.lireConfigDepot(gh, owner, repo, pr.base.ref);
       const controles = etatControles(runs.check_runs, controlesRequis);
       return {
         pullRequest: { numero: pr.number, url: pr.html_url, etat },
@@ -61,13 +62,13 @@ export class VerificationService {
       throw new ConflictException(verification.raison ?? 'Fusion impossible pour l’instant');
     }
     const gh = this.github.client(jeton);
-    const owner = this.config.GITHUB_PROPRIETAIRE;
+    const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
     try {
-      const { data: pr } = await gh.pulls.get({ owner, repo: depot, pull_number: verification.pullRequest.numero });
+      const { data: pr } = await gh.pulls.get({ owner, repo, pull_number: verification.pullRequest.numero });
       // Branche en retard sur main : on la met à jour d'abord ; les contrôles repartent sur le code
       // réellement fusionné, et le PO valide de nouveau quand ils sont verts.
       if ((await this.retard(gh, depot, pr.base.ref, pr.head.sha)) > 0) {
-        await gh.pulls.updateBranch({ owner, repo: depot, pull_number: pr.number, expected_head_sha: pr.head.sha });
+        await gh.pulls.updateBranch({ owner, repo, pull_number: pr.number, expected_head_sha: pr.head.sha });
         return {
           ...verification,
           fusionnable: false,
@@ -77,7 +78,7 @@ export class VerificationService {
       }
       await gh.pulls.merge({
         owner,
-        repo: depot,
+        repo,
         pull_number: pr.number,
         merge_method: 'squash',
         commit_title: `${pr.title} (#${pr.number})`,
@@ -98,14 +99,14 @@ export class VerificationService {
    */
   private async apresFusion(jeton: string, depot: string, numero: number): Promise<void> {
     const gh = this.github.client(jeton);
-    const owner = this.config.GITHUB_PROPRIETAIRE;
+    const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
     const etapes: [string, () => Promise<unknown>][] = [
       [
         'fermeture de l’issue',
         async () => {
-          const { data: issue } = await gh.issues.get({ owner, repo: depot, issue_number: numero });
+          const { data: issue } = await gh.issues.get({ owner, repo, issue_number: numero });
           if (issue.state === 'open') {
-            await gh.issues.update({ owner, repo: depot, issue_number: numero, state: 'closed', state_reason: 'completed' });
+            await gh.issues.update({ owner, repo, issue_number: numero, state: 'closed', state_reason: 'completed' });
           }
         },
       ],

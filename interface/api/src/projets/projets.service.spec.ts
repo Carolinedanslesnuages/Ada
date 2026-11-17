@@ -21,13 +21,15 @@ const variables = {
 };
 const config = lireConfig({ ...variables, CATALOGUE: dossierCatalogue });
 
-const depot = (name: string, topics: string[], updated_at = '2026-11-16T10:00:00Z') => ({
+const depot = (name: string, topics: string[], updated_at = '2026-11-16T10:00:00Z', owner = 'proprio') => ({
   name,
+  owner: { login: owner },
+  default_branch: 'main',
   topics,
   updated_at,
   description: null,
   private: true,
-  html_url: `https://github.com/proprio/${name}`,
+  html_url: `https://github.com/${owner}/${name}`,
 });
 
 const git = (dossier: string, ...args: string[]) =>
@@ -127,6 +129,29 @@ describe('ProjetsService', () => {
     gh.paginate.mockResolvedValue([]);
     await service.lister('jeton', 'un-po');
     expect(gh.paginate).toHaveBeenCalledWith(gh.repos.listForOrg, expect.objectContaining({ org: 'proprio' }));
+  });
+
+  it('liste aussi les projets du compte personnel du PO, avec un identifiant « compte~nom » (#37)', async () => {
+    gh.paginate.mockImplementation(async (methode: unknown) =>
+      methode === gh.repos.listForOrg ? [depot('commun', ['ada'])] : [depot('Perso', ['ada'], '2026-11-17T00:00:00Z', 'Un-PO')],
+    );
+    const projets = await service.lister('jeton', 'un-po');
+    expect(projets).toEqual([
+      expect.objectContaining({ id: 'un-po~perso', nom: 'Perso', proprietaire: 'Un-PO', compte: 'personnel' }),
+      expect.objectContaining({ id: 'commun', nom: 'commun', proprietaire: 'proprio', compte: 'organisation' }),
+    ]);
+  });
+
+  it('une reprise n’entre dans ADA qu’une fois sa PR fusionnée (ada.json sur main), puis reçoit le topic ada', async () => {
+    gh.paginate.mockResolvedValue([depot('repris', ['vue', 'ada-reprise']), depot('en-attente', ['ada-reprise'])]);
+    gh.repos.getContent.mockImplementation(async ({ repo }: { repo: string }) => {
+      if (repo === 'repris') return { data: { content: '' } };
+      throw Object.assign(new Error('absent'), { status: 404 });
+    });
+    gh.repos.replaceAllTopics.mockResolvedValue({});
+    const projets = await service.lister('jeton', 'proprio');
+    expect(projets.map((p) => p.nom)).toEqual(['repris']);
+    expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'proprio', repo: 'repris', names: ['vue', 'ada'] });
   });
 
   it('refuse un projet invalide sans rien créer', async () => {

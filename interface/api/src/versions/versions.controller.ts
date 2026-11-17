@@ -1,10 +1,11 @@
 import { Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { ConnecteGuard } from '../auth/connecte.guard.js';
+import { ProjetGuard } from '../projets/projet.guard.js';
 import { VersionsService } from './versions.service.js';
 
 @Controller('projets/:depot/versions')
-@UseGuards(ConnecteGuard)
+@UseGuards(ConnecteGuard, ProjetGuard)
 export class VersionsController {
   constructor(private readonly versions: VersionsService) {}
 

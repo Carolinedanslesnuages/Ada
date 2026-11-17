@@ -17,7 +17,7 @@ describe('IndicateursService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     service = new IndicateursService(config, github, projets);
-    projets.lister.mockResolvedValue([{ nom: 'pret' }]);
+    projets.lister.mockResolvedValue([{ nom: 'pret', proprietaire: 'proprio' }]);
     gh.paginate.mockImplementation(async (methode: unknown, options: { issue_number?: number }) => {
       if (methode === listForRepo) {
         return [

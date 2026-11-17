@@ -9,6 +9,7 @@ import StoriesLivrees from '@/components/StoriesLivrees.vue'
 import PanneauApercu from '@/components/PanneauApercu.vue'
 import PanneauVersions from '@/components/PanneauVersions.vue'
 import ResultatProjet from '@/components/ResultatProjet.vue'
+import RepriseProjet from '@/components/RepriseProjet.vue'
 import type { ErreursProjet, NouveauProjet, ResultatCreation } from '@/lib/projet'
 import { lienNouvelleIssue, STATUTS_ACTIFS, type StoryProposee } from '@/lib/story'
 import { useProjetsStore } from '@/stores/projets'
@@ -57,10 +58,30 @@ function fermerCreationProjet(): void {
   resultatProjet.value = null
 }
 
-const options = computed(() => projets.liste.map((p) => ({ value: p.nom, text: p.nom })))
+/** Reprise d'un projet existant (#37) : ADA ouvre une PR que le PO valide sur GitHub. */
+const repriseProjet = ref(false)
+
+async function reprendreProjet(): Promise<void> {
+  erreurProjet.value = null
+  repriseProjet.value = true
+  try {
+    await projets.chargerModeles()
+  } catch (e) {
+    erreurProjet.value = (e as Error).message
+  }
+}
+
+function fermerRepriseProjet(): void {
+  repriseProjet.value = false
+  void projets.charger()
+}
+
+const options = computed(() =>
+  projets.liste.map((p) => ({ value: p.id, text: p.compte === 'personnel' ? `${p.nom} (votre compte)` : p.nom })),
+)
 
 watch(
-  () => projets.nomCourant,
+  () => projets.idCourant,
   (nom) => {
     if (nom) void stories.charger(nom)
   },
@@ -68,12 +89,12 @@ watch(
 
 /** Les stories s'écrivent dans GitHub : on relit la liste au retour sur l'onglet de l'atelier. */
 function actualiser(): void {
-  if (projets.nomCourant && !creationProjet.value) void stories.charger(projets.nomCourant, true)
+  if (projets.idCourant && !creationProjet.value) void stories.charger(projets.idCourant, true)
 }
 
 onMounted(async () => {
   await projets.charger()
-  if (projets.nomCourant) await stories.charger(projets.nomCourant)
+  if (projets.idCourant) await stories.charger(projets.idCourant)
   window.addEventListener('focus', actualiser)
 })
 
@@ -85,14 +106,14 @@ function choisirProjet(nom: string | number | null | undefined): void {
 
 async function ouvrir(numero: number): Promise<void> {
   modePrompt.value = false
-  if (projets.nomCourant) await stories.ouvrir(projets.nomCourant, numero)
+  if (projets.idCourant) await stories.ouvrir(projets.idCourant, numero)
 }
 
 async function lancer(): Promise<void> {
-  if (!projets.nomCourant || !stories.courante) return
+  if (!projets.idCourant || !stories.courante) return
   lancementEnCours.value = true
   try {
-    await stories.lancer(projets.nomCourant, stories.courante.numero)
+    await stories.lancer(projets.idCourant, stories.courante.numero)
   } finally {
     lancementEnCours.value = false
   }
@@ -115,10 +136,10 @@ function ouvrirPrompt(): void {
 }
 
 async function prompter(texte: string): Promise<void> {
-  if (!projets.nomCourant) return
+  if (!projets.idCourant) return
   actionEnCours.value = true
   try {
-    erreurPrompt.value = await stories.prompter(projets.nomCourant, texte)
+    erreurPrompt.value = await stories.prompter(projets.idCourant, texte)
     if (!erreurPrompt.value) modePrompt.value = false
   } finally {
     actionEnCours.value = false
@@ -126,10 +147,10 @@ async function prompter(texte: string): Promise<void> {
 }
 
 async function agir(action: (projet: string, numero: number) => Promise<void>): Promise<void> {
-  if (!projets.nomCourant || !stories.courante) return
+  if (!projets.idCourant || !stories.courante) return
   actionEnCours.value = true
   try {
-    await action(projets.nomCourant, stories.courante.numero)
+    await action(projets.idCourant, stories.courante.numero)
   } finally {
     actionEnCours.value = false
   }
@@ -150,10 +171,10 @@ watch(
     minuteurSuivi = null
     const actif = statut !== undefined && STATUTS_ACTIFS.includes(statut)
     if (numero && (actif || travaille)) {
-      if (projets.nomCourant && stories.activite === null) void stories.chargerActivite(projets.nomCourant, numero)
-      if (projets.nomCourant && statut === 'en-verification') void stories.chargerVerification(projets.nomCourant, numero)
+      if (projets.idCourant && stories.activite === null) void stories.chargerActivite(projets.idCourant, numero)
+      if (projets.idCourant && statut === 'en-verification') void stories.chargerVerification(projets.idCourant, numero)
       minuteurSuivi = setInterval(() => {
-        if (projets.nomCourant) void stories.suivre(projets.nomCourant)
+        if (projets.idCourant) void stories.suivre(projets.idCourant)
       }, 4000)
     }
   },
@@ -185,6 +206,13 @@ onUnmounted(() => {
     </div>
   </div>
 
+  <div v-else-if="repriseProjet" class="fr-grid-row">
+    <div class="fr-col-12 fr-col-md-8 fr-col-lg-6">
+      <DsfrAlert v-if="erreurProjet" type="error" small :description="erreurProjet" class="fr-mb-3w" />
+      <RepriseProjet :modeles="projets.modeles" @annuler="fermerRepriseProjet" @terminee="fermerRepriseProjet" />
+    </div>
+  </div>
+
   <div v-else-if="!projets.chargement && projets.liste.length === 0" class="fr-grid-row">
     <div class="fr-col-12 fr-col-md-8 fr-col-lg-6">
       <DsfrAlert
@@ -193,7 +221,10 @@ onUnmounted(() => {
         description="Créez votre premier projet : il sera prêt sur GitHub en quelques secondes."
         class="fr-mb-3w"
       />
-      <DsfrButton icon="fr-icon-add-line" label="Nouveau projet" @click="nouveauProjet" />
+      <ul class="fr-btns-group fr-btns-group--inline-md">
+        <li><DsfrButton icon="fr-icon-add-line" label="Nouveau projet" @click="nouveauProjet" /></li>
+        <li><DsfrButton secondary icon="fr-icon-download-line" label="Reprendre un projet existant" @click="reprendreProjet" /></li>
+      </ul>
     </div>
   </div>
 
@@ -202,7 +233,7 @@ onUnmounted(() => {
       <div class="fr-grid-row fr-grid-row--bottom fr-grid-row--gutters">
         <div class="fr-col">
           <DsfrSelect
-            :model-value="projets.nomCourant ?? undefined"
+            :model-value="projets.idCourant ?? undefined"
             label="Projet"
             :options="options"
             @update:model-value="choisirProjet"
@@ -210,10 +241,11 @@ onUnmounted(() => {
         </div>
         <div class="fr-col-auto fr-mb-3w">
           <DsfrButton size="sm" tertiary icon="fr-icon-add-line" label="Nouveau projet" @click="nouveauProjet" />
+          <DsfrButton size="sm" tertiary icon="fr-icon-download-line" label="Reprendre un projet" class="fr-ml-1w" @click="reprendreProjet" />
         </div>
       </div>
 
-      <PanneauVersions v-if="projets.nomCourant" :projet="projets.nomCourant" />
+      <PanneauVersions v-if="projets.idCourant" :projet="projets.idCourant" />
 
       <div class="fr-grid-row fr-grid-row--middle fr-grid-row--gutters">
         <h2 id="titre-stories" class="fr-h5 fr-col fr-mb-0">Stories</h2>
@@ -303,13 +335,13 @@ onUnmounted(() => {
         @ouvrir="ouvrir"
       />
       <AssignationDeveloppeur
-        v-if="!modePrompt && stories.courante && projets.nomCourant"
-        :projet="projets.nomCourant"
+        v-if="!modePrompt && stories.courante && projets.idCourant"
+        :projet="projets.idCourant"
         :story="stories.courante"
       />
       <DsfrAlert v-if="stories.erreurAction" type="error" small :description="stories.erreurAction" />
     </section>
 
-    <PanneauApercu :projet="projets.nomCourant" />
+    <PanneauApercu :projet="projets.idCourant" />
   </div>
 </template>

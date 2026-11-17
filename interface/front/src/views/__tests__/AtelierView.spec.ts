@@ -20,8 +20,8 @@ const story = { numero: 1, type: 'story', titre: 'Page d’accueil', statut: 'no
 
 const reponses: Record<string, unknown> = {
   '/projets': [
-    { nom: 'poc-portail', description: null, prive: true, url: 'https://github.com/p/poc-portail', misAJourLe: null },
-    { nom: 'annuaire', description: null, prive: true, url: 'https://github.com/p/annuaire', misAJourLe: null },
+    { id: 'poc-portail', nom: 'poc-portail', proprietaire: 'p', compte: 'organisation' as const, description: null, prive: true, url: 'https://github.com/p/poc-portail', misAJourLe: null },
+    { id: 'annuaire', nom: 'annuaire', proprietaire: 'p', compte: 'organisation' as const, description: null, prive: true, url: 'https://github.com/p/annuaire', misAJourLe: null },
   ],
   '/projets/poc-portail/stories': [story],
   '/projets/annuaire/stories': [],

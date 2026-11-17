@@ -23,6 +23,7 @@ import {
   type Demande,
   type Phase,
 } from './agent.js';
+import { lireIdentifiant } from '../projets/depot.js';
 
 export interface Activite {
   phase: Phase | null;
@@ -521,8 +522,7 @@ export class AgentService {
       /* pas de fiche : le résumé suffit */
     }
     const { data } = await this.github.client(jeton).pulls.create({
-      owner: this.config.GITHUB_PROPRIETAIRE,
-      repo: depot,
+      ...lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE),
       head: branche,
       base: 'main',
       // Mode libre : sans le préfixe « Demande libre : », pour des notes de version lisibles.

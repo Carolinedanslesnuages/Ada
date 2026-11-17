@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { ConnecteGuard } from '../auth/connecte.guard.js';
+import { ProjetGuard } from '../projets/projet.guard.js';
 import { AgentService } from './agent.service.js';
 
 @Controller('projets/:depot/stories/:numero')
-@UseGuards(ConnecteGuard)
+@UseGuards(ConnecteGuard, ProjetGuard)
 export class AgentController {
   constructor(private readonly agent: AgentService) {}
 

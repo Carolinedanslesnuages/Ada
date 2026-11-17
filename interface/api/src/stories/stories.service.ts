@@ -27,6 +27,7 @@ import {
   type Statut,
   type TypeDemande,
 } from './story.js';
+import { lireIdentifiant, type CibleDepot } from '../projets/depot.js';
 
 /** Marque les commentaires écrits par l'assistant, pour reconstituer les échanges. */
 export const MARQUEUR_ASSISTANT = '<!-- atelier-po:assistant -->';
@@ -113,8 +114,9 @@ export class StoriesService {
     private readonly github: GithubService,
   ) {}
 
-  private get owner() {
-    return this.config.GITHUB_PROPRIETAIRE;
+  /** Compte et dépôt GitHub d'un projet d'ADA (voir projets/depot.ts). */
+  private cible(depot: string): CibleDepot {
+    return lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
   }
 
   /**
@@ -125,8 +127,7 @@ export class StoriesService {
     const gh = this.github.client(jeton);
     try {
       const issues = (await gh.paginate(gh.issues.listForRepo, {
-        owner: this.owner,
-        repo: depot,
+        ...this.cible(depot),
         state: 'all',
         per_page: 100,
       })) as Issue[];
@@ -143,8 +144,8 @@ export class StoriesService {
     const gh = this.github.client(jeton);
     try {
       const [{ data: issue }, { data: commentaires }] = await Promise.all([
-        gh.issues.get({ owner: this.owner, repo: depot, issue_number: numero }),
-        gh.issues.listComments({ owner: this.owner, repo: depot, issue_number: numero, per_page: 100 }),
+        gh.issues.get({ ...this.cible(depot), issue_number: numero }),
+        gh.issues.listComments({ ...this.cible(depot), issue_number: numero, per_page: 100 }),
       ]);
       const corps = issue.body ?? '';
       return {
@@ -171,7 +172,7 @@ export class StoriesService {
   async developpeurs(jeton: string, depot: string): Promise<Personne[]> {
     const gh = this.github.client(jeton);
     try {
-      const personnes = await gh.paginate(gh.issues.listAssignees, { owner: this.owner, repo: depot, per_page: 100 });
+      const personnes = await gh.paginate(gh.issues.listAssignees, { ...this.cible(depot), per_page: 100 });
       return personnes
         .map((personne) => ({ login: personne.login, avatar: personne.avatar_url ?? null }))
         .sort((premiere, seconde) => premiere.login.localeCompare(seconde.login));
@@ -190,7 +191,7 @@ export class StoriesService {
       throw new BadRequestException('Choisissez un développeur dans la liste');
     }
     const gh = this.github.client(jeton);
-    const { data: issue } = await gh.issues.get({ owner: this.owner, repo: depot, issue_number: numero }).catch((e: unknown) => traduireErreurGithub(e));
+    const { data: issue } = await gh.issues.get({ ...this.cible(depot), issue_number: numero }).catch((e: unknown) => traduireErreurGithub(e));
     if (login !== null) {
       if (resumer(issue as Issue).statut !== 'besoin-dev') {
         throw new BadRequestException('On assigne un développeur seulement à une demande bloquée (« Besoin d’un développeur »)');
@@ -201,8 +202,8 @@ export class StoriesService {
     }
     try {
       const actuels = (issue.assignees ?? []).map((personne) => personne.login).filter((actuel) => actuel !== login);
-      if (actuels.length) await gh.issues.removeAssignees({ owner: this.owner, repo: depot, issue_number: numero, assignees: actuels });
-      if (login !== null) await gh.issues.addAssignees({ owner: this.owner, repo: depot, issue_number: numero, assignees: [login] });
+      if (actuels.length) await gh.issues.removeAssignees({ ...this.cible(depot), issue_number: numero, assignees: actuels });
+      if (login !== null) await gh.issues.addAssignees({ ...this.cible(depot), issue_number: numero, assignees: [login] });
     } catch (e) {
       traduireErreurGithub(e);
     }
@@ -225,15 +226,13 @@ export class StoriesService {
       await this.assurerLabel(jeton, depot, LABEL_LIBRE);
       await this.assurerLabel(jeton, depot, STATUTS['en-cours']);
       const { data } = await gh.issues.create({
-        owner: this.owner,
-        repo: depot,
+        ...this.cible(depot),
         title: titrePrompt(verification.texte),
         body: formaterPrompt(verification.texte),
         labels: [LABEL_LIBRE, STATUTS['en-cours']],
       });
       await gh.issues.createComment({
-        owner: this.owner,
-        repo: depot,
+        ...this.cible(depot),
         issue_number: data.number,
         body: `${MARQUEUR_LANCEMENT} par ${login} (mode sauvage).`,
       });
@@ -262,14 +261,12 @@ export class StoriesService {
       await this.assurerLabel(jeton, depot, labelType);
       await this.assurerLabel(jeton, depot, STATUTS['en-cours']);
       await gh.issues.addLabels({
-        owner: this.owner,
-        repo: depot,
+        ...this.cible(depot),
         issue_number: numero,
         labels: [labelType, STATUTS['en-cours']],
       });
       await gh.issues.createComment({
-        owner: this.owner,
-        repo: depot,
+        ...this.cible(depot),
         issue_number: numero,
         body: `${MARQUEUR_LANCEMENT} par ${login}.`,
       });
@@ -283,10 +280,10 @@ export class StoriesService {
   async changerStatut(jeton: string, depot: string, numero: number, statut: keyof typeof STATUTS): Promise<void> {
     const gh = this.github.client(jeton);
     try {
-      const { data } = await gh.issues.get({ owner: this.owner, repo: depot, issue_number: numero });
+      const { data } = await gh.issues.get({ ...this.cible(depot), issue_number: numero });
       const autres = nomsLabels((data as Issue).labels).filter((l) => !l.startsWith('story:'));
       await this.assurerLabel(jeton, depot, STATUTS[statut]);
-      await gh.issues.setLabels({ owner: this.owner, repo: depot, issue_number: numero, labels: [...autres, STATUTS[statut]] });
+      await gh.issues.setLabels({ ...this.cible(depot), issue_number: numero, labels: [...autres, STATUTS[statut]] });
     } catch (e) {
       traduireErreurGithub(e);
     }
@@ -296,9 +293,9 @@ export class StoriesService {
   async retirerStatut(jeton: string, depot: string, numero: number): Promise<void> {
     const gh = this.github.client(jeton);
     try {
-      const { data } = await gh.issues.get({ owner: this.owner, repo: depot, issue_number: numero });
+      const { data } = await gh.issues.get({ ...this.cible(depot), issue_number: numero });
       const garder = nomsLabels((data as Issue).labels).filter((l) => !l.startsWith('story:'));
-      await gh.issues.setLabels({ owner: this.owner, repo: depot, issue_number: numero, labels: garder });
+      await gh.issues.setLabels({ ...this.cible(depot), issue_number: numero, labels: garder });
     } catch (e) {
       traduireErreurGithub(e);
     }
@@ -319,24 +316,21 @@ export class StoriesService {
       await this.assurerLabel(jeton, depot, LABEL_STORY);
       for (const story of stories) {
         const { data } = await gh.issues.create({
-          owner: this.owner,
-          repo: depot,
+          ...this.cible(depot),
           title: story.titre,
           body: formaterStory(story, numero),
           labels: [LABEL_STORY],
         });
         creees.push(resumer(data as Issue));
       }
-      const { data: issueParent } = await gh.issues.get({ owner: this.owner, repo: depot, issue_number: numero });
+      const { data: issueParent } = await gh.issues.get({ ...this.cible(depot), issue_number: numero });
       await gh.issues.update({
-        owner: this.owner,
-        repo: depot,
+        ...this.cible(depot),
         issue_number: numero,
         body: ajouterDecoupage(issueParent.body ?? '', creees.map((story) => ({ numero: story.numero, titre: story.titre }))),
       });
       await gh.issues.createComment({
-        owner: this.owner,
-        repo: depot,
+        ...this.cible(depot),
         issue_number: numero,
         body: `✂️ Découpage validé par ${login} : ${creees.map((story) => `#${story.numero}`).join(', ')} créées depuis ADA.`,
       });
@@ -351,15 +345,15 @@ export class StoriesService {
   async signalerLivraisonAuParent(jeton: string, depot: string, numero: number): Promise<void> {
     const gh = this.github.client(jeton);
     try {
-      const { data: enfant } = await gh.issues.get({ owner: this.owner, repo: depot, issue_number: numero });
+      const { data: enfant } = await gh.issues.get({ ...this.cible(depot), issue_number: numero });
       const numeroParent = lireParent(enfant.body ?? '');
       if (!numeroParent) return;
-      const { data: parent } = await gh.issues.get({ owner: this.owner, repo: depot, issue_number: numeroParent });
+      const { data: parent } = await gh.issues.get({ ...this.cible(depot), issue_number: numeroParent });
       const { corps, toutesLivrees } = cocherEnfant(parent.body ?? '', numero);
-      if (corps !== parent.body) await gh.issues.update({ owner: this.owner, repo: depot, issue_number: numeroParent, body: corps });
+      if (corps !== parent.body) await gh.issues.update({ ...this.cible(depot), issue_number: numeroParent, body: corps });
       if (toutesLivrees && parent.state === 'open') {
-        await gh.issues.createComment({ owner: this.owner, repo: depot, issue_number: numeroParent, body: '✅ Toutes les stories du découpage sont livrées.' });
-        await gh.issues.update({ owner: this.owner, repo: depot, issue_number: numeroParent, state: 'closed', state_reason: 'completed' });
+        await gh.issues.createComment({ ...this.cible(depot), issue_number: numeroParent, body: '✅ Toutes les stories du découpage sont livrées.' });
+        await gh.issues.update({ ...this.cible(depot), issue_number: numeroParent, state: 'closed', state_reason: 'completed' });
         await this.retirerStatut(jeton, depot, numeroParent);
       }
     } catch (e) {
@@ -371,8 +365,7 @@ export class StoriesService {
   async commenterAssistant(jeton: string, depot: string, numero: number, titre: string, texte: string): Promise<void> {
     try {
       await this.github.client(jeton).issues.createComment({
-        owner: this.owner,
-        repo: depot,
+        ...this.cible(depot),
         issue_number: numero,
         body: `${MARQUEUR_ASSISTANT}\n🤖 **${titre}**\n\n${texte}`,
       });
@@ -386,8 +379,7 @@ export class StoriesService {
     if (!propre) throw new BadRequestException({ erreurs: { texte: 'Le message est vide' } });
     try {
       const { data: c } = await this.github.client(jeton).issues.createComment({
-        owner: this.owner,
-        repo: depot,
+        ...this.cible(depot),
         issue_number: numero,
         body: propre,
       });
@@ -400,12 +392,11 @@ export class StoriesService {
   private async assurerLabel(jeton: string, depot: string, nom: string): Promise<void> {
     const gh = this.github.client(jeton);
     try {
-      await gh.issues.getLabel({ owner: this.owner, repo: depot, name: nom });
+      await gh.issues.getLabel({ ...this.cible(depot), name: nom });
     } catch (e) {
       if ((e as { status?: number }).status !== 404) throw e;
       await gh.issues.createLabel({
-        owner: this.owner,
-        repo: depot,
+        ...this.cible(depot),
         name: nom,
         color: nom === LABEL_LIBRE ? '6a6af4' : '0063cb',
         description: nom === LABEL_LIBRE ? 'Demande libre du PO (mode sauvage, hors story)' : 'Statut géré par ADA',

@@ -4,16 +4,37 @@ import { api, ErreurApi } from '@/services/api'
 import type { ErreursProjet, FamilleDeProjet, Modele, NouveauProjet, ResultatCreation, TypeDeProjet } from '@/lib/projet'
 
 export interface Projet {
+  /** Identifiant dans ADA : le nom, ou « compte~nom » pour un projet du compte personnel du PO. */
+  id: string
   nom: string
+  proprietaire: string
+  compte: 'organisation' | 'personnel'
   description: string | null
   prive: boolean
   url: string
   misAJourLe: string | null
 }
 
+/** Dépôt existant que le PO peut faire reprendre par ADA (#37). */
+export interface DepotAReprendre {
+  id: string
+  nom: string
+  proprietaire: string
+  compte: 'organisation' | 'personnel'
+  description: string | null
+  url: string
+  /** PR de reprise déjà ouverte, en attente de fusion. */
+  repriseEnCours: string | null
+}
+
+export interface ResultatReprise {
+  pullRequest: string
+  fichiers: string[]
+}
+
 export const useProjetsStore = defineStore('projets', () => {
   const liste = ref<Projet[]>([])
-  const nomCourant = ref<string | null>(null)
+  const idCourant = ref<string | null>(null)
   const chargement = ref(false)
   const erreur = ref<string | null>(null)
 
@@ -21,14 +42,14 @@ export const useProjetsStore = defineStore('projets', () => {
   const types = ref<TypeDeProjet[]>([])
   const familles = ref<FamilleDeProjet[]>([])
 
-  const courant = computed(() => liste.value.find((p) => p.nom === nomCourant.value) ?? null)
+  const courant = computed(() => liste.value.find((p) => p.id === idCourant.value) ?? null)
 
   async function charger(): Promise<void> {
     chargement.value = true
     erreur.value = null
     try {
       liste.value = await api.lire<Projet[]>('/projets')
-      if (!courant.value) nomCourant.value = liste.value[0]?.nom ?? null
+      if (!courant.value) idCourant.value = liste.value[0]?.id ?? null
     } catch (e) {
       erreur.value = (e as Error).message
     } finally {
@@ -52,8 +73,8 @@ export const useProjetsStore = defineStore('projets', () => {
   ): Promise<{ resultat: ResultatCreation } | { erreurs: ErreursProjet }> {
     try {
       const resultat = await api.envoyer<ResultatCreation>('/projets', projet)
-      liste.value = [resultat.projet, ...liste.value.filter((p) => p.nom !== resultat.projet.nom)]
-      nomCourant.value = resultat.projet.nom
+      liste.value = [resultat.projet, ...liste.value.filter((p) => p.id !== resultat.projet.id)]
+      idCourant.value = resultat.projet.id
       return { resultat }
     } catch (e) {
       if (e instanceof ErreurApi && (e.statut === 400 || e.statut === 409) && e.erreurs) {
@@ -63,8 +84,17 @@ export const useProjetsStore = defineStore('projets', () => {
     }
   }
 
-  function choisir(nom: string): void {
-    nomCourant.value = nom
+  function choisir(id: string): void {
+    idCourant.value = id
+  }
+
+  function aReprendre(): Promise<DepotAReprendre[]> {
+    return api.lire<DepotAReprendre[]>('/projets/a-reprendre')
+  }
+
+  /** ADA ouvre la PR de reprise ; le projet apparaît dans la liste une fois qu'elle est fusionnée. */
+  function reprendre(depot: string, modele: string): Promise<ResultatReprise> {
+    return api.envoyer<ResultatReprise>('/projets/reprendre', { depot, modele })
   }
 
   return {
@@ -72,7 +102,7 @@ export const useProjetsStore = defineStore('projets', () => {
     modeles,
     types,
     familles,
-    nomCourant,
+    idCourant,
     courant,
     chargement,
     erreur,
@@ -80,6 +110,8 @@ export const useProjetsStore = defineStore('projets', () => {
     chargerModeles,
     creer,
     choisir,
+    aReprendre,
+    reprendre,
   }
 })
 

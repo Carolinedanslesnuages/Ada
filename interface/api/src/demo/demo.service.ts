@@ -71,7 +71,7 @@ export class DemoService {
     const git = (...args: string[]) => this.apercu.executer('git', ['-C', depot, ...args], { env });
     if (!existsSync(join(depot, '.git'))) {
       await mkdir(this.dossier(projet), { recursive: true });
-      const url = `https://github.com/${this.config.GITHUB_PROPRIETAIRE}/${projet}.git`;
+      const url = this.apercu.urlDepot(projet);
       await this.apercu.executer('git', ['clone', '--quiet', '--branch', 'main', url, depot], { env });
       return depot;
     }

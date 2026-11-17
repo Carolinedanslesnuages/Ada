@@ -30,16 +30,15 @@ export class IndicateursService {
     const enCache = this.cache.get(login);
     if (enCache && Date.now() - enCache.le < 5 * 60 * 1000) return enCache.indicateurs;
     const gh = this.github.client(jeton);
-    const owner = this.config.GITHUB_PROPRIETAIRE;
     try {
       const projets = await this.projets.lister(jeton, login);
       const mesures = await Promise.all(
         projets.map(async (projet) => {
-          const issues = (await gh.paginate(gh.issues.listForRepo, { owner, repo: projet.nom, state: 'all', per_page: 100 })) as IssueGithub[];
+          const issues = (await gh.paginate(gh.issues.listForRepo, { owner: projet.proprietaire, repo: projet.nom, state: 'all', per_page: 100 })) as IssueGithub[];
           const demandes = issues.filter((issue) => !issue.pull_request && typeDepuis(issue.labels.map((label) => (typeof label === 'string' ? label : (label.name ?? ''))), issue.body ?? ''));
           const mesurees: DemandeMesuree[] = await Promise.all(
             demandes.map(async (issue) => {
-              const evenements = await gh.paginate(gh.issues.listEvents, { owner, repo: projet.nom, issue_number: issue.number, per_page: 100 });
+              const evenements = await gh.paginate(gh.issues.listEvents, { owner: projet.proprietaire, repo: projet.nom, issue_number: issue.number, per_page: 100 });
               return {
                 livree: issue.state === 'closed',
                 fermeeLe: issue.closed_at ?? null,
