@@ -4,6 +4,9 @@ import { composerReponse, type QuestionAChoix } from '@/lib/story'
 
 /** Réponse aux questions à choix de l'assistant : cases à cocher (ou boutons radio) et précision libre. */
 const props = defineProps<{ questions: QuestionAChoix[]; actionEnCours?: boolean; descriptionEnvoi?: string }>()
+
+/** ADA numérote les questions : le numéro déjà écrit par l'assistant (« 1. ») n'est pas répété. */
+const sansNumero = (question: string) => question.replace(/^\d+\s*[.)]\s*/, '')
 const emit = defineEmits<{ repondre: [texte: string] }>()
 
 const reponses = reactive(props.questions.map(() => ({ coches: [] as string[], unique: undefined as string | undefined, precision: '' })))
@@ -37,7 +40,7 @@ function envoyer(): void {
       <DsfrCheckboxSet
         v-if="question.plusieurs"
         v-model="reponses[rang]!.coches"
-        :legend="`${rang + 1}. ${question.question} (plusieurs réponses possibles)`"
+        :legend="`${rang + 1}. ${sansNumero(question.question)} (plusieurs réponses possibles)`"
         :options="options(rang, question)"
         :error-message="erreurs[rang]"
       />
@@ -45,7 +48,7 @@ function envoyer(): void {
         v-else
         v-model="reponses[rang]!.unique"
         :name="`question-${rang}`"
-        :legend="`${rang + 1}. ${question.question}`"
+        :legend="`${rang + 1}. ${sansNumero(question.question)}`"
         :options="options(rang, question)"
         :error-message="erreurs[rang]"
       />

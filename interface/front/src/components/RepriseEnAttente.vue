@@ -99,7 +99,7 @@ onUnmounted(() => {
         <li v-for="controle in etat.controles" :key="controle.nom">{{ controle.nom }} : {{ LIBELLES_CONTROLE[controle.etat] }}</li>
       </ul>
       <p v-if="!etat.fusionnable && etat.raison" class="fr-text--sm">{{ etat.raison }}</p>
-      <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--sm">
+      <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--sm fr-btns-group--icon-left">
         <li>
           <DsfrButton label="Valider et fusionner la reprise" :disabled="!etat.fusionnable || fusionEnCours" @click="fusionner" />
         </li>

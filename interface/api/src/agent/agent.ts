@@ -297,7 +297,8 @@ export function nettoyerChoix(brut: unknown): QuestionAChoix[] {
     .map((element) => element as Partial<QuestionAChoix>)
     .filter((element) => typeof element?.question === 'string' && element.question.trim() && Array.isArray(element.choix))
     .map((element) => ({
-      question: element.question!.trim().slice(0, 300),
+      // ADA numérote elle-même les questions : on retire le numéro que l'assistant a pu ajouter (« 1. »).
+      question: element.question!.trim().replace(/^\d+\s*[.)]\s*/, '').slice(0, 300),
       choix: [...new Set((element.choix as unknown[]).filter((option): option is string => typeof option === 'string' && option.trim() !== '').map((option) => option.trim().slice(0, 200)))].slice(0, 6),
       plusieurs: element.plusieurs === true,
     }))

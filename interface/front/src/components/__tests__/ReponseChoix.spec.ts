@@ -68,4 +68,14 @@ describe('Répondre en cochant', () => {
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
+
+  it('ne répète pas le numéro déjà écrit par l’assistant (« 1. 1. »)', () => {
+    const wrapper = mount(ReponseChoix, {
+      props: { questions: [{ question: '1. Les résolus restent-ils affichés ?', choix: ['Oui', 'Non'], plusieurs: false }] },
+      global: { plugins: [VueDsfr] },
+    })
+    expect(wrapper.text()).toContain('1. Les résolus restent-ils affichés ?')
+    expect(wrapper.text()).not.toContain('1. 1.')
+    wrapper.unmount()
+  })
 })

@@ -219,4 +219,7 @@ describe('Consigne d’analyse : bref, décisions à cocher, découpage si la de
     expect(consigne).toContain('Toute question qui appelle une DÉCISION doit avoir ses options');
     expect(consigne).toContain('ou trop floue : il te faudrait plus de trois questions');
   });
+  it('retire le numéro que l’assistant ajoute à ses questions (ADA numérote elle-même)', () => {
+    expect(nettoyerChoix([{ question: '2. Dans quel ordre ?', choix: ['A', 'B'] }])[0]!.question).toBe('Dans quel ordre ?')
+  });
 });
