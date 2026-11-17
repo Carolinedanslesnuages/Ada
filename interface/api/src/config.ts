@@ -37,6 +37,9 @@ const schema = z.object({
   RGAA_INDEX: z.string().default('../../skills/po/po-story/references/rgaa-4.1.2/README.md'),
   /** Sessions chiffrées sur disque (hors git) : un redémarrage ne déconnecte personne. */
   DOSSIER_SESSIONS: z.string().default('../sessions'),
+  /** Registre des projets créés ou repris par ADA (fichier, hors git) : les indicateurs comptent
+   * aussi les projets archivés ou supprimés depuis, que GitHub ne connaît plus. */
+  DOSSIER_REGISTRE: z.string().default('../registre'),
   /** Dossier de travail des aperçus (clones et conteneurs), hors de tout dépôt git. */
   DOSSIER_APERCUS: z.string().default('../apercus'),
   /** Topic GitHub qui distingue les dépôts créés par l'atelier. */

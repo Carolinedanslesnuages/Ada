@@ -4,8 +4,20 @@ export interface Mesures {
   dureeMoyenneMinutes: number | null
 }
 
+/** Tous les projets passés par ADA, y compris archivés, retirés ou supprimés depuis. */
+export interface BilanProjets {
+  total: number
+  crees: number
+  repris: number
+  actifs: number
+  archives: number
+  retires: number
+  supprimes: number
+}
+
 export interface Indicateurs extends Mesures {
   projets: number
+  historique: BilanProjets
   parProjet: (Mesures & { nom: string })[]
 }
 

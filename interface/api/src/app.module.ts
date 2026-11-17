@@ -11,6 +11,7 @@ import { GithubService } from './github/github.service.js';
 import { ProjetsController } from './projets/projets.controller.js';
 import { IndicateursController } from './indicateurs/indicateurs.controller.js';
 import { IndicateursService } from './indicateurs/indicateurs.service.js';
+import { RegistreService } from './indicateurs/registre.service.js';
 import { DemoController } from './demo/demo.controller.js';
 import { DemoService } from './demo/demo.service.js';
 import { ProjetsService } from './projets/projets.service.js';
@@ -34,6 +35,7 @@ import { VersionsService } from './versions/versions.service.js';
     GithubService,
     GithubOAuthService,
     IndicateursService,
+    RegistreService,
     ProjetsService,
     RepriseService,
     StoriesService,

@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import { ConnecteGuard } from '../auth/connecte.guard.js';
 import { ProjetsService } from './projets.service.js';
 import { RepriseService } from './reprise.service.js';
+import { RegistreService } from '../indicateurs/registre.service.js';
 
 @Controller('projets')
 @UseGuards(ConnecteGuard)
@@ -10,6 +11,7 @@ export class ProjetsController {
   constructor(
     private readonly projets: ProjetsService,
     private readonly reprise: RepriseService,
+    private readonly registre: RegistreService,
   ) {}
 
   @Get()
@@ -30,12 +32,16 @@ export class ProjetsController {
 
   /** Reprise d'un dépôt existant : ADA ouvre une PR « reprise par ADA » que le PO valide. */
   @Post('reprendre')
-  reprendre(@Req() req: Request, @Body() corps: unknown) {
-    return this.reprise.reprendre(req.session.jeton!, req.session.utilisateur!.login, corps);
+  async reprendre(@Req() req: Request, @Body() corps: unknown) {
+    const resultat = await this.reprise.reprendre(req.session.jeton!, req.session.utilisateur!.login, corps);
+    await this.registre.noter(resultat.id, 'repris', req.session.utilisateur!.login);
+    return resultat;
   }
 
   @Post()
-  creer(@Req() req: Request, @Body() corps: unknown) {
-    return this.projets.creer(req.session.jeton!, req.session.utilisateur!.login, corps);
+  async creer(@Req() req: Request, @Body() corps: unknown) {
+    const resultat = await this.projets.creer(req.session.jeton!, req.session.utilisateur!.login, corps);
+    await this.registre.noter(resultat.projet.id, 'cree', req.session.utilisateur!.login);
+    return resultat;
   }
 }

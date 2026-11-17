@@ -22,6 +22,9 @@ l'aperçu du produit tourne à droite dès la création du projet.
   lu par `api/src/projets/depot.ts` ; toute route `projets/:depot` passe par `ProjetGuard`. Un
   projet existant est d'abord analysé par l'assistant (phase « reprise », `api/src/agent/consigne-reprise.ts`),
   puis entre dans ADA par une PR de reprise que le PO fusionne (`docs/adr/0010`).
+- Registre des projets (`api/src/indicateurs/registre*.ts`, fichier `registre/projets.json` hors
+  git) : la seule trace gardée hors de GitHub, pour que les indicateurs comptent aussi les projets
+  archivés, retirés d'ADA ou supprimés. Il ne fait que grandir ; l'état de chaque projet vient de GitHub.
 - Aperçu (`api/src/apercu/`) : clone du dépôt avec le jeton du PO (jeton passé par
   l'environnement, jamais en argument), puis `docker compose` (PostgreSQL + application, limites
   mémoire/CPU, ports 5300-5399 sur 127.0.0.1). Dossier de travail `apercus/`, hors git.
