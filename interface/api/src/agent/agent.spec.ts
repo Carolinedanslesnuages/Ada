@@ -233,4 +233,8 @@ describe('Consigne d’analyse : bref, décisions à cocher, découpage si la de
       expect(consigne).toContain(MISE_EN_FORME);
     }
   });
+
+  it('rappelle qu’ada.json liste des dossiers, jamais des noms de paquets', () => {
+    expect(consigneRealisation(demande, 'story/1-x')).toContain('jamais des noms de paquets');
+  });
 });

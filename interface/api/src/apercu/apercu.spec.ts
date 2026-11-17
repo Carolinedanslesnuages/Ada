@@ -62,6 +62,20 @@ describe('Conteneurs d’un aperçu', () => {
     }
   });
 
+  it('un dossier absent dans ada.json (ex. nom de paquet à la place d’un dossier) n’arrête pas l’aperçu', () => {
+    // Cas réel : « pip": ["mini-racer"] » écrit par erreur ; l'aperçu plantait en boucle.
+    const config = lireAdaConfig(JSON.stringify({ type: 'traitement', controlesRequis: ['T'], controles: ['true'], apercu: { image: 'python:3.13-slim', pip: ['mini-racer'], npm: ['absent'], principal: 'true', port: 8000 } }));
+    const travail = genererScriptTravail(config);
+    expect(travail).toContain('if [ -d /app/mini-racer ]; then (cd /app/mini-racer && installer_python);');
+    expect(travail).toContain('if [ -d /app/absent ]; then (cd /app/absent && installer);');
+    // Exécution réelle des lignes d'installation (aucun dossier /app ici) : le script continue.
+    const lignes = travail.split('\n').filter((ligne) => ligne.startsWith('if [ -d /app/'));
+    const sortie = execFileSync('bash', ['-c', ['set -euo pipefail', ...lignes, 'echo suite'].join('\n')], { encoding: 'utf8' });
+    expect(sortie).toContain('dossier mini-racer absent : installation ignorée');
+    expect(sortie).toContain('dossier absent absent : installation ignorée');
+    expect(sortie.trim().endsWith('suite')).toBe(true);
+  });
+
   it('maquette : ni base de données ni API, un seul dossier à la racine', () => {
     const maquette = lireAdaConfig(JSON.stringify({ type: 'maquette', controlesRequis: ['M'], controles: ['npm test'], apercu: { npm: ['.'], principal: "cd /app && npx vite --host 0.0.0.0 --port 5173 --strictPort --base './'" } }));
     const fichier = genererCompose('maquette', 5302, maquette);

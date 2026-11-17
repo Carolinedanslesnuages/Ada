@@ -249,6 +249,9 @@ Règles :
   ${DANS_CONTENEUR} "cd /app/<dossier> && npx vitest run <fichier de test>"
   (dossiers et commandes du projet : section « Commandes » d'AGENTS.md). Pendant le travail, ne
   lance que les tests concernés.
+- ada.json décrit l'aperçu : dans « npm » et « pip », des DOSSIERS du projet (où se trouvent
+  package.json ou requirements.txt), jamais des noms de paquets. Une dépendance s'ajoute dans
+  package.json ou requirements.txt (requirements-dev.txt pour les outils de test).
 - Noms explicites partout : chaque variable, fonction, paramètre dit ce qu'il contient ou fait
   (« salleLibre », « reservationsDuJour »), jamais « el », « x », « s », « tmp » ; seuls les noms
   imposés par les bibliothèques restent tels quels (vi, expect…). Le lint le vérifie.
