@@ -1,4 +1,5 @@
 /** Indicateurs d'ADA : fonctions pures, calculées à partir de ce que GitHub sait des demandes. */
+import type { BilanProjets } from './registre.js';
 
 /** Une demande (story, problème ou mode libre), telle que GitHub permet de la mesurer. */
 export interface DemandeMesuree {
@@ -21,6 +22,8 @@ export interface IndicateursProjet extends Mesures {
 
 export interface Indicateurs extends Mesures {
   projets: number;
+  /** Tous les projets passés par ADA, y compris archivés, retirés ou supprimés depuis. */
+  historique: BilanProjets;
   parProjet: IndicateursProjet[];
 }
 
@@ -38,9 +41,10 @@ function mesurer(demandes: DemandeMesuree[]): Mesures {
   };
 }
 
-export function calculerIndicateurs(projets: { nom: string; demandes: DemandeMesuree[] }[]): Indicateurs {
+export function calculerIndicateurs(projets: { nom: string; demandes: DemandeMesuree[] }[], historique: BilanProjets): Indicateurs {
   return {
     projets: projets.length,
+    historique,
     ...mesurer(projets.flatMap((projet) => projet.demandes)),
     parProjet: projets
       .map((projet) => ({ nom: projet.nom, ...mesurer(projet.demandes) }))

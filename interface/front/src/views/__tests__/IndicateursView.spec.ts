@@ -14,6 +14,7 @@ const lire = vi.mocked(api.lire)
 
 const INDICATEURS: Indicateurs = {
   projets: 2,
+  historique: { total: 6, crees: 5, repris: 1, actifs: 2, archives: 0, retires: 0, supprimes: 4 },
   storiesLivrees: 5,
   dureeMoyenneMinutes: 25,
   parProjet: [
@@ -34,13 +35,25 @@ describe('Page « Indicateurs »', () => {
     document.body.innerHTML = ''
   })
 
+  it('compte tous les projets passés par ADA, y compris archivés, retirés et supprimés', async () => {
+    lire.mockResolvedValue(INDICATEURS)
+    const wrapper = await monter()
+    const texte = wrapper.text()
+    expect(texte).toContain('Tous les projets passés par ADA')
+    expect(texte).toMatch(/Projets passés par ADA\s*6/)
+    expect(texte).toMatch(/Supprimés de GitHub\s*4/)
+    expect(texte).toMatch(/Archivés\s*0/)
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+
   it('montre projets, stories livrées et temps moyen, sur l’ensemble', async () => {
     lire.mockResolvedValue(INDICATEURS)
     const wrapper = await monter()
     expect(lire).toHaveBeenCalledWith('/indicateurs')
     const cartes = wrapper.findAll('.indicateurs li').map((carte) => carte.findAll('p').map((ligne) => ligne.text()))
     expect(cartes).toEqual([
-      ['2', 'Projets créés'],
+      ['2', 'Projets actifs dans ADA'],
       ['5', 'Stories livrées'],
       ['25 min', 'Temps moyen du lancement à la livraison'],
     ])
@@ -50,8 +63,9 @@ describe('Page « Indicateurs »', () => {
   it('détaille par projet, dans un tableau titré', async () => {
     lire.mockResolvedValue(INDICATEURS)
     const wrapper = await monter()
-    expect(wrapper.find('caption').text()).toContain('Indicateurs par projet')
-    const lignes = wrapper.findAll('tbody tr').map((ligne) => ligne.findAll('td').map((cellule) => cellule.text()))
+    const tableau = wrapper.findAll('table').find((element) => element.find('caption').text().includes('Indicateurs par projet'))!
+    expect(tableau.exists()).toBe(true)
+    const lignes = tableau.findAll('tbody tr').map((ligne) => ligne.findAll('td').map((cellule) => cellule.text()))
     expect(lignes).toEqual([
       ['pret-de-materiel', '5', '25 min'],
       ['annuaire', '0', 'Pas encore mesurable'],

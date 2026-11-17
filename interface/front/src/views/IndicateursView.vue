@@ -17,12 +17,26 @@ onMounted(async () => {
 const chiffres = computed(() =>
   indicateurs.value
     ? [
-        { titre: 'Projets créés', valeur: String(indicateurs.value.projets) },
+        { titre: 'Projets actifs dans ADA', valeur: String(indicateurs.value.projets) },
         { titre: 'Stories livrées', valeur: String(indicateurs.value.storiesLivrees) },
         { titre: 'Temps moyen du lancement à la livraison', valeur: duree(indicateurs.value.dureeMoyenneMinutes) },
       ]
     : [],
 )
+/** Tous les projets passés par ADA : d'où ils viennent, ce qu'ils sont devenus. */
+const historique = computed(() => {
+  const bilan = indicateurs.value?.historique
+  if (!bilan) return []
+  return [
+    ['Projets passés par ADA', String(bilan.total)],
+    ['dont créés avec ADA', String(bilan.crees)],
+    ['dont repris (créés ailleurs)', String(bilan.repris)],
+    ['Actifs dans ADA', String(bilan.actifs)],
+    ['Archivés', String(bilan.archives)],
+    ['Retirés d’ADA (reprise annulée, désynchronisés)', String(bilan.retires)],
+    ['Supprimés de GitHub', String(bilan.supprimes)],
+  ]
+})
 const entetes = ['Projet', 'Stories livrées', 'Temps moyen de livraison']
 const lignes = computed(() =>
   (indicateurs.value?.parProjet ?? []).map((projet) => [
@@ -54,6 +68,17 @@ const lignes = computed(() =>
     <p class="fr-text--xs fr-mt-2w">
       Le temps de livraison ne compte que les stories lancées depuis ADA.
     </p>
+    <h2 class="fr-h4 fr-mt-4w">Tous les projets passés par ADA</h2>
+    <p class="fr-text--sm">
+      Y compris ceux archivés, retirés d’ADA ou supprimés depuis : ADA garde la trace de chaque
+      projet créé ou repris.
+    </p>
+    <DsfrTable title="Projets passés par ADA et leur devenir" :headers="['', 'Nombre']" :rows="historique" />
+    <p class="fr-text--xs">
+      Les projets d’avant ce suivi sont repris d’après leur aperçu dans ADA ; leur origine (créé ou
+      repris) est alors comptée comme « créé ».
+    </p>
+
     <h2 class="fr-h4 fr-mt-4w">Par projet</h2>
     <DsfrTable v-if="lignes.length" title="Indicateurs par projet" :headers="entetes" :rows="lignes" />
     <p v-else>Aucun projet pour l’instant.</p>
