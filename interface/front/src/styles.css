@@ -1,7 +1,8 @@
 /* Mise en page « atelier » : conversation à gauche, aperçu à droite. */
 .atelier {
   display: grid;
-  grid-template-columns: minmax(20rem, 2fr) 3fr;
+  /* Conversation : un tiers plus étroite qu’au départ (40 % → 27 %), l’aperçu gagne la place. */
+  grid-template-columns: minmax(20rem, 4fr) 11fr;
   gap: 1.5rem;
   min-height: calc(100vh - 14rem);
 }
