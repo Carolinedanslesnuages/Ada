@@ -7,7 +7,8 @@ import { GithubService } from '../github/github.service.js';
 import { identifiantProjet, lireIdentifiant, verifierAcces } from './depot.js';
 import { ProjetsService, TOPIC_REPRISE, type DepotGithub } from './projets.service.js';
 import { CONTROLE_TITRE, prReprise, TITRE_REPRISE } from './reprise.js';
-import { etatControles, numeroDepuisUrl, peutFusionner, type Controle, type Verification } from '../verification/verification.js';
+import { lireControles, relancerControles } from '../verification/controles-github.js';
+import { numeroDepuisUrl, peutFusionner, type Controle, type Verification } from '../verification/verification.js';
 import { StoriesService } from '../stories/stories.service.js';
 import { AgentService } from '../agent/agent.service.js';
 
@@ -175,13 +176,28 @@ export class RepriseService {
         };
       }
       const { data: pr } = await gh.pulls.get({ owner, repo, pull_number: numero });
-      const { data: runs } = await gh.checks.listForRef({ owner, repo, ref: pr.head.sha, per_page: 100 });
       const etat = pr.merged ? 'fusionnee' : pr.state === 'closed' ? 'fermee' : 'ouverte';
-      const controles = etatControles(runs.check_runs, [CONTROLE_TITRE]);
+      const controles = await lireControles(gh, owner, repo, pr.head.sha, [CONTROLE_TITRE]);
       return { analyseEnCours, pullRequest: { numero: pr.number, url: pr.html_url, etat }, controles, ...peutFusionner(etat, pr.mergeable, controles, pr.title) };
     } catch (e) {
       traduireErreurGithub(e);
     }
+  }
+
+  /** Relance les contrôles de la PR de reprise (ex. après avoir réglé la facturation GitHub). */
+  async relancerControles(jeton: string, depot: string): Promise<EtatReprise> {
+    const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
+    const gh = this.github.client(jeton);
+    try {
+      const numero = numeroDepuisUrl(await prReprise(gh, owner, repo));
+      if (!numero) throw new ConflictException('Aucune pull request de reprise');
+      const { data: pr } = await gh.pulls.get({ owner, repo, pull_number: numero });
+      await relancerControles(gh, owner, repo, pr.head.sha);
+    } catch (e) {
+      if (e instanceof ConflictException) throw e;
+      traduireErreurGithub(e);
+    }
+    return this.etat(jeton, depot);
   }
 
   /**

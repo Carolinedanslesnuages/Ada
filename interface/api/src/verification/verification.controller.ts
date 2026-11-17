@@ -14,6 +14,12 @@ export class VerificationController {
     return this.verification.verifier(req.session.jeton!, depot, numero);
   }
 
+  /** Contrôles que GitHub n'a pas lancés (facturation) : relancés une fois la cause réglée. */
+  @Post('controles/relancer')
+  relancerControles(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
+    return this.verification.relancerControles(req.session.jeton!, depot, numero);
+  }
+
   @Post('fusionner')
   fusionner(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
     return this.verification.fusionner(req.session.jeton!, depot, numero);

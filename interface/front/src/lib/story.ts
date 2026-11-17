@@ -197,7 +197,8 @@ export function presenterMessage(message: Message): { auteur: string; texte: str
 
 export interface Controle {
   nom: string
-  etat: 'en-attente' | 'en-cours' | 'reussi' | 'echec'
+  /** « non-lance » : GitHub a refusé de lancer le contrôle (facturation du compte), le code n'est pas en cause. */
+  etat: 'en-attente' | 'en-cours' | 'reussi' | 'echec' | 'non-lance'
   lien: string | null
 }
 
@@ -214,6 +215,7 @@ export const LIBELLES_CONTROLE: Record<Controle['etat'], string> = {
   'en-cours': 'en cours',
   reussi: 'réussi',
   echec: 'échoué',
+  'non-lance': 'non lancé par GitHub',
 }
 
 export const PROMPT_MIN = 10
