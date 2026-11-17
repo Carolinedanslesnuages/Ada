@@ -27,6 +27,17 @@ async function charger(): Promise<void> {
   }
 }
 
+async function relancerControles(): Promise<void> {
+  fusionEnCours.value = true
+  try {
+    etat.value = await api.envoyer<EtatReprise>(`${chemin()}/controles/relancer`, {})
+  } catch (e) {
+    erreur.value = (e as Error).message
+  } finally {
+    fusionEnCours.value = false
+  }
+}
+
 async function fusionner(): Promise<void> {
   fusionEnCours.value = true
   try {
@@ -91,6 +102,9 @@ onUnmounted(() => {
       <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--sm">
         <li>
           <DsfrButton label="Valider et fusionner la reprise" :disabled="!etat.fusionnable || fusionEnCours" @click="fusionner" />
+        </li>
+        <li v-if="etat.controles.some((controle) => controle.etat === 'non-lance')">
+          <DsfrButton secondary icon="fr-icon-refresh-line" label="Relancer les contrôles" :disabled="fusionEnCours" @click="relancerControles" />
         </li>
         <li>
           <a class="fr-btn fr-btn--secondary fr-btn--sm" :href="etat.pullRequest.url" target="_blank" rel="noopener">

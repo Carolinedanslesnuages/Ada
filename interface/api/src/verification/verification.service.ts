@@ -7,7 +7,8 @@ import { GithubService } from '../github/github.service.js';
 import { DemoService } from '../demo/demo.service.js';
 import { ProjetsService } from '../projets/projets.service.js';
 import { StoriesService } from '../stories/stories.service.js';
-import { etatControles, numeroDepuisUrl, peutFusionner, type Verification } from './verification.js';
+import { numeroDepuisUrl, peutFusionner, type Verification } from './verification.js';
+import { lireControles, relancerControles } from './controles-github.js';
 import { lireIdentifiant } from '../projets/depot.js';
 
 @Injectable()
@@ -38,10 +39,9 @@ export class VerificationService {
     const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
     try {
       const { data: pr } = await gh.pulls.get({ owner, repo, pull_number: numeroPr });
-      const { data: runs } = await gh.checks.listForRef({ owner, repo, ref: pr.head.sha, per_page: 100 });
       const etat = pr.merged ? 'fusionnee' : pr.state === 'closed' ? 'fermee' : 'ouverte';
       const { controlesRequis } = await this.projets.lireConfigDepot(gh, owner, repo, pr.base.ref);
-      const controles = etatControles(runs.check_runs, controlesRequis);
+      const controles = await lireControles(gh, owner, repo, pr.head.sha, controlesRequis);
       return {
         pullRequest: { numero: pr.number, url: pr.html_url, etat },
         controles,
@@ -50,6 +50,21 @@ export class VerificationService {
     } catch (e) {
       traduireErreurGithub(e);
     }
+  }
+
+  /** Relance les contrôles que GitHub n'a pas lancés (ou en échec), une fois la cause réglée. */
+  async relancerControles(jeton: string, depot: string, numero: number): Promise<Verification> {
+    const numeroPr = numeroDepuisUrl((await this.agent.activite(depot, numero)).pullRequest);
+    if (!numeroPr) throw new ConflictException('Aucune pull request pour cette demande');
+    const gh = this.github.client(jeton);
+    const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
+    try {
+      const { data: pr } = await gh.pulls.get({ owner, repo, pull_number: numeroPr });
+      await relancerControles(gh, owner, repo, pr.head.sha);
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+    return this.verifier(jeton, depot, numero);
   }
 
   /**

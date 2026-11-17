@@ -70,6 +70,17 @@ describe('Reprise en attente (#37)', () => {
     wrapper.unmount()
   })
 
+  it('contrôle non lancé par GitHub : le PO peut le relancer depuis ADA', async () => {
+    lire.mockResolvedValue({ ...pr(false), controles: [{ nom: TITRE, etat: 'non-lance', lien: null }], raison: 'GitHub n’a pas lancé les contrôles' })
+    const wrapper = await monter()
+    expect(wrapper.text()).toContain('non lancé par GitHub')
+    envoyer.mockResolvedValue(pr(false))
+    await wrapper.findAll('button').find((b) => b.text() === 'Relancer les contrôles')!.trigger('click')
+    await flushPromises()
+    expect(envoyer).toHaveBeenCalledWith('/projets/aminimo/reprise/controles/relancer', {})
+    wrapper.unmount()
+  })
+
   it('analyse arrêtée sans PR : le PO est prévenu', async () => {
     lire.mockResolvedValue({ ...enAnalyse, analyseEnCours: false, raison: 'L’analyse s’est arrêtée sans pull request de reprise' })
     const wrapper = await monter()

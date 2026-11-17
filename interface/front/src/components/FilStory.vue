@@ -32,6 +32,7 @@ const emit = defineEmits<{
   valider: []
   relancer: []
   fusionner: []
+  relancerControles: []
   repondre: [texte: string]
   creerDecoupage: [stories: StoryProposee[]]
   ouvrir: [numero: number]
@@ -182,6 +183,7 @@ function envoyer(): void {
                   'fr-icon-checkbox-circle-fill controle--ok': controle.etat === 'reussi',
                   'fr-icon-close-circle-fill controle--ko': controle.etat === 'echec',
                   'fr-icon-time-line': controle.etat === 'en-cours' || controle.etat === 'en-attente',
+                  'fr-icon-warning-line': controle.etat === 'non-lance',
                 }"
                 class="fr-icon--sm"
                 aria-hidden="true"
@@ -190,12 +192,19 @@ function envoyer(): void {
             </li>
           </ul>
           <p v-if="verification.raison" class="fr-text--sm fr-mb-2w">{{ verification.raison }}</p>
-          <DsfrButton
-            icon="fr-icon-check-line"
-            label="Valider et fusionner"
-            :disabled="!verification.fusionnable || actionEnCours"
-            @click="emit('fusionner')"
-          />
+          <ul class="fr-btns-group fr-btns-group--inline-md">
+            <li>
+              <DsfrButton
+                icon="fr-icon-check-line"
+                label="Valider et fusionner"
+                :disabled="!verification.fusionnable || actionEnCours"
+                @click="emit('fusionner')"
+              />
+            </li>
+            <li v-if="verification.controles.some((controle) => controle.etat === 'non-lance')">
+              <DsfrButton secondary icon="fr-icon-refresh-line" label="Relancer les contrôles" :disabled="actionEnCours" @click="emit('relancerControles')" />
+            </li>
+          </ul>
         </template>
       </template>
 

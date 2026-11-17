@@ -95,6 +95,16 @@ export const useStoriesStore = defineStore('stories', () => {
     }
   }
 
+  /** Relance les contrôles que GitHub n'avait pas lancés (facturation réglée entre-temps). */
+  async function relancerControles(projet: string, numero: number): Promise<void> {
+    erreurAction.value = null
+    try {
+      verification.value = await api.envoyer<Verification>(`${chemin(projet)}/${numero}/controles/relancer`, {})
+    } catch (e) {
+      erreurAction.value = (e as Error).message
+    }
+  }
+
   /** Fusionne la demande (contrôles verts) : elle devient livrée, la suivante peut être lancée. */
   async function fusionner(projet: string, numero: number): Promise<void> {
     erreurAction.value = null
@@ -208,6 +218,7 @@ export const useStoriesStore = defineStore('stories', () => {
     erreurAction,
     chargerVerification,
     fusionner,
+    relancerControles,
     charger,
     chargerActivite,
     suivre,

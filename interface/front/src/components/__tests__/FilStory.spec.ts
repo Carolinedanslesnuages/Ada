@@ -219,11 +219,11 @@ describe('Fil d’une story', () => {
   })
 
   describe('Vérification et fusion', () => {
-    const controle = (etat: 'reussi' | 'en-cours' | 'echec') => [
+    const controle = (etat: 'reussi' | 'en-cours' | 'echec' | 'non-lance') => [
       { nom: 'Anti-fuite (gitleaks)', etat: 'reussi' as const, lien: null },
       { nom: 'Front', etat, lien: null },
     ]
-    const verification = (etat: 'reussi' | 'en-cours' | 'echec', fusionnable: boolean, raison: string | null) => ({
+    const verification = (etat: 'reussi' | 'en-cours' | 'echec' | 'non-lance', fusionnable: boolean, raison: string | null) => ({
       pullRequest: { numero: 3, url: 'https://github.com/p/poc/pull/3', etat: 'ouverte' as const },
       controles: controle(etat),
       fusionnable,
@@ -247,6 +247,18 @@ describe('Fil d’une story', () => {
       expect(bouton(wrapper, 'Valider et fusionner')!.attributes('disabled')).toBeDefined()
       expect(wrapper.text()).toContain('Contrôles en cours…')
       expect(wrapper.text()).toContain('Front : en cours')
+      expect(bouton(wrapper, 'Relancer les contrôles')).toBeUndefined()
+      wrapper.unmount()
+    })
+
+    it('contrôles non lancés par GitHub (facturation) : la cause est dite, le PO peut les relancer', async () => {
+      const raison = 'GitHub n’a pas lancé les contrôles : … Billing & plans …'
+      const wrapper = monterAvec({ story: { ...story, statut: 'en-verification' }, verification: verification('non-lance', false, raison) })
+      expect(wrapper.text()).toContain('Front : non lancé par GitHub')
+      expect(wrapper.text()).toContain(raison)
+      await bouton(wrapper, 'Relancer les contrôles')!.trigger('click')
+      expect(wrapper.emitted('relancerControles')).toHaveLength(1)
+      expect(await violationsAccessibilite(document.body)).toEqual([])
       wrapper.unmount()
     })
   })

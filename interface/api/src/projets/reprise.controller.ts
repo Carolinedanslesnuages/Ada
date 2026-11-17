@@ -15,6 +15,11 @@ export class RepriseController {
     return this.reprise.etat(req.session.jeton!, depot);
   }
 
+  @Post('controles/relancer')
+  relancerControles(@Req() req: Request, @Param('depot') depot: string) {
+    return this.reprise.relancerControles(req.session.jeton!, depot);
+  }
+
   @Post('fusionner')
   fusionner(@Req() req: Request, @Param('depot') depot: string) {
     return this.reprise.fusionner(req.session.jeton!, depot);

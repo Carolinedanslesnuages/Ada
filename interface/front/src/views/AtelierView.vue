@@ -177,6 +177,7 @@ async function agir(action: (projet: string, numero: number) => Promise<void>): 
 const valider = () => agir((p, n) => stories.validerPlan(p, n))
 const relancer = () => agir((p, n) => stories.relancer(p, n))
 const fusionner = () => agir((p, n) => stories.fusionner(p, n))
+const relancerControles = () => agir((p, n) => stories.relancerControles(p, n))
 const repondre = (texte: string) => agir((p, n) => stories.repondre(p, n, texte))
 const creerDecoupage = (proposees: StoryProposee[]) => agir((p, n) => stories.creerDecoupage(p, n, proposees))
 
@@ -349,6 +350,7 @@ onUnmounted(() => {
         @valider="valider"
         @relancer="relancer"
         @fusionner="fusionner"
+        @relancer-controles="relancerControles"
         @repondre="repondre"
         @creer-decoupage="creerDecoupage"
         @ouvrir="ouvrir"
