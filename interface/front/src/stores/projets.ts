@@ -56,7 +56,8 @@ export const useProjetsStore = defineStore('projets', () => {
     erreur.value = null
     try {
       liste.value = await api.lire<Projet[]>('/projets')
-      if (!courant.value) idCourant.value = liste.value[0]?.id ?? null
+      // Aucun projet ouvert à l'arrivée : le PO choisit (rien n'est affiché sans son choix).
+      if (idCourant.value && !courant.value) idCourant.value = null
     } catch (e) {
       erreur.value = (e as Error).message
     } finally {
@@ -95,6 +96,11 @@ export const useProjetsStore = defineStore('projets', () => {
     idCourant.value = id
   }
 
+  /** Masque le projet ouvert : il reste dans la liste, rien n'est affiché jusqu'au prochain choix. */
+  function fermer(): void {
+    idCourant.value = null
+  }
+
   function aReprendre(): Promise<DepotAReprendre[]> {
     return api.lire<DepotAReprendre[]>('/projets/a-reprendre')
   }
@@ -120,6 +126,7 @@ export const useProjetsStore = defineStore('projets', () => {
     chargerModeles,
     creer,
     choisir,
+    fermer,
     aReprendre,
     reprendre,
   }

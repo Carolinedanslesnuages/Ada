@@ -30,9 +30,14 @@ const reponses: Record<string, unknown> = {
   '/projets/annuaire/versions': { actuelle: null, proposee: null },
 }
 
-const monter = async () => {
+/** Monte l'atelier ; aucun projet n'est ouvert à l'arrivée : on choisit `projet` dans le sélecteur. */
+const monter = async (projet: string | null = 'poc-portail') => {
   const wrapper = mount(AtelierView, { global: { plugins: [VueDsfr] }, attachTo: document.body })
   await flushPromises()
+  if (projet) {
+    await wrapper.find('select').setValue(projet)
+    await flushPromises()
+  }
   return wrapper
 }
 
@@ -43,6 +48,28 @@ describe('Écran de l’atelier', () => {
     envoyer.mockReset()
     lire.mockImplementation(async (chemin: string) => reponses[chemin])
     envoyer.mockResolvedValue({ etat: 'demarrage', url: null, journal: null })
+  })
+
+  it('à l’arrivée, aucun projet n’est ouvert : le PO choisit dans le sélecteur', async () => {
+    const wrapper = await monter(null)
+    expect(wrapper.text()).toContain('Choisissez un projet dans la liste pour l’ouvrir.')
+    expect(wrapper.text()).not.toContain('Page d’accueil')
+    expect(wrapper.findAll('select option').map((option) => option.text())).toEqual(expect.arrayContaining(['poc-portail', 'annuaire']))
+    expect(envoyer).not.toHaveBeenCalledWith('/projets/poc-portail/apercu', {})
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('« Masquer le projet » ferme le projet ouvert, qui reste dans le sélecteur', async () => {
+    const wrapper = await monter()
+    expect(wrapper.text()).toContain('Page d’accueil')
+    await wrapper.findAll('button').find((bouton) => bouton.text() === 'Masquer le projet')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Page d’accueil')
+    expect(wrapper.text()).toContain('Choisissez un projet dans la liste pour l’ouvrir.')
+    expect(wrapper.findAll('select option').map((option) => option.text())).toContain('poc-portail')
+    expect(wrapper.findAll('button').some((bouton) => bouton.text() === 'Masquer le projet')).toBe(false)
+    wrapper.unmount()
   })
 
   it('affiche les stories écrites dans GitHub à côté de l’aperçu, qui démarre tout seul', async () => {
@@ -110,7 +137,7 @@ describe('Écran de l’atelier', () => {
             }
           : undefined,
     )
-    const wrapper = await monter()
+    const wrapper = await monter(null)
     await wrapper.findAll('button').find((b) => b.text().includes('Nouveau projet'))!.trigger('click')
     await flushPromises()
     expect(wrapper.find('h2.fr-h4').text()).toBe('Nouveau projet')
