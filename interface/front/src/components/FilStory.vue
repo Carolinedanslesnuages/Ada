@@ -201,7 +201,7 @@ function envoyer(): void {
             </li>
           </ul>
           <p v-if="verification.raison" class="fr-text--sm fr-mb-2w">{{ verification.raison }}</p>
-          <ul class="fr-btns-group fr-btns-group--inline-md">
+          <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
             <li>
               <DsfrButton
                 icon="fr-icon-check-line"
@@ -226,7 +226,7 @@ function envoyer(): void {
       </template>
 
       <div v-else-if="story.statut === 'plan-a-valider' && !modeModification">
-        <p class="fr-text--sm fr-mb-2w">L’assistant attend votre accord sur le plan ci-dessous avant de commencer.</p>
+        <p class="fr-text--sm fr-mb-2w">L’assistant attend votre accord sur le plan ci-dessus avant de commencer.</p>
         <p id="validation-enregistrement" class="fr-text--sm fr-mb-2w">
           <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
           Votre accord est enregistré sur GitHub, en commentaire {{ designation }}, à votre nom.
@@ -283,7 +283,7 @@ function envoyer(): void {
           {{ designation }}</strong>, à votre nom et visible par l’équipe du projet. Il garde la trace
           des échanges avec l’assistant.
         </p>
-        <ul class="fr-btns-group fr-btns-group--inline-md">
+        <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
           <li><DsfrButton type="submit" label="Envoyer" aria-describedby="reponse-enregistrement" :disabled="actionEnCours" /></li>
           <li v-if="modeModification">
             <DsfrButton type="button" tertiary label="Annuler" @click="modeModification = false" />
