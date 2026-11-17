@@ -192,6 +192,15 @@ export function genererScriptDemarrage(config: AdaConfig = ADA_PAR_DEFAUT): stri
 }
 
 /** Installation (avec nouvelles tentatives sur connexion lente), préalables, arrière-plan, page affichée. */
+/**
+ * Installation dans un dossier déclaré par ada.json. Un dossier absent (ex. un nom de paquet mis
+ * par erreur à la place d'un dossier) est signalé et ignoré : il ne doit pas arrêter tout l'aperçu.
+ */
+const installerDans = (dossier: string, fonction: string, libelle: string): string[] => [
+  `echo "[apercu] installation${libelle} : ${dossier}"`,
+  `if [ -d ${cheminDossier(dossier)} ]; then (cd ${cheminDossier(dossier)} && ${fonction}); else echo "[apercu] dossier ${dossier} absent : installation ignorée (à corriger dans ada.json, qui attend des dossiers)"; fi`,
+];
+
 export function genererScriptTravail(config: AdaConfig = ADA_PAR_DEFAUT): string {
   const { apercu } = config;
   return [
@@ -206,7 +215,7 @@ export function genererScriptTravail(config: AdaConfig = ADA_PAR_DEFAUT): string
     '  done',
     '  return 1',
     '}',
-    ...apercu.npm.flatMap((dossier) => [`echo "[apercu] installation : ${dossier}"`, `(cd ${cheminDossier(dossier)} && installer)`]),
+    ...apercu.npm.flatMap((dossier) => installerDans(dossier, 'installer', '')),
     ...(apercu.pip.length
       ? [
           'installer_python() {',
@@ -221,7 +230,7 @@ export function genererScriptTravail(config: AdaConfig = ADA_PAR_DEFAUT): string
           '  return 1',
           '}',
           '[ -x /opt/venv/bin/python ] || python3 -m venv /opt/venv',
-          ...apercu.pip.flatMap((dossier) => [`echo "[apercu] installation Python : ${dossier}"`, `(cd ${cheminDossier(dossier)} && installer_python)`]),
+          ...apercu.pip.flatMap((dossier) => installerDans(dossier, 'installer_python', ' Python')),
         ]
       : []),
     ...apercu.avant,
