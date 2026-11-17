@@ -25,12 +25,10 @@ const liensRapides = computed(() =>
 
 <template>
   <DsfrHeader
-    service-title="ADA"
-    service-description="Atelier de Développement Assisté"
     :logo-text="logoText"
     operator-img-src="/logo-ada.svg"
-    operator-img-alt="ADA"
-    :operator-img-style="{ width: '5.5rem' }"
+    operator-img-alt="ADA — Atelier de Développement Assisté (accueil)"
+    :operator-img-style="{ width: '7rem' }"
     home-to="/"
     :quick-links="liensRapides"
   />
