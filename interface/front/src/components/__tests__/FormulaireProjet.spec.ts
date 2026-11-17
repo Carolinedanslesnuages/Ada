@@ -108,6 +108,7 @@ describe('Formulaire de nouveau projet (étapier)', () => {
       modele: 'vue-node',
       baseline: 'Qui fait quoi dans l’équipe',
       deploye: false,
+      visibilite: 'prive',
     })
     wrapper.unmount()
   })
@@ -123,6 +124,23 @@ describe('Formulaire de nouveau projet (étapier)', () => {
     await wrapper.find('input').setValue('Annuaire')
     await suivant(wrapper)
     expect(wrapper.emitted('soumettre')?.[0]?.[0]).toMatchObject({ nom: 'Annuaire', modele: 'maquette' })
+    wrapper.unmount()
+  })
+
+  it('dépôt privé par défaut ; le PO peut le rendre public', async () => {
+    const wrapper = monter()
+    await allerAuxStacks(wrapper)
+    await wrapper.find('#type-maquette').setValue(true)
+    await suivant(wrapper)
+    const choix = wrapper.findAll('input[name="visibilite"]')
+    expect(choix).toHaveLength(2)
+    expect((choix[0]!.element as HTMLInputElement).checked).toBe(true)
+    expect(wrapper.text()).toContain('Tout le monde peut voir le code sur GitHub')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    await choix[1]!.trigger('click')
+    await wrapper.find('input').setValue('Annuaire')
+    await suivant(wrapper)
+    expect(wrapper.emitted('soumettre')?.[0]?.[0]).toMatchObject({ nom: 'Annuaire', visibilite: 'public' })
     wrapper.unmount()
   })
 

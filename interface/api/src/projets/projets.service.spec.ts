@@ -244,6 +244,23 @@ describe('ProjetsService', () => {
     await expect(service.creer('jeton', 'proprio', { ...projetValide, nom: 'Autre projet', idee: 'une idée assez longue' })).resolves.toMatchObject({ idee: null });
   });
 
+  it('crée un dépôt privé par défaut, public si le PO le choisit', async () => {
+    preparerCreation();
+    await service.creer('jeton', 'proprio', projetValide);
+    expect(gh.repos.createForAuthenticatedUser).toHaveBeenCalledWith(expect.objectContaining({ name: 'l-annuaire', private: true }));
+    vi.clearAllMocks();
+    preparerCreation();
+    rmSync(distant, { recursive: true, force: true });
+    distant = depotDistant();
+    await service.creer('jeton', 'proprio', { ...projetValide, visibilite: 'public' });
+    expect(gh.repos.createForAuthenticatedUser).toHaveBeenCalledWith(expect.objectContaining({ name: 'l-annuaire', private: false }));
+  });
+
+  it('refuse une visibilité inconnue', async () => {
+    preparerCreation();
+    await expect(service.creer('jeton', 'proprio', { ...projetValide, visibilite: 'interne' })).rejects.toThrow(BadRequestException);
+  });
+
   it('crée le dépôt dans l’organisation quand le PO n’en est pas le propriétaire', async () => {
     preparerCreation();
     await service.creer('jeton', 'un-po', projetValide);

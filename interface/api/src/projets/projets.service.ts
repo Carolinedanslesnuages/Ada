@@ -249,9 +249,9 @@ export class ProjetsService {
     try {
       if (existant && reprise) {
         depot = existant;
-        await gh.repos.update({ owner, repo: slug, description });
+        await gh.repos.update({ owner, repo: slug, description, private: projet.visibilite === 'prive' });
       } else {
-        depot = await this.creerDepotVide(gh, login, slug, description);
+        depot = await this.creerDepotVide(gh, login, slug, description, projet.visibilite === 'prive');
         await gh.repos.replaceAllTopics({ owner, repo: slug, names: [TOPIC_CREATION] });
       }
       // Réglages AVANT le premier push : ce push déclenche la CI et release-please.
@@ -319,8 +319,9 @@ export class ProjetsService {
     return topics.includes(TOPIC_CREATION) || (depot.template_repository?.name ?? '').startsWith('modele-');
   }
 
-  private async creerDepotVide(gh: Octokit, login: string, slug: string, description: string): Promise<DepotGithub> {
-    const parametres = { name: slug, description, private: true, auto_init: false };
+  /** Dépôt vide, privé ou public selon le choix du PO. */
+  private async creerDepotVide(gh: Octokit, login: string, slug: string, description: string, prive: boolean): Promise<DepotGithub> {
+    const parametres = { name: slug, description, private: prive, auto_init: false };
     try {
       const { data } =
         this.proprietaire.toLowerCase() === login.toLowerCase()

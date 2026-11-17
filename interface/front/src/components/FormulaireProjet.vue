@@ -24,7 +24,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ soumettre: [projet: NouveauProjet]; annuler: [] }>()
 
-const projet = reactive<NouveauProjet>({ nom: '', idee: '', objectif: '', modele: '', baseline: '', deploye: false })
+const projet = reactive<NouveauProjet>({ nom: '', idee: '', objectif: '', modele: '', baseline: '', deploye: false, visibilite: 'prive' })
 const erreursLocales = ref<ErreursProjet>({})
 const erreurs = computed<ErreursProjet>(() => ({ ...erreursLocales.value, ...props.erreursServeur }))
 const adresse = computed(() => slugifier(normaliserNom(projet.nom)))
@@ -85,6 +85,11 @@ async function demanderConseil(): Promise<void> {
  * enfin le nom et la présentation. Chaque étape est vérifiée avant de passer à la suivante.
  */
 const ETAPES = ['Votre idée', 'Type de projet et stack', 'Nom et présentation'] as const
+/** Visibilité du dépôt : privé par défaut ; public = code visible de tous sur GitHub. */
+const optionsVisibilite = [
+  { label: 'Privé', value: 'prive', hint: 'Seuls vous et les personnes que vous invitez voient le dépôt sur GitHub. Le choix par défaut.' },
+  { label: 'Public', value: 'public', hint: 'Tout le monde peut voir le code sur GitHub. Jamais de donnée réelle ni de secret dans le projet.' },
+]
 const CHAMPS_PAR_ETAPE: (keyof NouveauProjet)[][] = [['idee'], ['modele'], ['nom', 'objectif', 'baseline']]
 const etape = ref(1)
 const zoneEtapes = useTemplateRef<HTMLElement>('zone-etapes')
@@ -286,6 +291,13 @@ function envoyer(): void {
         hint="Phrase courte affichée sous le nom du service dans l’en-tête. Exemple : Ma journée avec POC Portail"
         label-visible
         :error-message="erreurs.baseline"
+      />
+      <DsfrRadioButtonSet
+        v-model="projet.visibilite"
+        name="visibilite"
+        legend="Visibilité du dépôt GitHub"
+        :options="optionsVisibilite"
+        :error-message="erreurs.visibilite"
       />
     </template>
 

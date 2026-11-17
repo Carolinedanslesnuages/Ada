@@ -45,6 +45,8 @@ export interface NouveauProjet {
   baseline: string
   /** Le projet sera déployé : ADA ajoute le chart Helm du modèle. */
   deploye: boolean
+  /** Dépôt GitHub privé (par défaut) ou public, visible de tous. */
+  visibilite?: 'prive' | 'public'
 }
 
 export type ErreursProjet = Partial<Record<keyof NouveauProjet, string>>
