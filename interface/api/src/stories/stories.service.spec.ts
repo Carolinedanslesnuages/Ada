@@ -248,9 +248,11 @@ describe('StoriesService', () => {
       gh.issues.create.mockImplementation(async ({ title, body }: { title: string; body: string }) => ({ data: issue(prochain++, { title, body }) }));
     });
 
-    it('crée à son nom les stories cochées, relues dans la proposition, puis fait de la demande leur parent', async () => {
-      const creees = await service.creerDecoupage('jeton', 'poc', 4, [2, 0], 'po1');
+    it('publie à son nom les stories cochées, telles qu’il les a relues et corrigées, puis fait de la demande leur parent', async () => {
+      const corrigee = { ...stories[2]!, criteres: ['Bouton Rendre', 'Message de confirmation'] };
+      const creees = await service.creerDecoupage('jeton', 'poc', 4, [stories[0], corrigee], 'po1');
       expect(creees.map((story) => [story.numero, story.titre])).toEqual([[10, 'Voir le matériel'], [11, 'Rendre']]);
+      expect(lireStory((gh.issues.create.mock.calls[1]![0] as { body: string }).body)?.criteres).toEqual(['Bouton Rendre', 'Message de confirmation']);
       const premiere = gh.issues.create.mock.calls[0]![0] as { body: string; labels: string[] };
       expect(premiere.labels).toEqual(['user-story']);
       expect(lireStory(premiere.body)?.criteres).toEqual(['Liste']);
@@ -261,11 +263,12 @@ describe('StoriesService', () => {
       expect(gh.issues.setLabels).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 4, labels: ['user-story', 'story:parent'] }));
     });
 
-    it('refuse une sélection vide ou hors de la proposition, et une demande sans découpage en attente', async () => {
+    it('refuse une sélection vide, une story incomplète ou trop longue, et une demande sans découpage en attente', async () => {
       await expect(service.creerDecoupage('jeton', 'poc', 4, [], 'po1')).rejects.toThrow(/Cochez au moins une story/);
-      await expect(service.creerDecoupage('jeton', 'poc', 4, [0, 9], 'po1')).rejects.toThrow(/Cochez au moins une story/);
+      await expect(service.creerDecoupage('jeton', 'poc', 4, [{ ...stories[0], besoin: ' ' }], 'po1')).rejects.toThrow(/Story 1 : complétez « je veux »/);
+      await expect(service.creerDecoupage('jeton', 'poc', 4, [stories[0], { ...stories[1], criteres: ['a', 'b', 'c', 'd', 'e'] }], 'po1')).rejects.toThrow(/Story 2 : de 1 à 4 critères/);
       gh.issues.get.mockResolvedValue({ data: parent([{ name: 'user-story' }]) });
-      await expect(service.creerDecoupage('jeton', 'poc', 4, [0], 'po1')).rejects.toThrow(/Aucun découpage/);
+      await expect(service.creerDecoupage('jeton', 'poc', 4, [stories[0]], 'po1')).rejects.toThrow(/Aucun découpage/);
       expect(gh.issues.create).not.toHaveBeenCalled();
     });
 

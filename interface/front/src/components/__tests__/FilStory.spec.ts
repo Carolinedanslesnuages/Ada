@@ -143,7 +143,7 @@ describe('Fil d’une story', () => {
     const wrapper = monterAvec({ story: { ...story, statut: 'decoupage', messages: [...story.messages, { id: 98, auteur: 'robot', avatar: null, le: '2026-11-16T10:00:00Z', texte }] } })
     expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(2)
     await wrapper.find('form').trigger('submit')
-    expect(wrapper.emitted('creerDecoupage')).toEqual([[[0, 1]]])
+    expect(wrapper.emitted('creerDecoupage')).toEqual([[stories]])
     await bouton(wrapper, 'Demander un autre découpage')!.trigger('click')
     expect(wrapper.find('textarea').exists()).toBe(true)
     expect(wrapper.text()).toContain('Ce qu’il faut changer dans le découpage')

@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { z } from 'zod';
 
 /**
@@ -289,4 +290,29 @@ export function cocherEnfant(corps: string, numero: number): { corps: string; to
   const coche = corps.replace(new RegExp(`^- \\[ \\] #${numero}(?=\\s)`, 'm'), `- [x] #${numero}`);
   const section = coche.split(SECTION_DECOUPAGE)[1] ?? '';
   return { corps: coche, toutesLivrees: /^- \[x\] #\d+/m.test(section) && !/^- \[ \] #\d+/m.test(section) };
+}
+
+/**
+ * Stories à publier, relues par le PO : 1 à 8, chacune complète (titre, rôle, besoin, bénéfice,
+ * 1 à CRITERES_MAX critères). Sinon une erreur qui dit laquelle corriger.
+ */
+export function validerStoriesAPublier(brut: unknown): StoryProposee[] {
+  if (!Array.isArray(brut) || brut.length === 0) throw new BadRequestException('Cochez au moins une story à publier');
+  if (brut.length > 8) throw new BadRequestException('8 stories au plus à la fois');
+  return brut.map((element, rang) => {
+    const saisie = (element ?? {}) as Record<string, unknown>;
+    const story: StoryProposee = {
+      titre: texteCourt(saisie.titre, 120),
+      role: texteCourt(saisie.role, 200),
+      besoin: texteCourt(saisie.besoin, 600),
+      benefice: texteCourt(saisie.benefice, 600),
+      criteres: (Array.isArray(saisie.criteres) ? saisie.criteres : []).map((critere) => texteCourt(critere, 300)).filter(Boolean),
+    };
+    const manque = [!story.titre && 'le titre', !story.role && '« en tant que »', !story.besoin && '« je veux »', !story.benefice && '« afin de »'].filter(Boolean);
+    if (manque.length) throw new BadRequestException(`Story ${rang + 1} : complétez ${manque.join(', ')}`);
+    if (story.criteres.length < 1 || story.criteres.length > CRITERES_MAX) {
+      throw new BadRequestException(`Story ${rang + 1} : de 1 à ${CRITERES_MAX} critères d’acceptation`);
+    }
+    return story;
+  });
 }

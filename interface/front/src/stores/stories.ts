@@ -6,6 +6,7 @@ import {
   type Activite,
   type DetailStory,
   type Personne,
+  type StoryProposee,
   type ResumeStory,
   type Verification,
 } from '@/lib/story'
@@ -156,9 +157,9 @@ export const useStoriesStore = defineStore('stories', () => {
   const relancer = (projet: string, numero: number) =>
     agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/relancer`, {}))
 
-  /** Découpage validé : ADA crée les stories cochées ; la demande devient leur parent (#36). */
-  const creerDecoupage = (projet: string, numero: number, indices: number[]) =>
-    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/decoupage`, { indices }))
+  /** Découpage validé : ADA publie les stories relues par le PO ; la demande devient leur parent (#36). */
+  const creerDecoupage = (projet: string, numero: number, stories: StoryProposee[]) =>
+    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/decoupage`, { stories }))
 
   /** Réponse aux questions, ou modification demandée sur le plan. */
   const repondre = (projet: string, numero: number, texte: string) =>

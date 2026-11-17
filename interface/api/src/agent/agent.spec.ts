@@ -53,7 +53,7 @@ describe('Consignes données à l’agent', () => {
     const analyse = consigneAnalyse(libre);
     expect(analyse).toContain('Demande libre du PO (mode sauvage, hors story) :\nMets le titre en bleu');
     expect(analyse).toContain('une application entière');
-    expect(analyse).toContain('ne propose PAS de plan');
+    expect(analyse).toContain('réponds par la décision « decoupage », sans plan');
     expect(brancheDe(libre)).toBe('libre/1-mets-le-titre-en-bleu');
     expect(consigneRealisation(libre, 'libre/1-mets-le-titre-en-bleu')).toContain('Réalisé hors story, en mode libre');
   });
@@ -199,5 +199,14 @@ describe('Décision « découpage » de l’assistant (#36)', () => {
 
   it('la consigne demande un découpage en stories quand la demande est trop grosse', () => {
     expect(consigneAnalyse(demande)).toContain('réponds par la décision « decoupage »');
+  });
+});
+
+describe('Consigne d’analyse : bref, décisions à cocher, découpage si la demande est floue', () => {
+  it('demande d’être bref, impose les choix pour toute décision, et découpe une demande floue', () => {
+    const consigne = consigneAnalyse(demande);
+    expect(consigne).toContain('SOIS BREF');
+    expect(consigne).toContain('Toute question qui appelle une DÉCISION doit avoir ses options');
+    expect(consigne).toContain('ou trop floue : il te faudrait plus de trois questions');
   });
 });

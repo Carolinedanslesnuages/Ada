@@ -13,8 +13,8 @@ import {
   ajouterDecoupage,
   cocherEnfant,
   formaterStory,
-  lireDecoupage,
   lireParent,
+  validerStoriesAPublier,
   STATUTS,
   STATUTS_ACTIFS,
   statutDepuis,
@@ -305,26 +305,19 @@ export class StoriesService {
   }
 
   /**
-   * Découpage validé par le PO (#36) : ADA crée, à son nom, les stories qu'il a cochées — relues
-   * dans la proposition de l'assistant (jamais envoyées par l'écran) — et la demande d'origine
-   * devient leur parent (liste à cocher, fermée quand toutes sont livrées).
+   * Découpage validé par le PO (#36) : ADA publie, à son nom, les stories qu'il a cochées — telles
+   * qu'il les a relues et éventuellement corrigées (champs préremplis par l'assistant) — et la
+   * demande d'origine devient leur parent (liste à cocher, fermée quand toutes sont livrées).
    */
-  async creerDecoupage(jeton: string, depot: string, numero: number, indices: unknown, login: string): Promise<ResumeStory[]> {
+  async creerDecoupage(jeton: string, depot: string, numero: number, saisies: unknown, login: string): Promise<ResumeStory[]> {
     const parent = await this.detail(jeton, depot, numero);
     if (parent.statut !== 'decoupage') throw new ConflictException('Aucun découpage n’attend votre choix sur cette demande');
-    const proposition = [...parent.messages].reverse().find((message) => message.texte.startsWith(MARQUEUR_ASSISTANT) && lireDecoupage(message.texte).length);
-    const stories = proposition ? lireDecoupage(proposition.texte) : [];
-    const choisis = Array.isArray(indices) ? [...new Set(indices)].filter((indice): indice is number => Number.isInteger(indice) && indice >= 0 && indice < stories.length).sort((a, b) => a - b) : [];
-    if (!stories.length) throw new ConflictException('La proposition de découpage est introuvable : demandez-en une autre');
-    if (!choisis.length || choisis.length !== (indices as unknown[]).length) {
-      throw new BadRequestException('Cochez au moins une story de la proposition');
-    }
+    const stories = validerStoriesAPublier(saisies);
     const gh = this.github.client(jeton);
     const creees: ResumeStory[] = [];
     try {
       await this.assurerLabel(jeton, depot, LABEL_STORY);
-      for (const indice of choisis) {
-        const story = stories[indice]!;
+      for (const story of stories) {
         const { data } = await gh.issues.create({
           owner: this.owner,
           repo: depot,
