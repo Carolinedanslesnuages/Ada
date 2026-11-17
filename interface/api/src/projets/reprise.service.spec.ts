@@ -23,8 +23,9 @@ const depot = (name: string, owner: string, topics: string[] = [], extra: object
 
 describe('RepriseService (#37)', () => {
   const gh = {
-    repos: { get: vi.fn(), replaceAllTopics: vi.fn() },
-    pulls: { list: vi.fn() },
+    repos: { get: vi.fn(), replaceAllTopics: vi.fn(), getContent: vi.fn() },
+    pulls: { list: vi.fn(), get: vi.fn(), merge: vi.fn() },
+    checks: { listForRef: vi.fn() },
   };
   const github = { client: vi.fn(() => gh) } as unknown as GithubService;
   const projets = {
@@ -74,7 +75,7 @@ describe('RepriseService (#37)', () => {
     expect(projets.poserLabels).toHaveBeenCalledWith(gh, 'un-po', 'mon-poc');
     expect(stories.prompter).toHaveBeenCalledWith('jeton', 'un-po~mon-poc', expect.stringContaining('comme s’il avait été créé avec ADA'), 'un-po');
     expect(agent.analyserReprise).toHaveBeenCalledWith('jeton', 'un-po~mon-poc', 7, 'un-po', { modele: null, dsfr: false });
-    expect(resultat).toEqual({ analyse: 'https://github.com/un-po/mon-poc/issues/7', pullRequest: null });
+    expect(resultat).toEqual({ id: 'un-po~mon-poc', analyse: 'https://github.com/un-po/mon-poc/issues/7', pullRequest: null });
   });
 
   it('avec une stack et le DSFR : transmis à l’analyse', async () => {
@@ -85,7 +86,7 @@ describe('RepriseService (#37)', () => {
 
   it('une reprise déjà proposée renvoie sa PR, sans nouvelle analyse', async () => {
     gh.pulls.list.mockResolvedValue({ data: [{ html_url: 'https://github.com/un-po/mon-poc/pull/3' }] });
-    expect(await service.reprendre('jeton', 'un-po', { depot: 'un-po~mon-poc' })).toEqual({ analyse: null, pullRequest: 'https://github.com/un-po/mon-poc/pull/3' });
+    expect(await service.reprendre('jeton', 'un-po', { depot: 'un-po~mon-poc' })).toEqual({ id: 'un-po~mon-poc', analyse: null, pullRequest: 'https://github.com/un-po/mon-poc/pull/3' });
     expect(agent.analyserReprise).not.toHaveBeenCalled();
   });
 
@@ -105,6 +106,49 @@ describe('RepriseService (#37)', () => {
     gh.repos.replaceAllTopics.mockRejectedValue(Object.assign(new Error('interdit'), { status: 403 }));
     await expect(service.reprendre('jeton', 'un-po', { depot: 'poc' })).rejects.toThrow(/administrateur/);
     expect(stories.prompter).not.toHaveBeenCalled();
+  });
+
+  describe('suivi et validation de la reprise depuis ADA', () => {
+    const prOuverte = (titre = 'chore: reprise du projet par ADA') => {
+      gh.pulls.list.mockResolvedValue({ data: [{ html_url: 'https://github.com/un-po/mon-poc/pull/3' }] });
+      gh.pulls.get.mockResolvedValue({ data: { number: 3, html_url: 'https://github.com/un-po/mon-poc/pull/3', merged: false, state: 'open', mergeable: true, title: titre, head: { sha: 'tete' } } });
+    };
+
+    it('analyse en cours : pas encore de PR', async () => {
+      agent.verrouActif.mockResolvedValue({ pid: 1 });
+      expect(await service.etat('jeton', 'un-po~mon-poc')).toMatchObject({ analyseEnCours: true, pullRequest: null, fusionnable: false, raison: 'L’assistant analyse le projet' });
+    });
+
+    it('PR prête : fusionnable quand le contrôle du titre est vert', async () => {
+      prOuverte();
+      gh.checks.listForRef.mockResolvedValue({ data: { check_runs: [{ name: 'Titre de PR (Conventional Commits, semver)', status: 'completed', conclusion: 'success' }] } });
+      expect(await service.etat('jeton', 'un-po~mon-poc')).toMatchObject({ pullRequest: { numero: 3, etat: 'ouverte' }, fusionnable: true });
+    });
+
+    it('PR prête mais contrôle en cours : pas encore fusionnable', async () => {
+      prOuverte();
+      gh.checks.listForRef.mockResolvedValue({ data: { check_runs: [] } });
+      expect(await service.etat('jeton', 'un-po~mon-poc')).toMatchObject({ fusionnable: false });
+      await expect(service.fusionner('jeton', 'un-po~mon-poc')).rejects.toBeInstanceOf(ConflictException);
+      expect(gh.pulls.merge).not.toHaveBeenCalled();
+    });
+
+    it('validée par le PO : fusion en squash, puis topic ada', async () => {
+      prOuverte();
+      gh.checks.listForRef.mockResolvedValue({ data: { check_runs: [{ name: 'Titre de PR (Conventional Commits, semver)', status: 'completed', conclusion: 'success' }] } });
+      gh.repos.get.mockResolvedValue({ data: depot('mon-poc', 'un-po', ['vue', 'ada-reprise']) });
+      await service.fusionner('jeton', 'un-po~mon-poc');
+      expect(gh.pulls.merge).toHaveBeenCalledWith(expect.objectContaining({ pull_number: 3, merge_method: 'squash', commit_title: 'chore: reprise du projet par ADA (#3)' }));
+      expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'un-po', repo: 'mon-poc', names: ['vue', 'ada'] });
+    });
+
+    it('aucune demande ne se lance tant que la reprise n’est pas fusionnée', async () => {
+      gh.repos.get.mockResolvedValue({ data: depot('mon-poc', 'un-po', ['ada-reprise']) });
+      gh.repos.getContent.mockRejectedValue(Object.assign(new Error('absent'), { status: 404 }));
+      await expect(service.verifierRepriseTerminee('jeton', 'un-po~mon-poc')).rejects.toThrow(/Validez d’abord la reprise/);
+      gh.repos.get.mockResolvedValue({ data: depot('mon-poc', 'un-po', ['ada']) });
+      await expect(service.verifierRepriseTerminee('jeton', 'un-po~mon-poc')).resolves.toBeUndefined();
+    });
   });
 
   it('demande d’analyse lisible : stack et apparence', () => {

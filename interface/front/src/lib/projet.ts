@@ -43,7 +43,7 @@ export interface Reglage {
 }
 
 export interface ResultatCreation {
-  projet: { id: string; nom: string; proprietaire: string; compte: 'organisation' | 'personnel'; description: string | null; prive: boolean; url: string; misAJourLe: string | null }
+  projet: { id: string; nom: string; proprietaire: string; compte: 'organisation' | 'personnel'; reprise: { pullRequest: string | null } | null; description: string | null; prive: boolean; url: string; misAJourLe: string | null }
   reglages: { versionsAutomatiques: Reglage; protectionMain: Reglage }
 }
 

@@ -6,7 +6,8 @@ import { decrireErreurGithub, traduireErreurGithub } from '../github/erreurs.js'
 import { GithubService } from '../github/github.service.js';
 import { identifiantProjet, lireIdentifiant, verifierAcces } from './depot.js';
 import { ProjetsService, TOPIC_REPRISE, type DepotGithub } from './projets.service.js';
-import { prReprise } from './reprise.js';
+import { CONTROLE_TITRE, prReprise, TITRE_REPRISE } from './reprise.js';
+import { etatControles, numeroDepuisUrl, peutFusionner, type Controle, type Verification } from '../verification/verification.js';
 import { StoriesService } from '../stories/stories.service.js';
 import { AgentService } from '../agent/agent.service.js';
 
@@ -23,7 +24,18 @@ export interface DepotAReprendre {
   analyseEnCours: boolean;
 }
 
+/** État d'une reprise lancée : analyse, puis PR à valider (mêmes règles que pour une demande). */
+export interface EtatReprise {
+  analyseEnCours: boolean;
+  pullRequest: Verification['pullRequest'];
+  controles: Controle[];
+  fusionnable: boolean;
+  raison: string | null;
+}
+
 export interface ResultatReprise {
+  /** Identifiant du projet dans ADA : il y apparaît dès le lancement de l'analyse. */
+  id: string;
   /** Demande d'analyse (issue du projet), où l'assistant publie son bilan et ses améliorations. */
   analyse: string | null;
   /** PR de reprise, si elle était déjà ouverte. */
@@ -126,7 +138,7 @@ export class RepriseService {
 
     try {
       const dejaOuverte = await prReprise(gh, owner, repo);
-      if (dejaOuverte) return { analyse: null, pullRequest: dejaOuverte };
+      if (dejaOuverte) return { id, analyse: null, pullRequest: dejaOuverte };
 
       await gh.repos
         .replaceAllTopics({ owner, repo, names: [...new Set([...(depot.topics ?? []), TOPIC_REPRISE])] })
@@ -144,6 +156,70 @@ export class RepriseService {
     }
     const demande = await this.stories.prompter(jeton, id, texteDemandeAnalyse(modele?.libelle ?? null, saisie.data.dsfr), login);
     await this.agent.analyserReprise(jeton, id, demande.numero, login, { modele: modele?.id ?? null, dsfr: saisie.data.dsfr });
-    return { analyse: `https://github.com/${owner}/${repo}/issues/${demande.numero}`, pullRequest: null };
+    return { id, analyse: `https://github.com/${owner}/${repo}/issues/${demande.numero}`, pullRequest: null };
+  }
+
+  async etat(jeton: string, depot: string): Promise<EtatReprise> {
+    const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
+    const gh = this.github.client(jeton);
+    const analyseEnCours = (await this.agent.verrouActif(depot)) !== null;
+    try {
+      const numero = numeroDepuisUrl(await prReprise(gh, owner, repo));
+      if (!numero) {
+        return {
+          analyseEnCours,
+          pullRequest: null,
+          controles: [],
+          fusionnable: false,
+          raison: analyseEnCours ? 'L’assistant analyse le projet' : 'L’analyse s’est arrêtée sans pull request de reprise',
+        };
+      }
+      const { data: pr } = await gh.pulls.get({ owner, repo, pull_number: numero });
+      const { data: runs } = await gh.checks.listForRef({ owner, repo, ref: pr.head.sha, per_page: 100 });
+      const etat = pr.merged ? 'fusionnee' : pr.state === 'closed' ? 'fermee' : 'ouverte';
+      const controles = etatControles(runs.check_runs, [CONTROLE_TITRE]);
+      return { analyseEnCours, pullRequest: { numero: pr.number, url: pr.html_url, etat }, controles, ...peutFusionner(etat, pr.mergeable, controles, pr.title) };
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+  }
+
+  /**
+   * Le PO valide la reprise depuis ADA (contrôles verts) : fusion en squash, puis le projet reçoit
+   * le topic d'ADA et devient un projet comme les autres.
+   */
+  async fusionner(jeton: string, depot: string): Promise<EtatReprise> {
+    const etat = await this.etat(jeton, depot);
+    if (!etat.fusionnable || !etat.pullRequest) throw new ConflictException(etat.raison ?? 'Fusion impossible pour l’instant');
+    const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
+    const gh = this.github.client(jeton);
+    try {
+      await gh.pulls.merge({ owner, repo, pull_number: etat.pullRequest.numero, merge_method: 'squash', commit_title: `${TITRE_REPRISE} (#${etat.pullRequest.numero})` });
+      const { data } = await gh.repos.get({ owner, repo });
+      const topics = [...(data.topics ?? []).filter((topic) => topic !== TOPIC_REPRISE), this.config.TOPIC_ATELIER];
+      await gh.repos.replaceAllTopics({ owner, repo, names: [...new Set(topics)] });
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+    return { ...etat, pullRequest: { ...etat.pullRequest, etat: 'fusionnee' }, fusionnable: false, raison: 'Déjà fusionnée' };
+  }
+
+  /** Tant que la reprise n'est pas fusionnée, aucune demande ne se lance (ada.json pas encore sur main). */
+  async verifierRepriseTerminee(jeton: string, depot: string): Promise<void> {
+    const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
+    const gh = this.github.client(jeton);
+    let topics: string[] = [];
+    try {
+      ({ data: { topics = [] } } = await gh.repos.get({ owner, repo }));
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+    if (topics.includes(this.config.TOPIC_ATELIER) || !topics.includes(TOPIC_REPRISE)) return;
+    try {
+      await gh.repos.getContent({ owner, repo, path: 'ada.json', ref: 'main' });
+    } catch (e) {
+      if (statut(e) !== 404) traduireErreurGithub(e);
+      throw new ConflictException('Validez d’abord la reprise du projet (bouton « Valider et fusionner la reprise ») : l’assistant saura alors démarrer son aperçu.');
+    }
   }
 }

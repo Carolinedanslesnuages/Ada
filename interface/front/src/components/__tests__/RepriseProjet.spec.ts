@@ -35,7 +35,7 @@ describe('Reprendre un projet existant (#37)', () => {
   const reprendre = vi.fn<(depot: string, modele: string | null, dsfr: boolean) => Promise<ResultatReprise>>()
 
   const monter = async () => {
-    const wrapper = mount(RepriseProjet, { props: { modeles: MODELES, intervalleSuivi: 20 }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+    const wrapper = mount(RepriseProjet, { props: { modeles: MODELES }, global: { plugins: [VueDsfr] }, attachTo: document.body })
     await flushPromises()
     return wrapper
   }
@@ -45,7 +45,7 @@ describe('Reprendre un projet existant (#37)', () => {
     setActivePinia(createPinia())
     projets = useProjetsStore()
     aReprendre.mockReset().mockResolvedValue(DEPOTS)
-    reprendre.mockReset().mockResolvedValue({ analyse: 'https://github.com/un-po/mon-poc/issues/7', pullRequest: null })
+    reprendre.mockReset().mockResolvedValue({ id: 'un-po~mon-poc', analyse: 'https://github.com/un-po/mon-poc/issues/7', pullRequest: null })
     projets.aReprendre = aReprendre
     projets.reprendre = reprendre
   })
@@ -66,36 +66,32 @@ describe('Reprendre un projet existant (#37)', () => {
     wrapper.unmount()
   })
 
-  it('sans stack : lance l’analyse, puis suit jusqu’à la PR de reprise', async () => {
+  it('sans stack : lance l’analyse et ouvre aussitôt le projet sur la demande d’analyse', async () => {
     const wrapper = await monter()
     await wrapper.find('form').trigger('submit')
     expect(wrapper.text()).toContain('Choisissez le dépôt à reprendre')
     expect(reprendre).not.toHaveBeenCalled()
 
+    let repondre: (resultat: ResultatReprise) => void = () => {}
+    reprendre.mockReturnValue(new Promise((fin) => (repondre = fin)))
     await selects(wrapper)[0]!.setValue('un-po~mon-poc')
     await wrapper.find('form').trigger('submit')
+    expect(wrapper.text()).toContain('ADA prépare la reprise et lance l’analyse')
+    repondre({ id: 'un-po~mon-poc', analyse: 'https://github.com/un-po/mon-poc/issues/7', pullRequest: null })
     await flushPromises()
     expect(reprendre).toHaveBeenCalledWith('un-po~mon-poc', null, false)
-    expect(wrapper.text()).toContain('L’assistant analyse le projet')
-    expect(wrapper.find('a[href="https://github.com/un-po/mon-poc/issues/7"]').exists()).toBe(true)
-
-    aReprendre.mockResolvedValue([candidat('un-po~mon-poc', 'mon-poc', 'un-po', { repriseEnCours: 'https://github.com/un-po/mon-poc/pull/8' })])
-    await new Promise((fin) => setTimeout(fin, 40))
-    await flushPromises()
-    expect(wrapper.text()).toContain('La pull request de reprise est prête')
-    expect(wrapper.find('a[href="https://github.com/un-po/mon-poc/pull/8"]').exists()).toBe(true)
+    expect(wrapper.emitted('lancee')).toEqual([['un-po~mon-poc', 7]])
     wrapper.unmount()
   })
 
-  it('analyse arrêtée sans PR : le PO est prévenu et renvoyé vers l’explication', async () => {
+  it('erreur au lancement : expliquée, sans quitter le formulaire', async () => {
+    reprendre.mockRejectedValue(new Error('Seul un administrateur de ce dépôt peut le faire reprendre par ADA.'))
     const wrapper = await monter()
     await selects(wrapper)[0]!.setValue('un-po~mon-poc')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
-    aReprendre.mockResolvedValue([candidat('un-po~mon-poc', 'mon-poc', 'un-po')])
-    await new Promise((fin) => setTimeout(fin, 40))
-    await flushPromises()
-    expect(wrapper.text()).toContain('L’analyse s’est arrêtée sans pull request')
+    expect(wrapper.text()).toContain('Seul un administrateur')
+    expect(wrapper.emitted('lancee')).toBeUndefined()
     wrapper.unmount()
   })
 
@@ -123,12 +119,9 @@ describe('Reprendre un projet existant (#37)', () => {
     wrapper.unmount()
   })
 
-  it('est accessible (formulaire et suivi)', async () => {
+  it('est accessible', async () => {
     const wrapper = await monter()
     await selects(wrapper)[0]!.setValue('commun')
-    expect(await violationsAccessibilite(wrapper.element)).toEqual([])
-    await wrapper.find('form').trigger('submit')
-    await flushPromises()
     expect(await violationsAccessibilite(wrapper.element)).toEqual([])
     wrapper.unmount()
   })

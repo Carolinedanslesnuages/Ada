@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { Modele } from '@/lib/projet'
-import { useProjetsStore, type DepotAReprendre, type ResultatReprise } from '@/stores/projets'
+import { useProjetsStore, type DepotAReprendre } from '@/stores/projets'
 
 /**
  * Reprendre un projet existant (#37) : le PO choisit un dépôt de l'organisation ou de son compte
- * (la stack est facultative). L'assistant analyse le projet comme s'il avait été créé avec ADA et
- * propose des améliorations ; ADA ouvre ensuite la PR de reprise, que le PO fusionne sur GitHub.
+ * (la stack est facultative). ADA lance l'analyse et ouvre aussitôt le projet : le PO y suit
+ * l'assistant, puis valide la reprise.
  */
-const props = defineProps<{ modeles: Modele[]; intervalleSuivi?: number }>()
-const emit = defineEmits<{ annuler: []; terminee: [] }>()
+const props = defineProps<{ modeles: Modele[] }>()
+const emit = defineEmits<{ annuler: []; lancee: [id: string, analyse: number | null] }>()
 const projets = useProjetsStore()
 
 const depots = ref<DepotAReprendre[] | null>(null)
@@ -24,10 +24,6 @@ const optionsApparence = [
 const erreurDepot = ref<string | undefined>()
 const erreur = ref<string | null>(null)
 const envoiEnCours = ref(false)
-const resultat = ref<ResultatReprise | null>(null)
-/** Dépôt suivi après l'envoi : l'analyse tourne, puis la PR de reprise s'ouvre. */
-const suivi = ref<DepotAReprendre | null>(null)
-let minuteur: ReturnType<typeof setInterval> | null = null
 
 const choisi = computed(() => depots.value?.find((candidat) => candidat.id === depot.value) ?? null)
 const libelleCompte = (candidat: DepotAReprendre) => (candidat.compte === 'personnel' ? `votre compte ${candidat.proprietaire}` : `organisation ${candidat.proprietaire}`)
@@ -40,8 +36,6 @@ const optionsModeles = computed(() => [
   { value: '', text: 'Je ne sais pas : l’assistant la déduit' },
   ...props.modeles.filter((m) => m.disponible).map((m) => ({ value: m.id, text: sansDsfr(m.libelle) })),
 ])
-const pullRequest = computed(() => suivi.value?.repriseEnCours ?? resultat.value?.pullRequest ?? null)
-const analyseTerminee = computed(() => suivi.value !== null && !suivi.value.analyseEnCours)
 
 async function charger(): Promise<void> {
   try {
@@ -51,22 +45,7 @@ async function charger(): Promise<void> {
   }
 }
 
-function arreterSuivi(): void {
-  if (minuteur) clearInterval(minuteur)
-  minuteur = null
-}
-
-async function suivre(id: string): Promise<void> {
-  try {
-    suivi.value = (await projets.aReprendre()).find((candidat) => candidat.id === id) ?? null
-  } catch {
-    return // réseau : on réessaiera au prochain tour
-  }
-  if (!suivi.value || suivi.value.repriseEnCours || !suivi.value.analyseEnCours) arreterSuivi()
-}
-
 onMounted(charger)
-onUnmounted(arreterSuivi)
 
 async function reprendre(): Promise<void> {
   erreurDepot.value = depot.value ? undefined : 'Choisissez le dépôt à reprendre'
@@ -74,12 +53,9 @@ async function reprendre(): Promise<void> {
   envoiEnCours.value = true
   erreur.value = null
   try {
-    const id = depot.value
-    resultat.value = await projets.reprendre(id, modele.value || null, apparence.value === 'dsfr')
-    if (!resultat.value.pullRequest) {
-      suivi.value = { ...choisi.value!, analyseEnCours: true }
-      minuteur = setInterval(() => void suivre(id), props.intervalleSuivi ?? 15000)
-    }
+    const resultat = await projets.reprendre(depot.value, modele.value || null, apparence.value === 'dsfr')
+    const numero = Number(resultat.analyse?.match(/\/issues\/(\d+)$/)?.[1])
+    emit('lancee', resultat.id, Number.isInteger(numero) ? numero : null)
   } catch (e) {
     erreur.value = (e as Error).message
   } finally {
@@ -89,47 +65,7 @@ async function reprendre(): Promise<void> {
 </script>
 
 <template>
-  <section v-if="resultat" aria-labelledby="titre-reprise">
-    <h2 id="titre-reprise" class="fr-h4">Reprise de « {{ choisi?.nom }} »</h2>
-    <div role="status">
-      <DsfrAlert
-        v-if="pullRequest"
-        type="success"
-        title="La pull request de reprise est prête"
-        description="Relisez-la puis fusionnez-la sur GitHub. Le projet apparaîtra ensuite dans ADA, avec les améliorations proposées par l’assistant à choisir."
-        class="fr-mb-2w"
-      />
-      <DsfrAlert
-        v-else-if="analyseTerminee"
-        type="warning"
-        title="L’analyse s’est arrêtée sans pull request"
-        description="L’assistant explique pourquoi dans la demande d’analyse : un développeur doit sans doute intervenir."
-        class="fr-mb-2w"
-      />
-      <DsfrAlert
-        v-else
-        type="info"
-        title="L’assistant analyse le projet"
-        description="Il le compare à un projet créé avec ADA et prépare ses propositions d’amélioration. Comptez quelques minutes : la pull request de reprise s’ouvrira ensuite, cette page se met à jour seule."
-        class="fr-mb-2w"
-      />
-    </div>
-    <ul class="fr-btns-group fr-btns-group--inline-md">
-      <li v-if="pullRequest">
-        <a class="fr-btn" :href="pullRequest" target="_blank" rel="noopener">
-          Ouvrir la pull request de reprise <span class="fr-sr-only">(nouvelle fenêtre)</span>
-        </a>
-      </li>
-      <li v-if="resultat.analyse">
-        <a class="fr-btn fr-btn--secondary" :href="resultat.analyse" target="_blank" rel="noopener">
-          Voir l’analyse sur GitHub <span class="fr-sr-only">(nouvelle fenêtre)</span>
-        </a>
-      </li>
-      <li><DsfrButton type="button" tertiary label="Revenir à mes projets" @click="emit('terminee')" /></li>
-    </ul>
-  </section>
-
-  <form v-else novalidate aria-labelledby="titre-reprise" @submit.prevent="reprendre">
+  <form novalidate aria-labelledby="titre-reprise" @submit.prevent="reprendre">
     <h2 id="titre-reprise" class="fr-h4">Reprendre un projet existant</h2>
     <p class="fr-text--sm">
       Faites évoluer avec ADA un projet déjà commencé, de l’organisation ou de votre compte GitHub.
@@ -195,6 +131,7 @@ async function reprendre(): Promise<void> {
       </a>.
     </p>
 
+    <p v-if="envoiEnCours" class="fr-text--sm" role="status">ADA prépare la reprise et lance l’analyse…</p>
     <ul class="fr-btns-group fr-btns-group--inline-md">
       <li v-if="depots && depots.length && !choisi?.repriseEnCours && !choisi?.analyseEnCours">
         <DsfrButton type="submit" label="Analyser et reprendre" aria-describedby="reprise-enregistrement" :disabled="envoiEnCours" />

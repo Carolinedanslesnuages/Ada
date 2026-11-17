@@ -21,6 +21,7 @@ import { lireAdaConfig, type AdaConfig } from '../ada/ada-config.js';
 import { catalogue, FAMILLES, LABELS_ATELIER, TYPES, type Modele } from './modeles.js';
 import { personnaliser, validerProjet, type ValeursProjet } from './projet.js';
 import { identifiantProjet } from './depot.js';
+import { prReprise } from './reprise.js';
 
 /** Topic posé par une reprise (#37) : le projet entre dans ADA quand sa PR de reprise est fusionnée. */
 export const TOPIC_REPRISE = 'ada-reprise';
@@ -32,6 +33,8 @@ export interface Projet {
   proprietaire: string;
   /** Dépôt de l'organisation d'ADA, ou du compte personnel du PO. */
   compte: 'organisation' | 'personnel';
+  /** Reprise pas encore validée (#37) : analyse en cours, ou PR de reprise à fusionner. */
+  reprise: { pullRequest: string | null } | null;
   description: string | null;
   prive: boolean;
   url: string;
@@ -67,6 +70,7 @@ export const versProjet = (d: DepotGithub, proprietaireParDefaut: string): Proje
   nom: d.name,
   proprietaire: d.owner.login,
   compte: d.owner.login.toLowerCase() === proprietaireParDefaut.toLowerCase() ? 'organisation' : 'personnel',
+  reprise: null,
   description: d.description,
   prive: d.private,
   url: d.html_url,
@@ -158,21 +162,27 @@ export class ProjetsService {
   }
 
   /**
-   * Projets d'ADA : dépôts portant le topic de l'atelier, et reprises dont la PR est fusionnée
-   * (ada.json présent sur main) ; ces dernières reçoivent alors le topic définitif.
+   * Projets d'ADA : dépôts portant le topic de l'atelier, et reprises (#37). Une reprise est
+   * visible dès son lancement, pour suivre l'analyse et valider la PR ; une fois sa PR fusionnée
+   * (ada.json sur main), elle reçoit le topic définitif et devient un projet comme les autres.
    */
   async lister(jeton: string, login: string): Promise<Projet[]> {
     const gh = this.github.client(jeton);
     try {
       const depots = await this.depotsAccessibles(gh, login);
-      const reprisesFusionnees = await Promise.all(
+      const reprises = await Promise.all(
         depots
           .filter((d) => !this.aLeTopic(d, ...this.topics) && this.aLeTopic(d, TOPIC_REPRISE))
-          .map(async (d) => ((await this.repriseFusionnee(gh, d)) ? d : null)),
+          .map(async (d) => {
+            const projet = versProjet(d, this.proprietaire);
+            if (await this.repriseFusionnee(gh, d)) return projet;
+            return { ...projet, reprise: { pullRequest: await prReprise(gh, d.owner.login, d.name) } };
+          }),
       );
-      return [...depots.filter((d) => this.aLeTopic(d, ...this.topics)), ...reprisesFusionnees.filter((d) => d !== null)]
-        .sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))
-        .map((d) => versProjet(d, this.proprietaire));
+      const parDate = new Map(depots.map((d) => [identifiantProjet(d.owner.login, d.name, this.proprietaire), d.updated_at ?? '']));
+      return [...depots.filter((d) => this.aLeTopic(d, ...this.topics)).map((d) => versProjet(d, this.proprietaire)), ...reprises].sort((a, b) =>
+        (parDate.get(b.id) ?? '').localeCompare(parDate.get(a.id) ?? ''),
+      );
     } catch (e) {
       traduireErreurGithub(e);
     }

@@ -13,6 +13,7 @@ import { ConnecteGuard } from '../auth/connecte.guard.js';
 import { ProjetGuard } from '../projets/projet.guard.js';
 import { AgentService } from '../agent/agent.service.js';
 import { StoriesService } from './stories.service.js';
+import { RepriseService } from '../projets/reprise.service.js';
 
 @Controller('projets/:depot/stories')
 @UseGuards(ConnecteGuard, ProjetGuard)
@@ -20,6 +21,7 @@ export class StoriesController {
   constructor(
     private readonly stories: StoriesService,
     private readonly agent: AgentService,
+    private readonly reprise: RepriseService,
   ) {}
 
   @Get()
@@ -54,6 +56,7 @@ export class StoriesController {
   @Post('prompt')
   async prompter(@Req() req: Request, @Param('depot') depot: string, @Body('texte') texte: unknown) {
     this.agent.verifierDisponible();
+    await this.reprise.verifierRepriseTerminee(req.session.jeton!, depot);
     const demande = await this.stories.prompter(req.session.jeton!, depot, texte, req.session.utilisateur!.login);
     await this.agent.analyser(req.session.jeton!, depot, demande.numero, req.session.utilisateur!.login);
     return demande;
@@ -63,6 +66,7 @@ export class StoriesController {
   @Post(':numero/lancer')
   async lancer(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
     this.agent.verifierDisponible();
+    await this.reprise.verifierRepriseTerminee(req.session.jeton!, depot);
     const lancee = await this.stories.lancer(req.session.jeton!, depot, numero, req.session.utilisateur!.login);
     await this.agent.analyser(req.session.jeton!, depot, numero, req.session.utilisateur!.login);
     return lancee;
