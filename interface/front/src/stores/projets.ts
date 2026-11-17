@@ -93,8 +93,8 @@ export const useProjetsStore = defineStore('projets', () => {
   }
 
   /** ADA ouvre la PR de reprise ; le projet apparaît dans la liste une fois qu'elle est fusionnée. */
-  function reprendre(depot: string, modele: string): Promise<ResultatReprise> {
-    return api.envoyer<ResultatReprise>('/projets/reprendre', { depot, modele })
+  function reprendre(depot: string, modele: string, dsfr: boolean): Promise<ResultatReprise> {
+    return api.envoyer<ResultatReprise>('/projets/reprendre', { depot, modele, dsfr })
   }
 
   return {

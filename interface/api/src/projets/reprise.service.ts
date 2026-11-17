@@ -48,19 +48,28 @@ export interface ResultatReprise {
   fichiers: string[];
 }
 
-const schemaReprise = z.object({ depot: z.string().min(1).max(141), modele: z.string().regex(/^[a-z0-9-]{1,60}$/) });
+const schemaReprise = z.object({
+  depot: z.string().min(1).max(141),
+  modele: z.string().regex(/^[a-z0-9-]{1,60}$/),
+  /** Code existant : par défaut, ADA garde l'apparence du projet et n'introduit pas le DSFR. */
+  dsfr: z.boolean().default(false),
+});
 const statut = (e: unknown) => (e as { status?: number }).status;
 
-/** ada.json d'un projet repris : celui du modèle choisi, avec le seul contrôle apporté par la reprise. */
-export function adaJsonReprise(contenuModele: string): string {
+/**
+ * ada.json d'un projet repris : celui du modèle choisi, avec le seul contrôle apporté par la
+ * reprise, et l'apparence choisie par le PO (DSFR ou celle du projet).
+ */
+export function adaJsonReprise(contenuModele: string, dsfr = false): string {
   const config = JSON.parse(contenuModele) as Record<string, unknown>;
   lireAdaConfig(contenuModele);
-  return `${JSON.stringify({ ...config, personnaliser: [], controlesRequis: [CONTROLE_TITRE], deploiement: null }, null, 2)}\n`;
+  return `${JSON.stringify({ ...config, personnaliser: [], controlesRequis: [CONTROLE_TITRE], deploiement: null, dsfr }, null, 2)}\n`;
 }
 
-export function corpsReprise(modele: string, fichiers: string[], login: string): string {
+export function corpsReprise(modele: string, fichiers: string[], login: string, dsfr = false): string {
   return [
     `Reprise du projet par ADA, demandée par @${login}, avec la stack la plus proche : **${modele}**.`,
+    dsfr ? 'Apparence : **DSFR** (Système de design de l’État).' : 'Apparence : **celle du projet**, l’assistant n’introduit pas le DSFR.',
     '',
     'Fichiers ajoutés (ceux déjà présents ne sont pas modifiés) :',
     ...fichiers.map((fichier) => `- \`${fichier}\``),
@@ -147,7 +156,7 @@ export class RepriseService {
           }
           throw e;
         });
-      const fichiers = await this.fichiersAApporter(gh, owner, repo, modele.id);
+      const fichiers = await this.fichiersAApporter(gh, owner, repo, modele.id, saisie.data.dsfr);
       await this.pousserBranche(gh, owner, repo, fichiers, login);
       await this.projets.poserLabels(gh, owner, repo);
       const { data: pr } = await gh.pulls.create({
@@ -156,7 +165,7 @@ export class RepriseService {
         head: BRANCHE_REPRISE,
         base: 'main',
         title: TITRE_REPRISE,
-        body: `${corpsReprise(modele.libelle, [...fichiers.keys()], login)}\n\n🤖 Proposée par ADA`,
+        body: `${corpsReprise(modele.libelle, [...fichiers.keys()], login, saisie.data.dsfr)}\n\n🤖 Proposée par ADA`,
       });
       return { pullRequest: pr.html_url, fichiers: [...fichiers.keys()] };
     } catch (e) {
@@ -172,14 +181,14 @@ export class RepriseService {
   }
 
   /** Fichiers du modèle absents de main, plus ada.json (toujours proposé). */
-  private async fichiersAApporter(gh: Octokit, owner: string, repo: string, modele: string): Promise<Map<string, string>> {
+  private async fichiersAApporter(gh: Octokit, owner: string, repo: string, modele: string, dsfr: boolean): Promise<Map<string, string>> {
     const dossier = join(this.projets.dossierCatalogue, modele);
     const fichiers = new Map<string, string>();
     for (const chemin of FICHIERS_REPRISE) {
       if (await this.existe(gh, owner, repo, chemin)) continue;
       fichiers.set(chemin, await readFile(join(dossier, chemin), 'utf8'));
     }
-    fichiers.set('ada.json', adaJsonReprise(await readFile(join(dossier, 'ada.json'), 'utf8')));
+    fichiers.set('ada.json', adaJsonReprise(await readFile(join(dossier, 'ada.json'), 'utf8'), dsfr));
     return fichiers;
   }
 

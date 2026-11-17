@@ -120,9 +120,16 @@ function decrireDemande(d: Demande): string {
   return lignes.join('\n');
 }
 
+/** Règle d'apparence : DSFR, ou design du projet (projet repris sans DSFR, ada.json « dsfr: false »). */
+export function regleApparence(dsfr: boolean): string {
+  return dsfr
+    ? "- composants DSFR d'abord, sans changer leurs couleurs ; jamais de bouton ou champ recodé à la main ;"
+    : "- ce projet n'utilise PAS le DSFR : garde son apparence et réutilise ses composants existants ;\n  n'ajoute ni DSFR ni autre bibliothèque d'interface ; jamais de bouton ou champ recodé s'il existe déjà ;";
+}
+
 /** Bases d'accessibilité (RGAA) appliquées à toute demande, même si AGENTS.md ne les contient pas. */
-export const ACCESSIBILITE = `Accessibilité (RGAA, obligatoire) — toujours, à chaque écran ou composant :
-- composants DSFR d'abord, sans changer leurs couleurs ; jamais de bouton ou champ recodé à la main ;
+export const accessibilite = (dsfr = true) => `Accessibilité (RGAA, obligatoire) — toujours, à chaque écran ou composant :
+${regleApparence(dsfr)}
 - lang="fr", titre de page explicite, un seul h1, titres sans saut de niveau ;
 - images : alternative qui dit l'information, ou alt="" si décorative ;
 - formulaires : étiquette visible liée à chaque champ, champs obligatoires signalés, erreurs
@@ -132,6 +139,7 @@ export const ACCESSIBILITE = `Accessibilité (RGAA, obligatoire) — toujours, �
 - liens et boutons à l'intitulé explicite ; nouvelle fenêtre annoncée ;
 - jamais d'information par la couleur seule ; messages dynamiques annoncés (role="status") ;
 - tableaux avec titre et en-têtes ; animations qui respectent prefers-reduced-motion.`;
+export const ACCESSIBILITE = accessibilite();
 
 /** Quand utiliser chaque skill connue ; les autres sont simplement listées. */
 const USAGE_SKILLS: Record<string, string> = {
@@ -142,7 +150,8 @@ const USAGE_SKILLS: Record<string, string> = {
   'adr-new': 'si tu prends une décision d’architecture (nouvelle dépendance, structure de données, etc.)',
 };
 
-export function consigneSkills(skills: string[]): string {
+export function consigneSkills(toutes: string[], dsfr = true): string {
+  const skills = dsfr ? toutes : toutes.filter((nom) => nom !== 'dsfr-skill');
   if (!skills.length) return '';
   const lignes = skills.map((nom) => `- ${nom}${USAGE_SKILLS[nom] ? ` : ${USAGE_SKILLS[nom]}` : ''}`);
   return `
@@ -162,14 +171,14 @@ d'un thème, ouvre docs/accessibilite/rgaa-4.1.2/<thème>.md dans le projet s'il
 ${index}`;
 }
 
-const COMMUN = `Tu travailles pour un Product Owner (PO) non développeur, dans le dépôt de son projet
-(répertoire courant). Lis d'abord AGENTS.md et PROJET.md : ce sont les règles du projet.
+const commun = (dsfr: boolean) => `Tu travailles pour un Product Owner (PO) non développeur, dans le dépôt de son projet
+(répertoire courant). Lis d'abord AGENTS.md et PROJET.md s'ils existent : ce sont les règles du projet.
 Tu écris au PO en français, en langage métier, sans jargon, sans noms de fichiers.
 
-${ACCESSIBILITE}`;
+${accessibilite(dsfr)}`;
 
-export function consigneAnalyse(d: Demande, indexRgaa: string | null = null, skills: string[] = []): string {
-  return `${COMMUN}${consigneSkills(skills)}${referentielRgaa(indexRgaa)}
+export function consigneAnalyse(d: Demande, indexRgaa: string | null = null, skills: string[] = [], dsfr = true): string {
+  return `${commun(dsfr)}${consigneSkills(skills, dsfr)}${referentielRgaa(indexRgaa)}
 
 PHASE : ANALYSE (lecture seule — tu ne modifies rien).
 
@@ -212,8 +221,9 @@ export function consigneRealisation(
   indexRgaa: string | null = null,
   skills: string[] = [],
   controles: string[] = ADA_PAR_DEFAUT.controles,
+  dsfr = true,
 ): string {
-  return `${COMMUN}${consigneSkills(skills)}${referentielRgaa(indexRgaa)}
+  return `${commun(dsfr)}${consigneSkills(skills, dsfr)}${referentielRgaa(indexRgaa)}
 
 PHASE : RÉALISATION. Le PO a validé le plan qui figure dans les échanges ci-dessous. Tu es sur la
 branche ${branche}. L'application tourne dans un conteneur : le PO voit tes changements en direct.
