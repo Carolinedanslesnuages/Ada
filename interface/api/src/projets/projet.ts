@@ -61,6 +61,8 @@ const schema = z.object({
     .transform((texte) => texte.trim())
     .pipe(z.string().max(IDEE_MAX, `${IDEE_MAX} caractères au maximum`)),
   modele: z.string().min(1, 'Choisissez une stack'),
+  /** Visibilité du dépôt GitHub choisie par le PO : privé par défaut, ou public (visible de tous). */
+  visibilite: z.enum(['prive', 'public']).optional().default('prive'),
   /** Le PO prévoit de déployer le projet : le chart Helm du modèle est ajouté. */
   deploye: z.boolean().optional().default(false),
   baseline: z
