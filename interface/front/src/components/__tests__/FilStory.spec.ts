@@ -159,7 +159,7 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
-  it('ordre de lecture : l’action attendue en haut, puis le dernier message, la story, et l’historique replié', () => {
+  it('ordre de lecture : le dernier message de l’assistant (qui explique), puis l’action attendue, la story, et l’historique replié', () => {
     const assistant = (id: number, texte: string) => ({ id, auteur: 'robot', avatar: null, texte: `<!-- atelier-po:assistant -->\n${texte}`, le: `2026-11-16T10:0${id}:00Z` })
     const wrapper = monterAvec({
       story: {
@@ -169,7 +169,7 @@ describe('Fil d’une story', () => {
       },
     })
     const titres = wrapper.findAll('h3').map((titre) => titre.text())
-    expect(titres.slice(0, 4)).toEqual(['À vous de jouer', 'Dernier message de l’assistant', 'La story', 'Suivi'])
+    expect(titres.slice(0, 4)).toEqual(['Dernier message de l’assistant', 'À vous de jouer', 'La story', 'Suivi'])
     expect(wrapper.find('.dernier-message').text()).toContain('Le plan proposé')
     const historique = wrapper.findAll('button[aria-expanded]').find((bouton) => bouton.text().startsWith('Voir l’historique'))!
     expect(historique.text()).toBe('Voir l’historique (2 échanges)')

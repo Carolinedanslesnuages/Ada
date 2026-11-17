@@ -124,7 +124,16 @@ function envoyer(): void {
       </a>
     </p>
 
-    <!-- 1. Ce qu'on attend du PO, toujours en haut : rien à chercher, rien à faire défiler. -->
+    <!-- 1. Le dernier message de l'assistant, en entier, d'abord : c'est lui qui explique ce qu'on attend du PO. -->
+    <section v-if="dernierMessage" class="fr-mb-3w" aria-labelledby="titre-dernier-message">
+      <h3 id="titre-dernier-message" class="fr-h6 fr-mb-1w">Dernier message de l’assistant</h3>
+      <div class="fil__assistant dernier-message">
+        <p class="fr-text--xs fr-mb-1v"><strong>{{ dernierMessage.auteur }}</strong> — {{ date(dernierMessage.le) }}</p>
+        <TexteRiche :texte="dernierMessage.texte" />
+      </div>
+    </section>
+
+    <!-- 2. Ce qu'on attend du PO, juste après l'explication : rien à chercher, rien à faire défiler. -->
     <section v-if="travaille" class="fr-callout fr-mb-3w activite" aria-labelledby="titre-action">
       <h3 id="titre-action" class="fr-callout__title fr-h6">L’assistant travaille</h3>
       <div role="status" aria-live="polite">
@@ -281,15 +290,6 @@ function envoyer(): void {
           </li>
         </ul>
       </form>
-    </section>
-
-    <!-- 2. Le dernier message de l'assistant, en entier : c'est lui qui explique l'action. -->
-    <section v-if="dernierMessage" class="fr-mb-3w" aria-labelledby="titre-dernier-message">
-      <h3 id="titre-dernier-message" class="fr-h6 fr-mb-1w">Dernier message de l’assistant</h3>
-      <div class="fil__assistant dernier-message">
-        <p class="fr-text--xs fr-mb-1v"><strong>{{ dernierMessage.auteur }}</strong> — {{ date(dernierMessage.le) }}</p>
-        <TexteRiche :texte="dernierMessage.texte" />
-      </div>
     </section>
 
     <!-- 3. La demande elle-même. -->
