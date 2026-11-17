@@ -1,6 +1,5 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
-import { openSync } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { appendFile, lstat, mkdir, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -69,6 +68,28 @@ const processusVivant = (pid: number): boolean => {
     return false;
   }
 };
+
+/**
+ * Lance le travailleur par un intermédiaire qui se termine aussitôt (« double lancement ») : le
+ * travailleur n'est plus un descendant de l'API. Un redémarrage de l'API (mise à jour, mode
+ * développement qui arrête tout l'arbre de processus) ne l'interrompt donc pas. Renvoie son pid.
+ */
+export async function lancerDetache(script: string, fichierTache: string, journal: string): Promise<number> {
+  const intermediaire = `
+    const { spawn } = require('node:child_process');
+    const { openSync } = require('node:fs');
+    const sortie = openSync(process.argv[3], 'a');
+    const travailleur = spawn(process.execPath, [process.argv[1], process.argv[2]], { detached: true, stdio: ['ignore', sortie, sortie] });
+    travailleur.unref();
+    process.stdout.write(String(travailleur.pid));`;
+  return new Promise((ok, ko) => {
+    let pid = '';
+    const lanceur = spawn(process.execPath, ['-e', intermediaire, script, fichierTache, journal], { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'inherit'] });
+    lanceur.stdout.on('data', (morceau: Buffer) => (pid += morceau.toString()));
+    lanceur.on('error', ko);
+    lanceur.on('close', (code) => (code === 0 && Number(pid) > 0 ? ok(Number(pid)) : ko(new Error(`Le travailleur n’a pas pu démarrer (code ${code})`))));
+  });
+}
 
 /** Lance l'agent ; appelle surLigne pour chaque ligne de sa sortie ; renvoie le code de sortie. */
 export type LancerAgent = (args: string[], cwd: string, surLigne: (ligne: string) => void) => Promise<number>;
@@ -350,15 +371,10 @@ export class AgentService {
     await mkdir(dossier, { recursive: true });
     const fichierTache = join(dossier, `tache-${tache.numero}-${Date.now()}.json`);
     await writeFile(fichierTache, JSON.stringify(tache), { mode: 0o600 });
-    const journal = openSync(join(dossier, `${tache.numero}.travailleur.log`), 'a');
-    const travailleur = spawn(process.execPath, [join(import.meta.dirname, 'travailleur.js'), fichierTache], {
-      cwd: process.cwd(),
-      detached: true,
-      stdio: ['ignore', journal, journal],
-    });
-    travailleur.unref();
-    await this.poserVerrou(tache.depot, { pid: travailleur.pid!, numero: tache.numero, phase: tache.phase });
+    const pid = await lancerDetache(join(import.meta.dirname, 'travailleur.js'), fichierTache, join(dossier, `${tache.numero}.travailleur.log`));
+    await this.poserVerrou(tache.depot, { pid, numero: tache.numero, phase: tache.phase });
   }
+
 
   /** Exécute la tâche dans ce processus (travailleur, ou tests) et tient l'activité à jour. */
   async executerTache(tache: Tache): Promise<void> {
