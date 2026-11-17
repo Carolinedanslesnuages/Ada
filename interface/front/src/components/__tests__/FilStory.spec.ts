@@ -109,7 +109,7 @@ describe('Fil d’une story', () => {
 
   it('explique pourquoi les échanges sont enregistrés sur GitHub (replié par défaut)', async () => {
     const wrapper = monterAvec({})
-    const bouton = wrapper.find('button[aria-controls="pourquoi-github"], #pourquoi-github button, button[aria-expanded]')
+    const bouton = wrapper.findAll('button[aria-expanded]').find((element) => element.text().startsWith('Pourquoi'))!
     expect(bouton.text()).toBe('Pourquoi les échanges sont-ils enregistrés sur GitHub ?')
     expect(bouton.attributes('aria-expanded')).toBe('false')
     await bouton.trigger('click')
@@ -156,6 +156,33 @@ describe('Fil d’une story', () => {
     await bouton(wrapper, '#8 Rendre — à faire')!.trigger('click')
     expect(wrapper.emitted('ouvrir')).toEqual([[8]])
     expect(bouton(wrapper, '#7 Voir — livrée')).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('ordre de lecture : l’action attendue en haut, puis le dernier message, la story, et l’historique replié', () => {
+    const assistant = (id: number, texte: string) => ({ id, auteur: 'robot', avatar: null, texte: `<!-- atelier-po:assistant -->\n${texte}`, le: `2026-11-16T10:0${id}:00Z` })
+    const wrapper = monterAvec({
+      story: {
+        ...story,
+        statut: 'plan-a-valider',
+        messages: [assistant(1, 'Premières questions'), { id: 2, auteur: 'po1', avatar: null, texte: 'Mes réponses', le: '2026-11-16T10:02:00Z' }, assistant(3, 'Le plan proposé')],
+      },
+    })
+    const titres = wrapper.findAll('h3').map((titre) => titre.text())
+    expect(titres.slice(0, 4)).toEqual(['À vous de jouer', 'Dernier message de l’assistant', 'La story', 'Suivi'])
+    expect(wrapper.find('.dernier-message').text()).toContain('Le plan proposé')
+    const historique = wrapper.findAll('button[aria-expanded]').find((bouton) => bouton.text().startsWith('Voir l’historique'))!
+    expect(historique.text()).toBe('Voir l’historique (2 échanges)')
+    expect(historique.attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('.fil').text()).toContain('Premières questions')
+    expect(wrapper.find('.fil').text()).not.toContain('Le plan proposé')
+    wrapper.unmount()
+  })
+
+  it('pendant que l’assistant travaille, l’encart du haut le dit (aucune action demandée)', () => {
+    const wrapper = monterAvec({ story: { ...story, statut: 'en-cours' }, activite: { enCours: true, phase: 'analyse', debut: null, journal: [], erreur: null, pullRequest: null } })
+    expect(wrapper.find('h3').text()).toBe('L’assistant travaille')
+    expect(wrapper.text()).not.toContain('À vous de jouer')
     wrapper.unmount()
   })
 
