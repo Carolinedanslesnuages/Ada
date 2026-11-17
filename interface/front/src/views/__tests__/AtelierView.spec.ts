@@ -148,6 +148,8 @@ describe('Écran de l’atelier', () => {
     await flushPromises()
     expect(wrapper.find('h2.fr-h4').text()).toBe('Nouveau projet')
     expect(wrapper.text()).toContain('Votre idée')
+    // Rien à afficher à droite pendant la création : le formulaire est centré.
+    expect(wrapper.find('.fr-grid-row--center form').exists()).toBe(true)
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
