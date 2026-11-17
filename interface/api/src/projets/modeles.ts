@@ -56,7 +56,7 @@ export function catalogue(): Omit<Modele, 'disponible' | 'deployable'>[] {
     { id: 'formulaire', type: 'formulaire', libelle: 'Formulaire DSFR (Vue 3 + Node.js)', pourQuoi: 'Réponses enregistrées dans le projet, page « Réponses » et export CSV' },
     { id: 'tableau-de-bord', type: 'tableau-de-bord', libelle: 'Vue 3 + NestJS, graphiques DSFR', pourQuoi: 'Indicateurs calculés côté serveur, graphiques accessibles' },
     { id: 'django', type: 'gestion', libelle: 'Python (Django), administration intégrée', pourQuoi: 'Listes, fiches et droits prêts à l’emploi' },
-    { id: 'nuxt', type: 'site', libelle: 'Nuxt, avec DSFR', pourQuoi: 'Pages générées pour un bon référencement (SEO)' },
+    { id: 'nuxt', type: 'site', libelle: 'Nuxt, avec DSFR', pourQuoi: 'Pages générées pour un bon référencement (SEO), déclaration d’accessibilité incluse' },
     { id: 'vitepress', type: 'documentation', libelle: 'VitePress, aux couleurs de l’État', pourQuoi: 'Pages écrites en Markdown, recherche intégrée, accessibilité de chaque page vérifiée' },
     { id: 'carte', type: 'carte', libelle: 'Vue 3 + MapLibre, avec DSFR', pourQuoi: 'Fonds de carte IGN, données GeoJSON' },
     { id: 'pwa', type: 'mobile', libelle: 'Vue 3 installable (PWA), avec DSFR', pourQuoi: 'Une seule application pour téléphone et ordinateur' },
