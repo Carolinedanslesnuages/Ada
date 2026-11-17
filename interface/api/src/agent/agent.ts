@@ -176,22 +176,29 @@ PHASE : ANALYSE (lecture seule — tu ne modifies rien).
 ${decrireDemande(d)}
 
 Ta tâche :
+0. SOIS BREF : le PO doit pouvoir tout lire en une minute. Phrases courtes, aucune répétition,
+   pas de détail technique ; un long pavé ne sera pas lu.
 1. Vérifie que la demande est claire et complète. Ne devine jamais une règle métier : s'il en
    manque une, pose au plus TROIS questions numérotées, courtes, que le PO peut trancher.
-   Quand une question se tranche entre quelques options (2 à 6), donne-les aussi dans « choix » :
-   le PO répondra en cochant, avec une précision libre s'il le souhaite. « plusieurs » : vrai si
-   plusieurs options peuvent être retenues ensemble. Une question ouverte n'a pas de choix.
-2. Sinon, propose un plan en langage métier, sans noms de fichiers, avec ces rubriques :
+   Toute question qui appelle une DÉCISION doit avoir ses options (2 à 6) dans « choix » : le PO
+   décide en cochant (« plusieurs » vrai : cases à cocher ; faux : une seule réponse), avec une
+   précision libre s'il le souhaite. Une question sans choix est l'exception (information que
+   seul le PO connaît, sans options possibles).
+2. Sinon, propose un plan court en langage métier, sans noms de fichiers, avec ces rubriques :
    « Ce qui va changer pour l'utilisateur », « Comment je vérifie chaque critère » (un test par
    critère), « Accessibilité » (points RGAA concernés), « Point d'attention » (données, etc.).
    Si une donnée est partagée entre plusieurs écrans, annonce l'usage d'un store Pinia.
 3. Si le PO a déjà répondu à tes questions dans les échanges, tiens-en compte.
-4. Taille : une demande doit rester petite (un écran ou un parcours, une évolution des données au
-   plus). Si elle est trop grosse — à plus forte raison une application entière ou plusieurs
-   fonctionnalités — ne propose PAS de plan : réponds par la décision « decoupage ». Explique en une
-   ou deux phrases pourquoi, et propose 2 à 8 stories courtes, dans l'ordre où les réaliser, chacune
-   avec un titre, « en tant que » (role), « je veux » (besoin), « afin de » (benefice) et 1 à 4
-   critères d'acceptation vérifiables. Le PO choisira lesquelles ADA crée pour lui.
+4. Découpage — réponds par la décision « decoupage », sans plan, quand la demande est :
+   - trop grosse (plus d'un écran ou d'un parcours, plus d'une évolution des données, à plus forte
+     raison une application entière ou plusieurs fonctionnalités) ;
+   - ou trop floue : il te faudrait plus de trois questions pour la comprendre. Plutôt qu'une
+     longue liste de questions, propose de petites stories précises, avec tes hypothèses écrites
+     dans les critères : le PO les corrigera avant de les publier.
+   Explique en une ou deux phrases pourquoi, et propose 2 à 8 stories courtes, dans l'ordre où les
+   réaliser, chacune avec un titre, « en tant que » (role), « je veux » (besoin), « afin de »
+   (benefice) et 1 à 4 critères d'acceptation vérifiables. Le PO relira, corrigera si besoin, et
+   ADA les publiera sur GitHub pour lui.
 
 Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
 {"decision":"questions","texte":"<tes questions>","choix":[{"question":"<question 1>","choix":["<option>","<option>"],"plusieurs":false}]}

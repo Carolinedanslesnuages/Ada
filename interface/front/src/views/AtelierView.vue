@@ -10,7 +10,7 @@ import PanneauApercu from '@/components/PanneauApercu.vue'
 import PanneauVersions from '@/components/PanneauVersions.vue'
 import ResultatProjet from '@/components/ResultatProjet.vue'
 import type { ErreursProjet, NouveauProjet, ResultatCreation } from '@/lib/projet'
-import { lienNouvelleIssue, STATUTS_ACTIFS } from '@/lib/story'
+import { lienNouvelleIssue, STATUTS_ACTIFS, type StoryProposee } from '@/lib/story'
 import { useProjetsStore } from '@/stores/projets'
 import { useStoriesStore } from '@/stores/stories'
 
@@ -139,7 +139,7 @@ const valider = () => agir((p, n) => stories.validerPlan(p, n))
 const relancer = () => agir((p, n) => stories.relancer(p, n))
 const fusionner = () => agir((p, n) => stories.fusionner(p, n))
 const repondre = (texte: string) => agir((p, n) => stories.repondre(p, n, texte))
-const creerDecoupage = (indices: number[]) => agir((p, n) => stories.creerDecoupage(p, n, indices))
+const creerDecoupage = (proposees: StoryProposee[]) => agir((p, n) => stories.creerDecoupage(p, n, proposees))
 
 /** Suivi automatique tant que la demande ouverte est active ou que l'assistant travaille. */
 let minuteurSuivi: ReturnType<typeof setInterval> | null = null

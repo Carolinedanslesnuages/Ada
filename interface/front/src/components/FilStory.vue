@@ -10,6 +10,7 @@ import {
   lireChoix,
   lireDecoupage,
   lireStoriesParent,
+  type StoryProposee,
   MARQUEUR_ASSISTANT,
   type Activite,
   type DetailStory,
@@ -32,7 +33,7 @@ const emit = defineEmits<{
   relancer: []
   fusionner: []
   repondre: [texte: string]
-  creerDecoupage: [indices: number[]]
+  creerDecoupage: [stories: StoryProposee[]]
   ouvrir: [numero: number]
 }>()
 
@@ -298,7 +299,7 @@ function envoyer(): void {
         :stories="propositionDecoupage"
         :designation="`la demande n° ${story.numero}`"
         :action-en-cours="actionEnCours"
-        @creer="(indices) => emit('creerDecoupage', indices)"
+        @creer="(stories) => emit('creerDecoupage', stories)"
         @autre-decoupage="modeModification = true"
       />
       <ReponseChoix
