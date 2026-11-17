@@ -4,6 +4,7 @@ import { ConnecteGuard } from '../auth/connecte.guard.js';
 import { ProjetsService } from './projets.service.js';
 import { RepriseService } from './reprise.service.js';
 import { RegistreService } from '../indicateurs/registre.service.js';
+import { AgentService } from '../agent/agent.service.js';
 
 @Controller('projets')
 @UseGuards(ConnecteGuard)
@@ -12,7 +13,14 @@ export class ProjetsController {
     private readonly projets: ProjetsService,
     private readonly reprise: RepriseService,
     private readonly registre: RegistreService,
+    private readonly agent: AgentService,
   ) {}
+
+  /** Création (#68) : l'assistant lit l'idée du PO et propose la stack la plus adaptée, avec une raison. */
+  @Post('conseil-stack')
+  conseillerStack(@Body('idee') idee: unknown) {
+    return this.agent.conseillerStack(idee);
+  }
 
   @Get()
   lister(@Req() req: Request) {

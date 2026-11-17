@@ -34,7 +34,13 @@ for (const fichier of [...FICHIERS_REPRISE, 'ada.json']) {
 }
 const projets = {
   dossierCatalogue: catalogueReprise,
-  modeles: () => ({ modeles: [{ id: 'vue-node', libelle: 'Vue 3 + Node.js (Express), avec DSFR', disponible: true }] }),
+  modeles: () => ({
+    modeles: [
+      { id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js (Express), avec DSFR', pourQuoi: 'Petite application', disponible: true },
+      { id: 'django', type: 'gestion', libelle: 'Python (Django)', pourQuoi: 'Back-office', disponible: false },
+    ],
+    types: [{ id: 'service', libelle: 'Application en ligne', description: 'Des écrans et des règles' }],
+  }),
 };
 
 describe('AgentService', () => {
@@ -100,6 +106,27 @@ describe('AgentService', () => {
       return 0;
     });
     service.lancerAgent = lancer;
+  });
+
+  it('conseille une stack d’après l’idée du PO, sans aucun outil, parmi les seuls modèles livrés (#68)', async () => {
+    sortie = [resultat('{"modele":"vue-node","raison":"Une petite application avec quelques écrans suffit."}')];
+    expect(await service.conseillerStack('les agents réservent une salle de réunion, simplement')).toEqual({
+      modele: 'vue-node',
+      raison: 'Une petite application avec quelques écrans suffit.',
+    });
+    const args = lancer.mock.calls[0]![0];
+    expect(args).not.toContain('--allowedTools');
+    expect(args.slice(args.indexOf('--disallowedTools') + 1)).toEqual(expect.arrayContaining(['Bash', 'Read', 'Write', 'WebFetch']));
+    const consigne = args[args.indexOf('-p') + 1]!;
+    expect(consigne).toContain('les agents réservent une salle de réunion');
+    expect(consigne).toContain('- vue-node : Application en ligne');
+    expect(consigne).not.toContain('django');
+  });
+
+  it('refuse une idée trop courte, et une réponse hors liste de l’assistant', async () => {
+    await expect(service.conseillerStack('salle')).rejects.toThrow(/une phrase au moins/);
+    sortie = [resultat('{"modele":"django","raison":"x"}')];
+    await expect(service.conseillerStack('les agents réservent une salle de réunion')).rejects.toThrow(/choisissez-la vous-même/);
   });
 
   it('analyse en lecture seule et publie le plan, qui attend la validation du PO', async () => {

@@ -25,6 +25,12 @@ export interface Modele {
   deployable: boolean
 }
 
+/** Conseil de l'assistant : le modèle le plus adapté à l'idée, et pourquoi, en une phrase (#68). */
+export interface ConseilStack {
+  modele: string
+  raison: string
+}
+
 /** Idée racontée librement à la création (même succincte ou décousue) (#68). */
 export const IDEE_MAX = 4000
 

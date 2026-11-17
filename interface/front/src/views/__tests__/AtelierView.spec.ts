@@ -147,7 +147,7 @@ describe('Écran de l’atelier', () => {
     await wrapper.findAll('button').find((b) => b.text().includes('Nouveau projet'))!.trigger('click')
     await flushPromises()
     expect(wrapper.find('h2.fr-h4').text()).toBe('Nouveau projet')
-    expect(wrapper.text()).toContain('Que voulez-vous créer ?')
+    expect(wrapper.text()).toContain('Votre idée')
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
