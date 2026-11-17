@@ -49,7 +49,9 @@ monté sur /app :
    "avant":["<commandes préalables, ex. migrations>"],"arrierePlan":["<commandes en arrière-plan, ex. l'API>"],
    "principal":"<commande au premier plan qui sert la page, écoute sur 0.0.0.0>","port":<port de cette page>}}
 Déduis-le des fichiers du projet (package.json, requirements.txt, scripts, README) ; n'invente
-pas de commande qui n'existe pas.`;
+pas de commande qui n'existe pas. Projet sans écran (script, traitement de données…) : mets
+"principal":"cd /app && python3 -m http.server 8000 --bind 0.0.0.0" et "port":8000 (l'aperçu
+affiche alors les fichiers du projet) ; ce n'est pas un blocage.`;
 
 export function consigneReprise(options: OptionsReprise, skills: string[] = []): string {
   const depart = options.stack

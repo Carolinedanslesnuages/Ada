@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Octokit } from '@octokit/rest';
 import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
-import { adaJsonReprise, BRANCHE_REPRISE, corpsReprise, fichiersAApporter, FICHIERS_REPRISE, ouvrirPrReprise, TITRE_REPRISE } from './reprise.js';
+import { adaJsonReprise, APERCU_SANS_ECRAN, BRANCHE_REPRISE, corpsReprise, fichiersAApporter, FICHIERS_REPRISE, ouvrirPrReprise, TITRE_REPRISE } from './reprise.js';
 
 const modele = mkdtempSync(join(tmpdir(), 'ada-test-reprise-'));
 for (const fichier of FICHIERS_REPRISE) {
@@ -69,6 +69,18 @@ describe('reprise : règles et écritures GitHub (#37)', () => {
     const ada = JSON.parse(adaJsonReprise(JSON.stringify({ ...ADA_PAR_DEFAUT, personnaliser: ['README.md'], deploiement: { chart: 'charts/app' } }))) as Record<string, unknown>;
     expect(ada).toMatchObject({ personnaliser: [], controlesRequis: ['Titre de PR (Conventional Commits, semver)'], deploiement: null, dsfr: false, apercu: ADA_PAR_DEFAUT.apercu });
     expect(JSON.parse(adaJsonReprise({ ...ADA_PAR_DEFAUT }, true))).toMatchObject({ dsfr: true });
+  });
+
+  it('projet sans écran (script) : l’aperçu sert les fichiers du projet, la reprise n’est plus bloquée', () => {
+    // Cas réel : l'analyse d'un script Python a rendu une commande et un port vides.
+    const analyse = { type: 'traitement', controles: ['cd /app && python3 -m compileall -q .'], apercu: { image: 'python:3.13-slim', principal: null, port: null } };
+    const ada = JSON.parse(adaJsonReprise(analyse)) as { apercu: { principal: string; port: number; image: string } };
+    expect(ada.apercu).toMatchObject({ image: 'python:3.13-slim', principal: APERCU_SANS_ECRAN.principal, port: 8000 });
+    expect(JSON.parse(adaJsonReprise({ ...analyse, apercu: undefined })).apercu).toMatchObject({ principal: APERCU_SANS_ECRAN.principal, port: 8000 });
+  });
+
+  it('une commande sans port reste refusée : le port ne se devine pas', () => {
+    expect(() => adaJsonReprise({ type: 'service', controles: ['npm test'], apercu: { principal: 'npm run dev', port: null } })).toThrow();
   });
 
   it('refuse un aperçu invalide (l’analyse n’a pas su le décrire)', () => {
