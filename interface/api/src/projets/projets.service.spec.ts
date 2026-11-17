@@ -219,7 +219,7 @@ describe('ProjetsService', () => {
     expect(resultat.reglages.protectionMain.etat).toBe('fait');
   });
 
-  it('l’idée racontée à la création devient la première demande libre, lancée pour l’assistant (#68)', async () => {
+  it('l’idée racontée à la création devient la première demande libre, lancée pour ADA (#68)', async () => {
     preparerCreation();
     gh.issues.create.mockResolvedValue({ data: { number: 1 } });
     const idee = 'partager les trajets entre agents, le matin surtout';

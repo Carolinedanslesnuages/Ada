@@ -235,7 +235,7 @@ export class AgentService {
       await writeFile(this.cheminVerrou(depot), JSON.stringify(verrou), { flag: 'wx' });
     } catch (erreur) {
       if ((erreur as NodeJS.ErrnoException).code !== 'EEXIST') throw erreur;
-      if (await this.verrouActif(depot)) throw new ConflictException('L’assistant travaille déjà sur ce projet');
+      if (await this.verrouActif(depot)) throw new ConflictException('ADA travaille déjà sur ce projet');
       await this.poserVerrou(depot, verrou);
     }
   }
@@ -253,7 +253,7 @@ export class AgentService {
    */
   async relancer(jeton: string, login: string, depot: string, numero: number): Promise<void> {
     this.verifierDisponible();
-    if (await this.verrouActif(depot)) throw new ConflictException('L’assistant travaille déjà sur ce projet');
+    if (await this.verrouActif(depot)) throw new ConflictException('ADA travaille déjà sur ce projet');
     const detail = await this.stories.detail(jeton, depot, numero);
     if (detail.statut !== 'en-cours' && detail.statut !== 'besoin-dev') {
       throw new ConflictException('Cette demande n’a pas besoin d’être relancée');
@@ -319,7 +319,7 @@ export class AgentService {
     }
     const texte = typeof idee === 'string' ? idee.trim() : '';
     if (texte.length < 10 || texte.length > IDEE_MAX) {
-      throw new BadRequestException('Racontez votre idée (une phrase au moins) pour que l’assistant puisse vous conseiller');
+      throw new BadRequestException('Racontez votre idée (une phrase au moins) pour qu’ADA puisse vous conseiller');
     }
     const { modeles, types } = this.projets.modeles();
     const disponibles = modeles.filter((modele) => modele.disponible);
@@ -352,7 +352,7 @@ export class AgentService {
       await rm(dossier, { recursive: true, force: true });
     }
     const conseil = lireConseilStack(reponse, disponibles.map((modele) => modele.id));
-    if (!conseil) throw new ConflictException('L’assistant n’a pas pu proposer de stack : choisissez-la vous-même dans la liste.');
+    if (!conseil) throw new ConflictException('ADA n’a pas pu proposer de stack : choisissez-la vous-même dans la liste.');
     return conseil;
   }
 
@@ -460,7 +460,7 @@ export class AgentService {
       const reponse = await this.executer(depot, numero, 'analyse', consigne, cwd, skills.dossiers);
       const decision = lireDecision(reponse);
       if (!decision) {
-        await this.bloquer(jeton, depot, numero, 'L’assistant n’a pas réussi à analyser la demande.');
+        await this.bloquer(jeton, depot, numero, 'ADA n’a pas réussi à analyser la demande.');
         return;
       }
       if (decision.decision === 'decoupage') {
@@ -470,7 +470,7 @@ export class AgentService {
         return;
       }
       const questions = decision.decision === 'questions';
-      await this.stories.commenterAssistant(jeton, depot, numero, questions ? 'Questions de l’assistant' : 'Plan proposé', texteQuestions(decision));
+      await this.stories.commenterAssistant(jeton, depot, numero, questions ? 'Questions d’ADA' : 'Plan proposé', texteQuestions(decision));
       await this.stories.changerStatut(jeton, depot, numero, questions ? 'questions' : 'plan-a-valider');
       await this.noter(depot, numero, questions ? 'Attend vos réponses' : 'Attend que vous validiez le plan');
     }
@@ -497,7 +497,7 @@ export class AgentService {
     const consigne = consigneReprise({ stack: stack && adaModele ? { libelle: stack.libelle, ada: adaModele } : null, dsfr }, skills.noms);
     const analyse = lireAnalyseReprise(await this.executer(depot, numero, 'reprise', consigne, cwd, skills.dossiers));
     if (!analyse) {
-      await this.bloquer(jeton, depot, numero, 'L’assistant n’a pas réussi à analyser le projet.');
+      await this.bloquer(jeton, depot, numero, 'ADA n’a pas réussi à analyser le projet.');
       return;
     }
 
@@ -513,7 +513,7 @@ export class AgentService {
     }
     if (!adaJson) {
       await this.stories.commenterAssistant(jeton, depot, numero, 'Analyse de la reprise', analyse.texte);
-      await this.bloquer(jeton, depot, numero, 'L’assistant n’a pas trouvé comment démarrer l’aperçu du projet : un développeur doit le décrire (ada.json).');
+      await this.bloquer(jeton, depot, numero, 'ADA n’a pas trouvé comment démarrer l’aperçu du projet : un développeur doit le décrire (ada.json).');
       return;
     }
 
@@ -565,12 +565,12 @@ export class AgentService {
       const reponse = await this.executer(depot, numero, 'realisation', consigne, cwd, skills.dossiers);
       const resultat = lireResultat(reponse);
       if (!resultat || resultat.resultat === 'bloque') {
-        await this.bloquer(jeton, depot, numero, resultat?.resultat === 'bloque' ? resultat.raison : 'L’assistant n’a pas terminé la réalisation.');
+        await this.bloquer(jeton, depot, numero, resultat?.resultat === 'bloque' ? resultat.raison : 'ADA n’a pas terminé la réalisation.');
         return;
       }
       const { stdout: nbCommits } = await this.apercu.executer('git', ['-C', cwd, 'rev-list', '--count', `origin/main..${branche}`]);
       if (Number(nbCommits.trim()) === 0) {
-        await this.bloquer(jeton, depot, numero, 'L’assistant n’a enregistré aucune modification.');
+        await this.bloquer(jeton, depot, numero, 'ADA n’a enregistré aucune modification.');
         return;
       }
       await this.noter(depot, numero, 'Envoie la branche sur GitHub');
@@ -598,7 +598,7 @@ export class AgentService {
     const detail = await this.stories.detail(jeton, depot, numero);
     // Un autre découpage peut aussi être demandé (#36).
     if (detail.statut !== 'questions' && detail.statut !== 'plan-a-valider' && detail.statut !== 'decoupage') {
-      throw new ConflictException('L’assistant n’attend pas de réponse sur cette demande');
+      throw new ConflictException('ADA n’attend pas de réponse sur cette demande');
     }
     await this.stories.repondre(jeton, depot, numero, texte);
     await this.stories.changerStatut(jeton, depot, numero, 'en-cours');

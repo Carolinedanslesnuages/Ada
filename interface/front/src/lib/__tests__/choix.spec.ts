@@ -9,10 +9,10 @@ const QUESTIONS: QuestionAChoix[] = [
 const commentaire = (questions: unknown) => {
   const octets = new TextEncoder().encode(JSON.stringify(questions))
   const donnees = btoa(String.fromCharCode(...octets))
-  return `${MARQUEUR_ASSISTANT}\n🤖 **Questions de l’assistant**\n\nDeux règles à trancher.\n\n**Choix proposés** (à cocher dans ADA) :\n1. Retour…\n   - [ ] Oui\n\n<!-- ada:choix ${donnees} -->`
+  return `${MARQUEUR_ASSISTANT}\n🤖 **Questions d’ADA**\n\nDeux règles à trancher.\n\n**Choix proposés** (à cocher dans ADA) :\n1. Retour…\n   - [ ] Oui\n\n<!-- ada:choix ${donnees} -->`
 }
 
-describe('Questions à choix de l’assistant', () => {
+describe('Questions à choix d’ADA', () => {
   it('lit les choix joints au commentaire (accents compris)', () => {
     expect(lireChoix(commentaire(QUESTIONS))).toEqual(QUESTIONS)
     expect(lireChoix('Sans choix')).toEqual([])
@@ -21,7 +21,7 @@ describe('Questions à choix de l’assistant', () => {
 
   it('n’affiche dans le fil ni les données cachées ni la liste répétée des choix', () => {
     const message = presenterMessage({ id: 1, auteur: 'robot', avatar: null, le: '', texte: commentaire(QUESTIONS) })
-    expect(message.texte).toBe('🤖 **Questions de l’assistant**\n\nDeux règles à trancher.')
+    expect(message.texte).toBe('🤖 **Questions d’ADA**\n\nDeux règles à trancher.')
   })
 
   it('compose une réponse lisible : options cochées et précision, question par question', () => {

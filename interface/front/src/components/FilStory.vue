@@ -126,7 +126,7 @@ function envoyer(): void {
 
     <!-- 1. Le dernier message de l'assistant, en entier, d'abord : c'est lui qui explique ce qu'on attend du PO. -->
     <section v-if="dernierMessage" class="fr-mb-3w" aria-labelledby="titre-dernier-message">
-      <h3 id="titre-dernier-message" class="fr-h6 fr-mb-1w">Dernier message de l’assistant</h3>
+      <h3 id="titre-dernier-message" class="fr-h6 fr-mb-1w">Dernier message d’ADA</h3>
       <div class="fil__assistant dernier-message">
         <p class="fr-text--xs fr-mb-1v"><strong>{{ dernierMessage.auteur }}</strong> — {{ date(dernierMessage.le) }}</p>
         <TexteRiche :texte="dernierMessage.texte" />
@@ -135,12 +135,12 @@ function envoyer(): void {
 
     <!-- 2. Ce qu'on attend du PO, juste après l'explication : rien à chercher, rien à faire défiler. -->
     <section v-if="travaille" class="fr-callout fr-mb-3w activite" aria-labelledby="titre-action">
-      <h3 id="titre-action" class="fr-callout__title fr-h6">L’assistant travaille</h3>
+      <h3 id="titre-action" class="fr-callout__title fr-h6">ADA travaille</h3>
       <div role="status" aria-live="polite">
         <p class="fr-mb-1w">
           <span class="fr-icon-refresh-line fr-icon--sm activite__icone" aria-hidden="true" />
           <strong>
-            L’assistant {{ activite?.phase === 'realisation' ? 'réalise la demande' : 'analyse la demande' }}…
+            ADA {{ activite?.phase === 'realisation' ? 'réalise la demande' : 'analyse la demande' }}…
           </strong>
           <span v-if="activite?.phase === 'realisation'" class="fr-text--sm">
             L’aperçu montre son travail en cours : ce n’est pas encore terminé. Vous serez prévenu
@@ -219,14 +219,14 @@ function envoyer(): void {
 
       <template v-else-if="story.statut === 'en-cours' || story.statut === 'besoin-dev'">
         <p class="fr-text--sm fr-mb-1w">
-          {{ story.statut === 'besoin-dev' ? 'L’assistant est bloqué sur cette demande.' : 'L’assistant ne travaille pas sur cette demande en ce moment.' }}
+          {{ story.statut === 'besoin-dev' ? 'ADA est bloquée sur cette demande.' : 'ADA ne travaille pas sur cette demande en ce moment.' }}
         </p>
         <DsfrAlert v-if="activite?.erreur" type="error" small :description="activite.erreur" class="fr-mb-2w" />
-        <DsfrButton size="sm" secondary icon="fr-icon-refresh-line" label="Relancer l’assistant" :disabled="actionEnCours" @click="emit('relancer')" />
+        <DsfrButton size="sm" secondary icon="fr-icon-refresh-line" label="Relancer ADA" :disabled="actionEnCours" @click="emit('relancer')" />
       </template>
 
       <div v-else-if="story.statut === 'plan-a-valider' && !modeModification">
-        <p class="fr-text--sm fr-mb-2w">L’assistant attend votre accord sur le plan ci-dessus avant de commencer.</p>
+        <p class="fr-text--sm fr-mb-2w">ADA attend votre accord sur le plan ci-dessus avant de commencer.</p>
         <p id="validation-enregistrement" class="fr-text--sm fr-mb-2w">
           <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
           Votre accord est enregistré sur GitHub, en commentaire {{ designation }}, à votre nom.
@@ -268,7 +268,7 @@ function envoyer(): void {
       </ReponseChoix>
       <form v-else-if="champVisible" novalidate class="fr-mt-2w" @submit.prevent="envoyer">
         <p v-if="story.statut === 'questions'" class="fr-text--sm fr-mb-2w">
-          L’assistant attend vos réponses à ses questions ci-dessous pour continuer.
+          ADA attend vos réponses à ses questions ci-dessous pour continuer.
         </p>
         <DsfrInputGroup
           v-model="texte"
@@ -281,7 +281,7 @@ function envoyer(): void {
           <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
           <strong>En envoyant, votre texte est enregistré tel quel sur GitHub, en commentaire
           {{ designation }}</strong>, à votre nom et visible par l’équipe du projet. Il garde la trace
-          des échanges avec l’assistant.
+          des échanges avec ADA.
         </p>
         <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
           <li><DsfrButton type="submit" label="Envoyer" aria-describedby="reponse-enregistrement" :disabled="actionEnCours" /></li>
@@ -370,18 +370,18 @@ function envoyer(): void {
         </DsfrAccordion>
         <DsfrAccordion id="pourquoi-github" title="Pourquoi les échanges sont-ils enregistrés sur GitHub ?">
           <p class="fr-text--sm fr-mb-1w">
-            Vos réponses, votre accord sur le plan et les questions de l’assistant sont des
+            Vos réponses, votre accord sur le plan et les questions d’ADA sont des
             commentaires {{ designation }}. C’est un choix volontaire :
           </p>
           <ul class="fr-text--sm">
             <li><strong>Traçabilité</strong> : on sait qui a demandé quoi et qui a validé quel plan, quand. Important quand du code est écrit par une IA.</li>
-            <li><strong>L’assistant s’en sert</strong> : à chaque reprise, il relit tout l’échange ; rien ne se perd.</li>
+            <li><strong>ADA s’en sert</strong> : à chaque reprise, elle relit tout l’échange ; rien ne se perd.</li>
             <li><strong>Un développeur peut reprendre</strong> en cas de blocage : tout le contexte est au même endroit.</li>
             <li><strong>L’historique appartient au projet</strong>, pas à ADA : il reste si l’outil change.</li>
           </ul>
           <p class="fr-text--sm fr-mb-0">
             N’y écrivez donc rien de confidentiel. Vous pouvez modifier ou supprimer vos commentaires
-            sur GitHub ; l’assistant en tiendra compte à sa prochaine lecture.
+            sur GitHub ; ADA en tiendra compte à sa prochaine lecture.
           </p>
         </DsfrAccordion>
       </DsfrAccordionsGroup>

@@ -35,7 +35,7 @@ function envoyer(): void {
 
 <template>
   <form novalidate class="fr-mt-2w" @submit.prevent="envoyer">
-    <DsfrAlert type="info" small class="fr-mb-2w" description="L’assistant attend vos réponses pour continuer. Cochez, et précisez si besoin." />
+    <DsfrAlert type="info" small class="fr-mb-2w" description="ADA attend vos réponses pour continuer. Cochez, et précisez si besoin." />
     <div v-for="(question, rang) in questions" :key="question.question" class="fr-mb-3w">
       <DsfrCheckboxSet
         v-if="question.plusieurs"

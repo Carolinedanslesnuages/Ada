@@ -271,7 +271,7 @@ export function formaterStory(story: StoryProposee, parent: number): string {
     '',
     SECTION_PARENT,
     '',
-    `#${parent} — story créée depuis ADA, à partir du découpage proposé par l’assistant.`,
+    `#${parent} — story créée depuis ADA, à partir du découpage qu’elle a proposé.`,
   ].join('\n');
 }
 

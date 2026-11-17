@@ -68,7 +68,7 @@ async function demanderConseil(): Promise<void> {
   try {
     const reponse = await props.conseiller(projet.idee ?? '')
     const modele = props.modeles.find((candidat) => candidat.id === reponse.modele && candidat.disponible)
-    if (!modele) throw new Error('L’assistant n’a pas pu proposer de stack : choisissez-la vous-même dans la liste.')
+    if (!modele) throw new Error('ADA n’a pas pu proposer de stack : choisissez-la vous-même dans la liste.')
     conseil.value = reponse
     typeChoisi.value = modele.type
     await nextTick()
@@ -146,7 +146,7 @@ function envoyer(): void {
   <form novalidate @submit.prevent="envoyer">
     <h2 class="fr-h4">Nouveau projet</h2>
     <p class="fr-text--sm">
-      Racontez votre idée : ADA crée le projet sur votre compte GitHub, et l’assistant s’en
+      Racontez votre idée : ADA crée le projet sur votre compte GitHub, et ADA s’en
       saisit aussitôt. L’objectif et la baseline sont facultatifs.
     </p>
 
@@ -158,7 +158,7 @@ function envoyer(): void {
       <DsfrInputGroup
         v-model="projet.idee"
         label="Votre idée"
-        hint="Racontez-la comme elle vient, même en vrac : le besoin, pour qui, ce qui vous gêne aujourd’hui… L’assistant vous posera ses questions, puis vous proposera les premières stories à valider."
+        hint="Racontez-la comme elle vient, même en vrac : le besoin, pour qui, ce qui vous gêne aujourd’hui… ADA vous posera ses questions, puis vous proposera les premières stories à valider."
         label-visible
         is-textarea
         rows="6"
@@ -169,13 +169,13 @@ function envoyer(): void {
           type="button"
           secondary
           size="sm"
-          :label="conseilEnCours ? 'L’assistant réfléchit…' : 'Demander conseil à l’assistant pour la stack'"
+          :label="conseilEnCours ? 'ADA réfléchit…' : 'Demander conseil à ADA pour la stack'"
           :disabled="conseilEnCours || !ideeSuffisante"
           aria-describedby="conseil-aide"
           @click="demanderConseil"
         />
         <p id="conseil-aide" class="fr-hint-text fr-mt-1v">
-          L’assistant lit votre idée et présélectionne, à l’étape suivante, le type de projet et la
+          ADA lit votre idée et présélectionne, à l’étape suivante, le type de projet et la
           stack les plus adaptés. Vous pourrez toujours choisir autre chose.
         </p>
         <div role="status">
@@ -183,7 +183,7 @@ function envoyer(): void {
             v-if="conseil && modeleConseille"
             type="info"
             small
-            :description="`Conseil de l’assistant : ${modeleConseille.libelle}. ${conseil.raison}`"
+            :description="`Conseil d’ADA : ${modeleConseille.libelle}. ${conseil.raison}`"
           />
         </div>
         <p v-if="erreurConseil" class="fr-error-text" role="alert">{{ erreurConseil }}</p>
@@ -196,7 +196,7 @@ function envoyer(): void {
         type="info"
         small
         class="fr-mb-3w"
-        :description="`L’assistant conseille : ${modeleConseille.libelle}. Il est présélectionné ; vous pouvez choisir autre chose.`"
+        :description="`ADA conseille : ${modeleConseille.libelle}. Ce choix est présélectionné ; vous pouvez choisir autre chose.`"
       />
       <fieldset class="fr-fieldset" :class="{ 'fr-fieldset--error': erreurs.modele && !typeChoisi }">
         <legend class="fr-fieldset__legend">Que voulez-vous créer ?</legend>
@@ -244,7 +244,7 @@ function envoyer(): void {
               :value="modele.id"
             />
             <label class="fr-label" :for="`modele-${modele.id}`">
-              {{ modele.libelle }}<template v-if="modele.id === conseil?.modele"> (conseillée par l’assistant)</template>
+              {{ modele.libelle }}<template v-if="modele.id === conseil?.modele"> (conseillée par ADA)</template>
               <span class="fr-hint-text">{{ modele.pourQuoi }}</span>
             </label>
           </div>

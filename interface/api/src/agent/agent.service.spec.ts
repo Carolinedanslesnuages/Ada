@@ -123,7 +123,7 @@ describe('AgentService', () => {
     expect(consigne).not.toContain('django');
   });
 
-  it('refuse une idée trop courte, et une réponse hors liste de l’assistant', async () => {
+  it('refuse une idée trop courte, et une réponse hors liste d’ADA', async () => {
     await expect(service.conseillerStack('salle')).rejects.toThrow(/une phrase au moins/);
     sortie = [resultat('{"modele":"django","raison":"x"}')];
     await expect(service.conseillerStack('les agents réservent une salle de réunion')).rejects.toThrow(/choisissez-la vous-même/);
@@ -165,7 +165,7 @@ describe('AgentService', () => {
     };
     const ameliorations = [
       { titre: 'Tests d’accessibilité', role: 'PO du projet', besoin: 'un test axe par écran', benefice: 'garantir le RGAA', criteres: ['Chaque écran a son test'] },
-      { titre: 'Écrire AGENTS.md', role: 'PO du projet', besoin: 'les règles du projet', benefice: 'guider l’assistant', criteres: ['Commandes décrites'] },
+      { titre: 'Écrire AGENTS.md', role: 'PO du projet', besoin: 'les règles du projet', benefice: 'guider ADA', criteres: ['Commandes décrites'] },
     ];
     const adaAnalyse = { type: 'service', controles: ['cd /app && npm test'], apercu: { image: 'node:24-bookworm', npm: ['.'], principal: 'npx vite --host 0.0.0.0 --port 5173', port: 5173 } };
 
@@ -290,11 +290,11 @@ describe('AgentService', () => {
     expect(exclusions).toContain('/.agents/skills/');
   });
 
-  it('publie les questions de l’assistant quand la story est floue', async () => {
+  it('publie les questions d’ADA quand la story est floue', async () => {
     sortie = [resultat('{"decision":"questions","texte":"1. Quel format de date ?"}')];
     await service.analyser(JETON, 'poc', 1);
     await service.derniereTache;
-    expect(stories.commenterAssistant).toHaveBeenCalledWith(JETON, 'poc', 1, 'Questions de l’assistant', '1. Quel format de date ?');
+    expect(stories.commenterAssistant).toHaveBeenCalledWith(JETON, 'poc', 1, 'Questions d’ADA', '1. Quel format de date ?');
     expect(statut).toBe('questions');
   });
 
@@ -394,7 +394,7 @@ describe('AgentService', () => {
     expect(statut).toBe('besoin-dev');
   });
 
-  it('relance l’assistant sur une demande en cours sans agent actif', async () => {
+  it('relance ADA sur une demande en cours sans agent actif', async () => {
     statut = 'en-cours';
     sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
     await service.relancer(JETON, 'po1', 'poc', 1);

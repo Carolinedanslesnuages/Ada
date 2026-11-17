@@ -180,7 +180,7 @@ export function lireStoriesParent(corps: string): { numero: number; titre: strin
 export function presenterMessage(message: Message): { auteur: string; texte: string; assistant: boolean } {
   const assistant = message.texte.startsWith(MARQUEUR_ASSISTANT)
   return {
-    auteur: assistant ? 'Assistant' : message.auteur,
+    auteur: assistant ? 'ADA' : message.auteur,
     // Les choix sont présentés dans le formulaire de réponse : on ne les répète pas dans le fil.
     texte: assistant
       ? message.texte

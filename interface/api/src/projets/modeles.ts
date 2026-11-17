@@ -72,7 +72,7 @@ export const LABELS_ATELIER = [
   { name: 'mode-libre', color: '6a6af4', description: 'Demande libre du PO (mode sauvage, hors story)' },
   { name: 'bug', color: 'ce0500', description: 'Problème signalé par le PO' },
   { name: 'story:en-cours', color: '0063cb', description: 'Lancée depuis ADA' },
-  { name: 'story:questions', color: 'b34000', description: 'L’assistant attend des réponses du PO' },
+  { name: 'story:questions', color: 'b34000', description: 'ADA attend des réponses du PO' },
   { name: 'story:plan-a-valider', color: 'b34000', description: 'Le PO doit valider le plan' },
   { name: 'story:en-verification', color: '0063cb', description: 'Réalisée, contrôles en cours' },
   { name: 'story:besoin-dev', color: 'ce0500', description: 'Bloquée : un développeur doit intervenir' },

@@ -24,7 +24,7 @@ const etapes = [
   },
   {
     titre: 'Validez le plan',
-    texte: 'L’assistant pose ses questions, puis vous propose un plan avant de commencer.',
+    texte: 'ADA pose ses questions, puis vous propose un plan avant de commencer.',
   },
   {
     titre: 'Regardez le résultat',
@@ -49,8 +49,8 @@ const garanties = [
   },
   {
     icone: 'fr-icon-lock-line',
-    titre: 'Un assistant cloisonné',
-    texte: 'Il ne travaille que dans votre projet : aucun secret, aucune donnée réelle.',
+    titre: 'Un travail cloisonné',
+    texte: 'ADA ne travaille que dans votre projet : aucun secret, aucune donnée réelle.',
   },
   {
     icone: 'fr-icon-git-pull-request-line',
@@ -67,7 +67,7 @@ const garanties = [
         <p class="fr-badge fr-badge--info fr-badge--no-icon fr-mb-2w">Atelier de Développement Assisté</p>
         <h1 class="fr-mb-2w"><img class="accueil__logo" src="/logo-ada-capitales.svg" alt="ADA" /></h1>
         <p class="fr-text--lead fr-mb-2w">
-          Un outil pour les non-développeurs : décrivez votre besoin, un assistant de code réalise
+          Un outil pour les non-développeurs : décrivez votre besoin, ADA réalise
           votre POC et vous le voyez se construire.
         </p>
         <DsfrAlert v-if="message" type="error" small :description="message" class="fr-mb-3w" />

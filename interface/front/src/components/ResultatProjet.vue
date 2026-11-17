@@ -14,7 +14,7 @@ const emit = defineEmits<{ fermer: []; suivre: [numero: number] }>()
       description="Le dépôt est prêt sur GitHub, avec ses tests, ses contrôles et sa première version."
     />
     <p v-if="resultat.idee" class="fr-mt-2w">
-      <strong>Votre idée est enregistrée (demande n° {{ resultat.idee }}).</strong> L’assistant l’étudie :
+      <strong>Votre idée est enregistrée (demande n° {{ resultat.idee }}).</strong> ADA l’étudie :
       il va vous poser ses questions, puis vous proposer l’objectif et les premières stories à valider.
     </p>
     <p v-else class="fr-mt-2w">Vous pouvez écrire votre première story, ou « Prompter » une demande libre.</p>
@@ -67,7 +67,7 @@ const emit = defineEmits<{ fermer: []; suivre: [numero: number] }>()
     <DsfrButton
       v-if="resultat.idee"
       class="fr-mt-3w"
-      label="Suivre l’assistant sur mon idée"
+      label="Suivre ADA sur mon idée"
       @click="emit('suivre', resultat.idee)"
     />
     <DsfrButton v-else class="fr-mt-3w" label="Écrire la première story" @click="emit('fermer')" />

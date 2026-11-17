@@ -160,7 +160,7 @@ describe('Formulaire de nouveau projet (étapier)', () => {
     wrapper.unmount()
   })
 
-  it('l’assistant conseille une stack d’après l’idée : présélectionnée à l’étape suivante, modifiable (#68)', async () => {
+  it('ADA conseille une stack d’après l’idée : présélectionnée à l’étape suivante, modifiable (#68)', async () => {
     let repondre: (conseil: Conseil) => void = () => {}
     const conseiller = vi.fn<(idee: string) => Promise<Conseil>>(() => new Promise((fin) => (repondre = fin)))
     const wrapper = monter(conseiller)
@@ -172,12 +172,12 @@ describe('Formulaire de nouveau projet (étapier)', () => {
     expect(bouton().text()).toContain('réfléchit')
     repondre({ modele: 'vue-node', raison: 'Une petite application suffit.' })
     await flushPromises()
-    expect(wrapper.text()).toContain('Conseil de l’assistant : Vue 3 + Node.js (Express). Une petite application suffit.')
+    expect(wrapper.text()).toContain('Conseil d’ADA : Vue 3 + Node.js (Express). Une petite application suffit.')
     expect(await violationsAccessibilite(document.body)).toEqual([])
     await suivant(wrapper)
     expect((wrapper.find('#type-service').element as HTMLInputElement).checked).toBe(true)
     expect((wrapper.find('#modele-vue-node').element as HTMLInputElement).checked).toBe(true)
-    expect(wrapper.find('label[for="modele-vue-node"]').text()).toContain('conseillée par l’assistant')
+    expect(wrapper.find('label[for="modele-vue-node"]').text()).toContain('conseillée par ADA')
     // Le PO garde la main.
     await wrapper.find('#modele-vue-nest-dsfr').setValue(true)
     await suivant(wrapper)
@@ -189,7 +189,7 @@ describe('Formulaire de nouveau projet (étapier)', () => {
 
   it('conseil impossible : message clair, le PO choisit lui-même', async () => {
     const conseiller = vi.fn<(idee: string) => Promise<Conseil>>(async () => {
-      throw new Error('L’assistant n’a pas pu proposer de stack : choisissez-la vous-même dans la liste.')
+      throw new Error('ADA n’a pas pu proposer de stack : choisissez-la vous-même dans la liste.')
     })
     const wrapper = monter(conseiller)
     await wrapper.find('textarea').setValue(IDEE)

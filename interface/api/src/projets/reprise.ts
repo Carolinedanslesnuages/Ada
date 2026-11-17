@@ -69,7 +69,7 @@ export function corpsReprise(options: { stack: string | null; fichiers: string[]
   return [
     `Reprise du projet par ADA, demandée par @${options.login}.`,
     options.stack ? `Stack la plus proche indiquée : **${options.stack}**.` : 'Aperçu décrit par l’analyse du projet.',
-    options.dsfr ? 'Apparence : **DSFR** (Système de design de l’État).' : 'Apparence : **celle du projet**, l’assistant n’introduit pas le DSFR.',
+    options.dsfr ? 'Apparence : **DSFR** (Système de design de l’État).' : 'Apparence : **celle du projet**, ADA n’introduit pas le DSFR.',
     ...(options.analyse ? ['', `Analyse et améliorations proposées : ${options.analyse}`] : []),
     '',
     'Fichiers ajoutés (ceux déjà présents ne sont pas modifiés) :',

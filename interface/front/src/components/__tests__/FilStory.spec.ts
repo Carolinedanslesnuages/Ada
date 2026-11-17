@@ -45,7 +45,7 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
-  it('montre que l’assistant travaille, avec ses dernières actions, sans rien demander', async () => {
+  it('montre que ADA travaille, avec ses dernières actions, sans rien demander', async () => {
     const wrapper = monterAvec({
       story: { ...story, statut: 'en-cours' },
       activite: {
@@ -60,7 +60,7 @@ describe('Fil d’une story', () => {
         pullRequest: null,
       },
     })
-    expect(wrapper.text()).toContain('L’assistant réalise la demande…')
+    expect(wrapper.text()).toContain('ADA réalise la demande…')
     expect(wrapper.text()).toContain('ce n’est pas encore terminé')
     expect(wrapper.text()).toContain('Lance les tests')
     expect(wrapper.find('textarea').exists()).toBe(false)
@@ -68,14 +68,14 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
-  it('signe « Assistant » les messages de l’assistant, sans marqueur technique', () => {
+  it('signe « ADA » les messages d’ADA, sans marqueur technique', () => {
     const wrapper = monterAvec({
       story: {
         ...story,
         messages: [{ id: 9, auteur: 'po1', avatar: null, texte: '<!-- atelier-po:assistant -->\n🤖 **Plan proposé**\n\nJe vais…', le: '2026-11-16T10:05:00Z' }],
       },
     })
-    expect(wrapper.text()).toContain('Assistant')
+    expect(wrapper.text()).toContain('ADA — ')
     expect(wrapper.text()).not.toContain('atelier-po:assistant')
     wrapper.unmount()
   })
@@ -122,7 +122,7 @@ describe('Fil d’une story', () => {
 
   it('questions à choix : réponse en cases à cocher au lieu du champ libre', async () => {
     const octets = new TextEncoder().encode(JSON.stringify([{ question: 'Retour le jour même ?', choix: ['Oui', 'Non'], plusieurs: false }]))
-    const texte = `<!-- atelier-po:assistant -->\n🤖 **Questions de l’assistant**\n\nUne règle.\n\n<!-- ada:choix ${btoa(String.fromCharCode(...octets))} -->`
+    const texte = `<!-- atelier-po:assistant -->\n🤖 **Questions d’ADA**\n\nUne règle.\n\n<!-- ada:choix ${btoa(String.fromCharCode(...octets))} -->`
     const wrapper = monterAvec({ story: { ...story, messages: [...story.messages, { id: 99, auteur: 'robot', avatar: null, le: '2026-11-16T10:00:00Z', texte }] } })
     expect(wrapper.find('textarea').exists()).toBe(false)
     expect(wrapper.findAll('input[type="radio"]')).toHaveLength(2)
@@ -159,7 +159,7 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
-  it('ordre de lecture : le dernier message de l’assistant (qui explique), puis l’action attendue, la story, et l’historique replié', () => {
+  it('ordre de lecture : le dernier message d’ADA (qui explique), puis l’action attendue, la story, et l’historique replié', () => {
     const assistant = (id: number, texte: string) => ({ id, auteur: 'robot', avatar: null, texte: `<!-- atelier-po:assistant -->\n${texte}`, le: `2026-11-16T10:0${id}:00Z` })
     const wrapper = monterAvec({
       story: {
@@ -169,7 +169,7 @@ describe('Fil d’une story', () => {
       },
     })
     const titres = wrapper.findAll('h3').map((titre) => titre.text())
-    expect(titres.slice(0, 4)).toEqual(['Dernier message de l’assistant', 'À vous de jouer', 'La story', 'Suivi'])
+    expect(titres.slice(0, 4)).toEqual(['Dernier message d’ADA', 'À vous de jouer', 'La story', 'Suivi'])
     expect(wrapper.find('.dernier-message').text()).toContain('Le plan proposé')
     const historique = wrapper.findAll('button[aria-expanded]').find((bouton) => bouton.text().startsWith('Voir l’historique'))!
     expect(historique.text()).toBe('Voir l’historique (2 échanges)')
@@ -179,9 +179,9 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
-  it('pendant que l’assistant travaille, l’encart du haut le dit (aucune action demandée)', () => {
+  it('pendant que ADA travaille, l’encart du haut le dit (aucune action demandée)', () => {
     const wrapper = monterAvec({ story: { ...story, statut: 'en-cours' }, activite: { enCours: true, phase: 'analyse', debut: null, journal: [], erreur: null, pullRequest: null } })
-    expect(wrapper.find('h3').text()).toBe('L’assistant travaille')
+    expect(wrapper.find('h3').text()).toBe('ADA travaille')
     expect(wrapper.text()).not.toContain('À vous de jouer')
     wrapper.unmount()
   })
@@ -195,9 +195,9 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
-  it('demande une réponse quand l’assistant pose des questions', async () => {
+  it('demande une réponse quand ADA pose des questions', async () => {
     const wrapper = monterAvec({})
-    expect(wrapper.text()).toContain('L’assistant attend vos réponses')
+    expect(wrapper.text()).toContain('ADA attend vos réponses')
     await wrapper.find('form').trigger('submit')
     expect(wrapper.emitted('repondre')).toBeUndefined()
     expect(wrapper.text()).toContain('Écrivez vos réponses')
@@ -207,13 +207,13 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
-  it('propose de relancer l’assistant sur une demande en cours où rien ne tourne', async () => {
+  it('propose de relancer ADA sur une demande en cours où rien ne tourne', async () => {
     const wrapper = monterAvec({
       story: { ...story, statut: 'en-cours' },
       activite: { phase: null, enCours: false, debut: null, journal: [], erreur: null, pullRequest: null },
     })
-    expect(wrapper.text()).toContain('L’assistant ne travaille pas sur cette demande en ce moment')
-    await bouton(wrapper, 'Relancer l’assistant')!.trigger('click')
+    expect(wrapper.text()).toContain('ADA ne travaille pas sur cette demande en ce moment')
+    await bouton(wrapper, 'Relancer ADA')!.trigger('click')
     expect(wrapper.emitted('relancer')).toHaveLength(1)
     wrapper.unmount()
   })

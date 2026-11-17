@@ -27,7 +27,7 @@ const monter = (idee: number | null, agentDisponible = true) => {
 };
 
 describe('Création d’un projet (route)', () => {
-  it('lance aussitôt l’assistant sur l’idée de départ (#68)', async () => {
+  it('lance aussitôt ADA sur l’idée de départ (#68)', async () => {
     const { controleur, agent } = monter(1);
     await expect(controleur.creer(requete, {})).resolves.toMatchObject({ idee: 1 });
     expect(agent.analyser).toHaveBeenCalledWith('jeton', 'covoiturage', 1, 'un-po');

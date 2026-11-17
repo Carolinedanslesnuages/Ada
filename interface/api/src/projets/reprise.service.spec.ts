@@ -72,7 +72,7 @@ describe('RepriseService (#37)', () => {
     ]);
   });
 
-  it('sans stack : marque le dépôt, enregistre la demande d’analyse au nom du PO et lance l’assistant', async () => {
+  it('sans stack : marque le dépôt, enregistre la demande d’analyse au nom du PO et lance ADA', async () => {
     const resultat = await service.reprendre('jeton', 'un-po', { depot: 'un-po~mon-poc' });
     expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'un-po', repo: 'mon-poc', names: ['vue', 'ada-reprise'] });
     expect(projets.poserLabels).toHaveBeenCalledWith(gh, 'un-po', 'mon-poc');
@@ -119,7 +119,7 @@ describe('RepriseService (#37)', () => {
 
     it('analyse en cours : pas encore de PR', async () => {
       agent.verrouActif.mockResolvedValue({ pid: 1 });
-      expect(await service.etat('jeton', 'un-po~mon-poc')).toMatchObject({ analyseEnCours: true, pullRequest: null, fusionnable: false, raison: 'L’assistant analyse le projet' });
+      expect(await service.etat('jeton', 'un-po~mon-poc')).toMatchObject({ analyseEnCours: true, pullRequest: null, fusionnable: false, raison: 'ADA analyse le projet' });
     });
 
     it('PR prête : fusionnable quand le contrôle du titre est vert', async () => {
@@ -183,7 +183,7 @@ describe('RepriseService (#37)', () => {
       expect(gh.issues.update).not.toHaveBeenCalled();
     });
 
-    it('refuse pour un projet créé par ADA, ou pendant que l’assistant travaille', async () => {
+    it('refuse pour un projet créé par ADA, ou pendant que ADA travaille', async () => {
       gh.repos.get.mockResolvedValue({ data: depot('signalements', 'proprio', ['ada']) });
       await expect(service.annuler('jeton', 'un-po', 'signalements')).rejects.toThrow(/créé par ADA/);
       agent.verrouActif.mockResolvedValueOnce({ pid: 1 });
