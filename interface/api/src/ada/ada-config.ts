@@ -19,7 +19,6 @@ export const TYPES_PROJET = [
   'composant',
   'api',
   'traitement',
-  'documents',
   'maquette',
 ] as const;
 export type TypeProjet = (typeof TYPES_PROJET)[number];

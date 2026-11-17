@@ -25,7 +25,6 @@ export const TYPES: { id: TypeProjet; famille: Famille; libelle: string; descrip
   { id: 'composant', famille: 'outil-existant', libelle: 'Composant à intégrer', description: 'Un bloc à insérer dans un autre site : simulateur, calculette, recherche' },
   { id: 'api', famille: 'sans-ecran', libelle: 'API', description: 'Mettre des données ou un calcul à disposition d’autres services' },
   { id: 'traitement', famille: 'sans-ecran', libelle: 'Traitement de données', description: 'Importer, nettoyer, convertir des fichiers ; tâche planifiée' },
-  { id: 'documents', famille: 'sans-ecran', libelle: 'Génération de documents', description: 'Courriers, attestations, PDF à partir de modèles' },
   { id: 'maquette', famille: 'idee', libelle: 'Maquette cliquable', description: 'Montrer un parcours avant de le développer : données fictives, aucun serveur' },
 ];
 
@@ -63,7 +62,6 @@ export function catalogue(): Omit<Modele, 'disponible' | 'deployable'>[] {
     { id: 'api-nest', type: 'api', libelle: 'NestJS + PostgreSQL, documentation OpenAPI', pourQuoi: 'API documentée et testée' },
     { id: 'api-fastapi', type: 'api', libelle: 'Python (FastAPI) + PostgreSQL', pourQuoi: 'Calculs, données, IA' },
     { id: 'traitement-python', type: 'traitement', libelle: 'Python (scripts planifiés)', pourQuoi: 'Fichiers CSV nettoyés et contrôlés, rapport lisible ; exécution planifiée par la CI' },
-    { id: 'documents', type: 'documents', libelle: 'NestJS, génération de PDF', pourQuoi: 'Modèles de documents, PDF accessibles' },
     { id: 'maquette', type: 'maquette', libelle: 'Maquette Vue 3, avec DSFR', pourQuoi: 'Parcours cliquable, données fictives, aucun serveur' },
   ];
 }
