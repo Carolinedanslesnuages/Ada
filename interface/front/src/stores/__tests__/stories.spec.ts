@@ -94,7 +94,7 @@ describe('Store des stories', () => {
     expect(store.courante?.statut).toBe('en-cours')
   })
 
-  it('envoie la réponse du PO à l’assistant', async () => {
+  it('envoie la réponse du PO à ADA', async () => {
     const store = useStoriesStore()
     envoyer.mockResolvedValue({ ok: true })
     lire.mockImplementation(async (chemin: string) => (chemin.endsWith('/stories') ? [] : detail(3)))

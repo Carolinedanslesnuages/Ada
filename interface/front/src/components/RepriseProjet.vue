@@ -18,8 +18,8 @@ const modele = ref('')
 /** Code existant : on garde son apparence par défaut ; le DSFR est un choix explicite. */
 const apparence = ref<'projet' | 'dsfr'>('projet')
 const optionsApparence = [
-  { label: 'Garder l’apparence du projet (sans DSFR)', value: 'projet', hint: 'L’assistant réutilise les composants et le style déjà en place.' },
-  { label: 'Utiliser le DSFR', value: 'dsfr', hint: 'Système de design de l’État : l’assistant l’applique aux écrans qu’il crée ou modifie.' },
+  { label: 'Garder l’apparence du projet (sans DSFR)', value: 'projet', hint: 'ADA réutilise les composants et le style déjà en place.' },
+  { label: 'Utiliser le DSFR', value: 'dsfr', hint: 'Système de design de l’État : ADA l’applique aux écrans qu’elle crée ou modifie.' },
 ]
 const erreurDepot = ref<string | undefined>()
 const erreur = ref<string | null>(null)
@@ -33,7 +33,7 @@ const optionsDepots = computed(() =>
 /** La stack décrit la structure du code ; l'apparence se choisit à part. */
 const sansDsfr = (libelle: string) => libelle.replace(/,? avec DSFR$/, '').replace(/ DSFR\b/, '')
 const optionsModeles = computed(() => [
-  { value: '', text: 'Je ne sais pas : l’assistant la déduit' },
+  { value: '', text: 'Je ne sais pas : ADA la déduit' },
   ...props.modeles.filter((m) => m.disponible).map((m) => ({ value: m.id, text: sansDsfr(m.libelle) })),
 ])
 
@@ -69,7 +69,7 @@ async function reprendre(): Promise<void> {
     <h2 id="titre-reprise" class="fr-h4">Reprendre un projet existant</h2>
     <p class="fr-text--sm">
       Faites évoluer avec ADA un projet déjà commencé, de l’organisation ou de votre compte GitHub.
-      L’assistant l’analyse comme s’il avait été créé avec ADA et vous propose des améliorations
+      ADA l’analyse comme si elle l’avait créé et vous propose des améliorations
       (tests, accessibilité, règles du projet). ADA ouvre ensuite une pull request de reprise : rien
       ne change dans le projet tant que vous ne l’avez pas validée.
     </p>
@@ -105,13 +105,13 @@ async function reprendre(): Promise<void> {
         type="info"
         small
         class="fr-mb-3w"
-        description="L’assistant analyse déjà ce projet : la pull request de reprise s’ouvrira à la fin."
+        description="ADA analyse déjà ce projet : la pull request de reprise s’ouvrira à la fin."
       />
       <template v-else>
         <DsfrSelect
           v-model="modele"
           label="Stack la plus proche (facultatif)"
-          hint="Si vous la connaissez, l’assistant part de sa description pour démarrer l’aperçu."
+          hint="Si vous la connaissez, ADA part de sa description pour démarrer l’aperçu."
           :options="optionsModeles"
         />
         <DsfrRadioButtonSet v-model="apparence" name="apparence" legend="Apparence" :options="optionsApparence" />

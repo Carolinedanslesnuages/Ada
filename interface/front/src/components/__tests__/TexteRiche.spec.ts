@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import TexteRiche from '../TexteRiche.vue'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
 
-describe('Texte riche (messages de l’assistant)', () => {
+describe('Texte riche (messages d’ADA)', () => {
   it('affiche gras, listes et intertitres sans astérisques, et échappe tout HTML', async () => {
     const wrapper = mount(TexteRiche, {
       props: { texte: '**Accessibilité**\n- un **titre** de page\n- <script>alert(1)</script>' },

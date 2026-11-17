@@ -71,13 +71,13 @@ onUnmounted(() => {
         v-else-if="etat?.analyseEnCours && !etat.pullRequest"
         type="info"
         small
-        description="L’assistant analyse le projet comme s’il avait été créé avec ADA (quelques minutes). Suivez-le dans la demande d’analyse ci-dessous : il y proposera ses améliorations, puis la reprise sera à valider ici."
+        description="ADA analyse le projet comme si elle l’avait créé (quelques minutes). Suivez-la dans la demande d’analyse ci-dessous : elle y proposera ses améliorations, puis la reprise sera à valider ici."
       />
       <DsfrAlert
         v-else-if="etat && !etat.pullRequest"
         type="warning"
         small
-        description="L’analyse s’est arrêtée sans pull request de reprise : l’assistant explique pourquoi dans la demande d’analyse ci-dessous."
+        description="L’analyse s’est arrêtée sans pull request de reprise : ADA explique pourquoi dans la demande d’analyse ci-dessous."
       />
       <DsfrAlert
         v-else-if="etat?.pullRequest?.etat === 'fusionnee'"

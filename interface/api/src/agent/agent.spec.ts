@@ -70,7 +70,7 @@ describe('Consignes données à l’agent', () => {
     expect(consigneAnalyse(demande)).not.toContain('Référentiel RGAA complet');
   });
 
-  it('projet sans DSFR (repris) : l’assistant garde l’apparence du projet, l’accessibilité reste exigée', () => {
+  it('projet sans DSFR (repris) : ADA garde l’apparence du projet, l’accessibilité reste exigée', () => {
     for (const consigne of [consigneAnalyse(demande, null, [], false), consigneRealisation(demande, 'story/1-x', null, [], ['npm test'], false)]) {
       expect(consigne).toContain('n’utilise PAS le DSFR'.replace('’', "'"));
       expect(consigne).not.toContain('composants DSFR d’abord'.replace('’', "'"));
@@ -196,7 +196,7 @@ describe('Questions à choix (réponse en cases à cocher, #35)', () => {
 });
 });
 
-describe('Décision « découpage » de l’assistant (#36)', () => {
+describe('Décision « découpage » d’ADA (#36)', () => {
   const story = { titre: 'Voir', role: 'agent', besoin: 'voir', benefice: 'savoir', criteres: ['un critère'] };
 
   it('garde les stories proposées', () => {
@@ -221,7 +221,7 @@ describe('Consigne d’analyse : bref, décisions à cocher, découpage si la de
     expect(consigne).toContain('Toute question qui appelle une DÉCISION doit avoir ses options');
     expect(consigne).toContain('ou trop floue : il te faudrait plus de trois questions');
   });
-  it('retire le numéro que l’assistant ajoute à ses questions (ADA numérote elle-même)', () => {
+  it('retire le numéro que ADA ajoute à ses questions (ADA numérote elle-même)', () => {
     expect(nettoyerChoix([{ question: '2. Dans quel ordre ?', choix: ['A', 'B'] }])[0]!.question).toBe('Dans quel ordre ?')
   });
 
@@ -236,5 +236,11 @@ describe('Consigne d’analyse : bref, décisions à cocher, découpage si la de
 
   it('rappelle qu’ada.json liste des dossiers, jamais des noms de paquets', () => {
     expect(consigneRealisation(demande, 'story/1-x')).toContain('jamais des noms de paquets');
+  });
+
+  it('se présente comme ADA, à la première personne (analyse, réalisation, reprise)', () => {
+    for (const consigne of [consigneAnalyse(demande), consigneRealisation(demande, 'story/1-x'), consigneReprise({ stack: null, dsfr: false })]) {
+      expect(consigne).toContain('Le PO te connaît sous le nom d\'ADA');
+    }
   });
 });

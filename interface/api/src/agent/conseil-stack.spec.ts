@@ -24,7 +24,7 @@ describe('Conseil de stack à la création (#68)', () => {
     expect(lireConseilStack('{"modele": ', ['vue-node'])).toBeNull();
   });
 
-  it('donne à l’assistant l’idée et la liste des modèles, et demande une réponse JSON sans outil', () => {
+  it('donne à ADA l’idée et la liste des modèles, et demande une réponse JSON sans outil', () => {
     const consigne = consigneConseilStack(
       'covoiturage entre agents',
       [{ id: 'vue-node', type: 'service', libelle: 'Vue 3 + Node.js', pourQuoi: 'Petite application' }],

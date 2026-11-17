@@ -141,7 +141,7 @@ export class RepriseService {
     if (depot.default_branch !== 'main') {
       throw new BadRequestException(`La branche principale de ce dépôt s’appelle « ${depot.default_branch} » : ADA travaille sur « main ». Un développeur doit la renommer avant la reprise.`);
     }
-    if (await this.agent.verrouActif(id)) throw new ConflictException('L’assistant analyse déjà ce projet');
+    if (await this.agent.verrouActif(id)) throw new ConflictException('ADA analyse déjà ce projet');
 
     try {
       const dejaOuverte = await prReprise(gh, owner, repo);
@@ -178,7 +178,7 @@ export class RepriseService {
           pullRequest: null,
           controles: [],
           fusionnable: false,
-          raison: analyseEnCours ? 'L’assistant analyse le projet' : 'L’analyse s’est arrêtée sans pull request de reprise',
+          raison: analyseEnCours ? 'ADA analyse le projet' : 'L’analyse s’est arrêtée sans pull request de reprise',
         };
       }
       const { data: pr } = await gh.pulls.get({ owner, repo, pull_number: numero });
@@ -236,7 +236,7 @@ export class RepriseService {
    */
   async annuler(jeton: string, login: string, depot: string): Promise<ResultatAnnulation> {
     const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
-    if (await this.agent.verrouActif(depot)) throw new ConflictException('L’assistant travaille sur ce projet : attendez qu’il ait terminé.');
+    if (await this.agent.verrouActif(depot)) throw new ConflictException('ADA travaille sur ce projet : attendez qu’elle ait terminé.');
     const gh = this.github.client(jeton);
     try {
       const { data } = await gh.repos.get({ owner, repo });
@@ -283,7 +283,7 @@ export class RepriseService {
       await gh.repos.getContent({ owner, repo, path: 'ada.json', ref: 'main' });
     } catch (e) {
       if (statut(e) !== 404) traduireErreurGithub(e);
-      throw new ConflictException('Validez d’abord la reprise du projet (bouton « Valider et fusionner la reprise ») : l’assistant saura alors démarrer son aperçu.');
+      throw new ConflictException('Validez d’abord la reprise du projet (bouton « Valider et fusionner la reprise ») : ADA saura alors démarrer son aperçu.');
     }
   }
 }

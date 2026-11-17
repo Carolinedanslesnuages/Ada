@@ -69,7 +69,7 @@ describe('Répondre en cochant', () => {
     wrapper.unmount()
   })
 
-  it('ne répète pas le numéro déjà écrit par l’assistant (« 1. 1. »)', () => {
+  it('ne répète pas le numéro déjà écrit par ADA (« 1. 1. »)', () => {
     const wrapper = mount(ReponseChoix, {
       props: { questions: [{ question: '1. Les résolus restent-ils affichés ?', choix: ['Oui', 'Non'], plusieurs: false }] },
       global: { plugins: [VueDsfr] },

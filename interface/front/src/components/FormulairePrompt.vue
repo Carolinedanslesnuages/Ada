@@ -32,10 +32,10 @@ function envoyer(): void {
         Pour un <strong>petit changement</strong> qui ne mérite pas une story : « mets le titre
         en bleu », « ajoute un lien vers le guide dans le pied de page »…
         <strong>Pas une application entière</strong> : pour une nouvelle fonctionnalité, écrivez
-        une story. Si la demande est trop grosse, l’assistant vous proposera de la découper.
+        une story. Si la demande est trop grosse, ADA vous proposera de la découper.
       </p>
       <p class="fr-callout__text fr-text--sm fr-mt-1w">
-        L’assistant vous propose ensuite un plan à valider avant de modifier quoi que ce soit.
+        ADA vous propose ensuite un plan à valider avant de modifier quoi que ce soit.
       </p>
     </div>
     <DsfrInputGroup
@@ -56,7 +56,7 @@ function envoyer(): void {
       <li>
         <DsfrButton
           aria-describedby="prompt-enregistrement"
-          type="submit" :label="envoiEnCours ? 'Envoi…' : 'Envoyer à l’assistant'" :disabled="envoiEnCours" />
+          type="submit" :label="envoiEnCours ? 'Envoi…' : 'Envoyer à ADA'" :disabled="envoiEnCours" />
       </li>
       <li><DsfrButton type="button" secondary label="Annuler" @click="emit('annuler')" /></li>
     </ul>

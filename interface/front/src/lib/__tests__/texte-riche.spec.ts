@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { decouperPave, lireSegments, lireTexteRiche } from '../texte-riche'
 
-describe('Mise en forme des messages de l’assistant', () => {
+describe('Mise en forme des messages d’ADA', () => {
   it('reconnaît intertitres, listes à puces et numérotées, paragraphes', () => {
     const blocs = lireTexteRiche(
       [

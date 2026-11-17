@@ -16,7 +16,7 @@ const lire = vi.mocked(api.lire)
 const envoyer = vi.mocked(api.envoyer)
 
 const TITRE = 'Titre de PR (Conventional Commits, semver)'
-const enAnalyse = { analyseEnCours: true, pullRequest: null, controles: [], fusionnable: false, raison: 'L’assistant analyse le projet' }
+const enAnalyse = { analyseEnCours: true, pullRequest: null, controles: [], fusionnable: false, raison: 'ADA analyse le projet' }
 const pr = (fusionnable: boolean, etat: 'ouverte' | 'fusionnee' = 'ouverte') => ({
   analyseEnCours: false,
   pullRequest: { numero: 50, url: 'https://github.com/p/aminimo/pull/50', etat },
@@ -40,11 +40,11 @@ describe('Reprise en attente (#37)', () => {
     document.body.innerHTML = ''
   })
 
-  it('pendant l’analyse : explique où suivre l’assistant, sans bouton de fusion', async () => {
+  it('pendant l’analyse : explique où suivre ADA, sans bouton de fusion', async () => {
     lire.mockResolvedValue(enAnalyse)
     const wrapper = await monter()
     expect(lire).toHaveBeenCalledWith('/projets/aminimo/reprise')
-    expect(wrapper.text()).toContain('L’assistant analyse le projet comme s’il avait été créé avec ADA')
+    expect(wrapper.text()).toContain('ADA analyse le projet comme si elle l’avait créé')
     expect(wrapper.text()).not.toContain('Valider et fusionner la reprise')
     wrapper.unmount()
   })
