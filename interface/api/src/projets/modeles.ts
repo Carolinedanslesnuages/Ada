@@ -68,7 +68,7 @@ export function catalogue(): Omit<Modele, 'disponible' | 'deployable'>[] {
     { id: 'connecteur', type: 'connecteur', libelle: 'NestJS (webhooks)', pourQuoi: 'Événements reçus, vérifiés, relayés ; journal consultable' },
     { id: 'api-nest', type: 'api', libelle: 'NestJS + PostgreSQL, documentation OpenAPI', pourQuoi: 'API documentée et testée' },
     { id: 'api-fastapi', type: 'api', libelle: 'Python (FastAPI) + PostgreSQL', pourQuoi: 'Calculs, données, IA' },
-    { id: 'traitement-python', type: 'traitement', libelle: 'Python (scripts planifiés)', pourQuoi: 'Fichiers CSV, Excel ; exécution planifiée par la CI' },
+    { id: 'traitement-python', type: 'traitement', libelle: 'Python (scripts planifiés)', pourQuoi: 'Fichiers CSV nettoyés et contrôlés, rapport lisible ; exécution planifiée par la CI' },
     { id: 'documents', type: 'documents', libelle: 'NestJS, génération de PDF', pourQuoi: 'Modèles de documents, PDF accessibles' },
     { id: 'maquette', type: 'maquette', libelle: 'Maquette Vue 3, avec DSFR', pourQuoi: 'Parcours cliquable, données fictives, aucun serveur' },
   ];
