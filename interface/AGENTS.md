@@ -18,7 +18,9 @@ l'aperçu du produit tourne à droite dès la création du projet.
   quand il valide un découpage proposé par l'assistant (stories préremplies, relues et
   éventuellement corrigées par lui, publiées à son nom ; la demande d'origine devient leur
   parent). Sinon, il lit, vérifie, lance.
-- Projets : identifiant `nom` (organisation d'ADA) ou `compte~nom` (compte personnel du PO),
+- Projets : **un nouveau projet est créé sur le compte GitHub de la personne connectée** (jeton
+  utilisateur), jamais sur `GITHUB_PROPRIETAIRE`. Identifiant `nom` (compte `GITHUB_PROPRIETAIRE`)
+  ou `compte~nom` (compte personnel du PO),
   lu par `api/src/projets/depot.ts` ; toute route `projets/:depot` passe par `ProjetGuard`. Un
   projet existant est d'abord analysé par l'assistant (phase « reprise », `api/src/agent/consigne-reprise.ts`),
   puis entre dans ADA par une PR de reprise que le PO fusionne (`docs/adr/0010`).

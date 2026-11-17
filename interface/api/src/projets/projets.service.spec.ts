@@ -261,16 +261,22 @@ describe('ProjetsService', () => {
     await expect(service.creer('jeton', 'proprio', { ...projetValide, visibilite: 'interne' })).rejects.toThrow(BadRequestException);
   });
 
-  it('crée le dépôt dans l’organisation quand le PO n’en est pas le propriétaire', async () => {
+  it('crée le dépôt sur le compte de la personne connectée, jamais sur celui qui a configuré ADA', async () => {
     preparerCreation();
-    await service.creer('jeton', 'un-po', projetValide);
-    expect(gh.repos.createInOrg).toHaveBeenCalledWith(expect.objectContaining({ org: 'proprio', name: 'l-annuaire' }));
+    gh.repos.createForAuthenticatedUser.mockResolvedValue({ data: depot('l-annuaire', [], undefined, 'un-po') });
+    const { projet } = await service.creer('jeton', 'un-po', projetValide);
+    expect(gh.repos.get).toHaveBeenCalledWith({ owner: 'un-po', repo: 'l-annuaire' });
+    expect(gh.repos.createForAuthenticatedUser).toHaveBeenCalledWith(expect.objectContaining({ name: 'l-annuaire' }));
+    expect(gh.repos.createInOrg).not.toHaveBeenCalled();
+    expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith(expect.objectContaining({ owner: 'un-po', repo: 'l-annuaire' }));
+    // Identifiant « compte~nom » : le projet est sur le compte personnel du PO.
+    expect(projet.id).toBe('un-po~l-annuaire');
   });
 
   it('explique au PO que l’App ne peut pas créer de dépôt (403 de GitHub)', async () => {
     preparerCreation();
     gh.repos.createForAuthenticatedUser.mockRejectedValue({ status: 403, request: { method: 'POST', url: 'x' } });
-    await expect(service.creer('jeton', 'proprio', projetValide)).rejects.toThrow(/Repository access/);
+    await expect(service.creer('jeton', 'proprio', projetValide)).rejects.toThrow(/Installez-la sur votre compte GitHub/);
   });
 
   it('tolère un label déjà présent dans le dépôt (« bug » existe par défaut)', async () => {
