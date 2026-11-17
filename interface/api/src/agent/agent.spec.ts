@@ -183,3 +183,21 @@ describe('Questions à choix (réponse en cases à cocher, #35)', () => {
   });
 });
 });
+
+describe('Décision « découpage » de l’assistant (#36)', () => {
+  const story = { titre: 'Voir', role: 'agent', besoin: 'voir', benefice: 'savoir', criteres: ['un critère'] };
+
+  it('garde les stories proposées', () => {
+    const decision = lireDecision(JSON.stringify({ decision: 'decoupage', texte: 'Trop gros.', stories: [story, { ...story, titre: 'Emprunter' }] }));
+    expect(decision?.decision).toBe('decoupage');
+    expect(decision?.stories).toHaveLength(2);
+  });
+
+  it('découpage inexploitable : l’explication devient des questions (comme avant)', () => {
+    expect(lireDecision(JSON.stringify({ decision: 'decoupage', texte: 'Trop gros.', stories: [story] }))).toEqual({ decision: 'questions', texte: 'Trop gros.' });
+  });
+
+  it('la consigne demande un découpage en stories quand la demande est trop grosse', () => {
+    expect(consigneAnalyse(demande)).toContain('réponds par la décision « decoupage »');
+  });
+});

@@ -24,7 +24,7 @@ describe('VerificationService', () => {
     issues: { update: vi.fn(), get: vi.fn() },
   };
   const agent = { activite: vi.fn(async (): Promise<{ pullRequest: string | null }> => ({ pullRequest: 'https://github.com/proprio/poc/pull/3' })) };
-  const stories = { retirerStatut: vi.fn() };
+  const stories = { retirerStatut: vi.fn(), signalerLivraisonAuParent: vi.fn() };
   const apercu = { revenirSurMain: vi.fn(), relancerApplication: vi.fn() };
   const demo = { mettreAJour: vi.fn() };
   let service: VerificationService;
@@ -76,6 +76,8 @@ describe('VerificationService', () => {
     );
     expect(gh.issues.update).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 1, state: 'closed' }));
     expect(stories.retirerStatut).toHaveBeenCalledWith('jeton', 'poc', 1);
+    // Story issue d'un découpage : cochée dans sa demande parent (#36).
+    expect(stories.signalerLivraisonAuParent).toHaveBeenCalledWith('jeton', 'poc', 1);
     expect(apercu.revenirSurMain).toHaveBeenCalledWith('jeton', 'poc');
     // L'API de l'aperçu est relancée : elle sert le code fusionné, pas une ancienne version.
     expect(apercu.relancerApplication).toHaveBeenCalledWith('poc');

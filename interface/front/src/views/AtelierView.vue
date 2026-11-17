@@ -139,6 +139,7 @@ const valider = () => agir((p, n) => stories.validerPlan(p, n))
 const relancer = () => agir((p, n) => stories.relancer(p, n))
 const fusionner = () => agir((p, n) => stories.fusionner(p, n))
 const repondre = (texte: string) => agir((p, n) => stories.repondre(p, n, texte))
+const creerDecoupage = (indices: number[]) => agir((p, n) => stories.creerDecoupage(p, n, indices))
 
 /** Suivi automatique tant que la demande ouverte est active ou que l'assistant travaille. */
 let minuteurSuivi: ReturnType<typeof setInterval> | null = null
@@ -298,6 +299,8 @@ onUnmounted(() => {
         @relancer="relancer"
         @fusionner="fusionner"
         @repondre="repondre"
+        @creer-decoupage="creerDecoupage"
+        @ouvrir="ouvrir"
       />
       <AssignationDeveloppeur
         v-if="!modePrompt && stories.courante && projets.nomCourant"

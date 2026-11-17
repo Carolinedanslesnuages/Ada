@@ -20,13 +20,17 @@ export const STATUTS = {
   'plan-a-valider': 'story:plan-a-valider',
   'en-verification': 'story:en-verification',
   'besoin-dev': 'story:besoin-dev',
+  /** L'assistant a proposé un découpage : le PO choisit les stories à créer (#36). */
+  decoupage: 'story:decoupage-a-valider',
+  /** Demande découpée : ses stories se réalisent une par une ; elle se ferme quand toutes sont livrées. */
+  parent: 'story:parent',
 } as const;
 
 export type Statut = 'nouvelle' | keyof typeof STATUTS | 'livree';
 export type TypeDemande = 'story' | 'bug' | 'libre';
 
 /** Statuts qui occupent le projet : tant qu'une demande y est, on n'en lance pas d'autre. */
-export const STATUTS_ACTIFS: Statut[] = ['en-cours', 'questions', 'plan-a-valider', 'en-verification', 'besoin-dev'];
+export const STATUTS_ACTIFS: Statut[] = ['en-cours', 'questions', 'plan-a-valider', 'en-verification', 'besoin-dev', 'decoupage'];
 
 export interface ContenuStory {
   role: string;
@@ -179,4 +183,110 @@ export function typeDepuis(labels: string[], corps = ''): TypeDemande | null {
   if (lireStory(corps)) return 'story';
   if (lireBug(corps)) return 'bug';
   return null;
+}
+
+/* ---------- Découpage d'une demande en stories (#36) ---------- */
+
+/** Story proposée par l'assistant quand une demande est trop grosse. */
+export interface StoryProposee {
+  titre: string;
+  role: string;
+  besoin: string;
+  benefice: string;
+  criteres: string[];
+}
+
+export const MARQUEUR_DECOUPAGE = 'ada:decoupage';
+const DONNEES_DECOUPAGE = /<!-- ada:decoupage (\S+) -->/;
+const SECTION_PARENT = '### Demande parent';
+const SECTION_DECOUPAGE = '### Découpage';
+
+const texteCourt = (valeur: unknown, maximum: number) => (typeof valeur === 'string' ? valeur.trim().slice(0, maximum) : '');
+
+/** Ne garde que des stories complètes : 2 à 8, chacune 1 à CRITERES_MAX critères. */
+export function nettoyerStoriesProposees(brut: unknown): StoryProposee[] {
+  if (!Array.isArray(brut)) return [];
+  const stories = brut
+    .map((element) => (element ?? {}) as Record<string, unknown>)
+    .map((element) => ({
+      titre: texteCourt(element.titre, 120),
+      role: texteCourt(element.role, 200),
+      besoin: texteCourt(element.besoin, 600),
+      benefice: texteCourt(element.benefice, 600),
+      criteres: (Array.isArray(element.criteres) ? element.criteres : [])
+        .map((critere) => texteCourt(critere, 300))
+        .filter(Boolean)
+        .slice(0, CRITERES_MAX),
+    }))
+    .filter((story) => story.titre && story.role && story.besoin && story.benefice && story.criteres.length > 0)
+    .slice(0, 8);
+  return stories.length >= 2 ? stories : [];
+}
+
+/** Commentaire « Découpage proposé » : lisible sur GitHub, et relisible par ADA (données cachées). */
+export function texteDecoupage(explication: string, stories: StoryProposee[]): string {
+  const lisible = stories
+    .map(
+      (story, rang) =>
+        `${rang + 1}. **${story.titre}** — en tant que ${story.role}, je veux ${story.besoin}, afin de ${story.benefice}.\n` +
+        story.criteres.map((critere) => `   - ${critere}`).join('\n'),
+    )
+    .join('\n');
+  const donnees = Buffer.from(JSON.stringify(stories), 'utf8').toString('base64');
+  return `${explication}\n\n**Stories proposées** (à choisir dans ADA) :\n${lisible}\n\n<!-- ${MARQUEUR_DECOUPAGE} ${donnees} -->`;
+}
+
+export function lireDecoupage(texte: string): StoryProposee[] {
+  const donnees = DONNEES_DECOUPAGE.exec(texte)?.[1];
+  if (!donnees) return [];
+  try {
+    return nettoyerStoriesProposees(JSON.parse(Buffer.from(donnees, 'base64').toString('utf8')));
+  } catch {
+    return [];
+  }
+}
+
+/** Corps d'une story créée par ADA : celui du formulaire de story, plus le lien vers la demande parent. */
+export function formaterStory(story: StoryProposee, parent: number): string {
+  return [
+    '### En tant que',
+    '',
+    story.role,
+    '',
+    '### Je veux',
+    '',
+    story.besoin,
+    '',
+    '### Afin de',
+    '',
+    story.benefice,
+    '',
+    "### Critères d'acceptation",
+    '',
+    ...story.criteres.map((critere) => `- ${critere}`),
+    '',
+    SECTION_PARENT,
+    '',
+    `#${parent} — story créée depuis ADA, à partir du découpage proposé par l’assistant.`,
+  ].join('\n');
+}
+
+/** Numéro de la demande parent d'une story créée par découpage ; null sinon. */
+export function lireParent(corps: string): number | null {
+  const section = corps.split(SECTION_PARENT)[1];
+  const numero = section ? /#(\d+)/.exec(section)?.[1] : undefined;
+  return numero ? Number(numero) : null;
+}
+
+/** Ajoute au corps de la demande parent la liste de ses stories, en cases à cocher. */
+export function ajouterDecoupage(corps: string, enfants: { numero: number; titre: string }[]): string {
+  const liste = enfants.map((enfant) => `- [ ] #${enfant.numero} ${enfant.titre}`).join('\n');
+  return `${corps.trimEnd()}\n\n${SECTION_DECOUPAGE}\n\nDemande découpée en ${enfants.length} stories, réalisées une par une. Chaque case se coche quand la story est livrée.\n\n${liste}\n`;
+}
+
+/** Coche la story livrée dans le corps du parent ; dit si toutes ses stories le sont. */
+export function cocherEnfant(corps: string, numero: number): { corps: string; toutesLivrees: boolean } {
+  const coche = corps.replace(new RegExp(`^- \\[ \\] #${numero}(?=\\s)`, 'm'), `- [x] #${numero}`);
+  const section = coche.split(SECTION_DECOUPAGE)[1] ?? '';
+  return { corps: coche, toutesLivrees: /^- \[x\] #\d+/m.test(section) && !/^- \[ \] #\d+/m.test(section) };
 }

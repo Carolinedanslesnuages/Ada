@@ -8,6 +8,8 @@ export type Statut =
   | 'plan-a-valider'
   | 'en-verification'
   | 'besoin-dev'
+  | 'decoupage'
+  | 'parent'
   | 'livree'
 
 export const STATUTS_ACTIFS: Statut[] = [
@@ -16,6 +18,7 @@ export const STATUTS_ACTIFS: Statut[] = [
   'plan-a-valider',
   'en-verification',
   'besoin-dev',
+  'decoupage',
 ]
 
 export const LIBELLES_STATUT: Record<
@@ -28,6 +31,8 @@ export const LIBELLES_STATUT: Record<
   'plan-a-valider': { libelle: 'Plan à valider', type: 'warning' },
   'en-verification': { libelle: 'À vérifier', type: 'info' },
   'besoin-dev': { libelle: 'Besoin d’un développeur', type: 'error' },
+  decoupage: { libelle: 'Découpage à valider', type: 'warning' },
+  parent: { libelle: 'Découpée', type: 'info' },
   livree: { libelle: 'Livrée', type: 'success' },
 }
 
@@ -116,8 +121,7 @@ export function lireChoix(texte: string): QuestionAChoix[] {
   const donnees = DONNEES_CHOIX.exec(texte)?.[1]
   if (!donnees) return []
   try {
-    const octets = Uint8Array.from(atob(donnees), (caractere) => caractere.charCodeAt(0))
-    const choix = JSON.parse(new TextDecoder().decode(octets)) as QuestionAChoix[]
+    const choix = JSON.parse(decoderBase64(donnees)) as QuestionAChoix[]
     return Array.isArray(choix) ? choix.filter((question) => question.question && question.choix?.length >= 2) : []
   } catch {
     return []
@@ -137,13 +141,56 @@ export function composerReponse(questions: QuestionAChoix[], reponses: { coches:
     .join('\n\n')
 }
 
+/** Story proposée par l'assistant quand une demande est trop grosse (#36). */
+export interface StoryProposee {
+  titre: string
+  role: string
+  besoin: string
+  benefice: string
+  criteres: string[]
+}
+
+const DONNEES_DECOUPAGE = /<!-- ada:decoupage (\S+) -->/
+const BLOC_DECOUPAGE_LISIBLE = /\n*\*\*Stories proposées\*\* \(à choisir dans ADA\) :[\s\S]*$/
+
+const decoderBase64 = (donnees: string) => new TextDecoder().decode(Uint8Array.from(atob(donnees), (caractere) => caractere.charCodeAt(0)))
+
+export function lireDecoupage(texte: string): StoryProposee[] {
+  const donnees = DONNEES_DECOUPAGE.exec(texte)?.[1]
+  if (!donnees) return []
+  try {
+    const stories = JSON.parse(decoderBase64(donnees)) as StoryProposee[]
+    return Array.isArray(stories) ? stories.filter((story) => story.titre && story.criteres?.length) : []
+  } catch {
+    return []
+  }
+}
+
+/** Stories d'une demande découpée, lues dans sa liste à cocher (section « Découpage »). */
+export function lireStoriesParent(corps: string): { numero: number; titre: string; livree: boolean }[] {
+  const section = corps.split('### Découpage')[1] ?? ''
+  return [...section.matchAll(/^- \[( |x)\] #(\d+) (.*)$/gm)].map((ligne) => ({
+    numero: Number(ligne[2]),
+    titre: ligne[3]!.trim(),
+    livree: ligne[1] === 'x',
+  }))
+}
+
 /** Message affiché au PO : les messages de l'assistant sont signés « Assistant », sans marqueur. */
 export function presenterMessage(message: Message): { auteur: string; texte: string; assistant: boolean } {
   const assistant = message.texte.startsWith(MARQUEUR_ASSISTANT)
   return {
     auteur: assistant ? 'Assistant' : message.auteur,
     // Les choix sont présentés dans le formulaire de réponse : on ne les répète pas dans le fil.
-    texte: assistant ? message.texte.replace(MARQUEUR_ASSISTANT, '').replace(DONNEES_CHOIX, '').replace(BLOC_CHOIX_LISIBLE, '').trim() : message.texte,
+    texte: assistant
+      ? message.texte
+          .replace(MARQUEUR_ASSISTANT, '')
+          .replace(DONNEES_CHOIX, '')
+          .replace(BLOC_CHOIX_LISIBLE, '')
+          .replace(DONNEES_DECOUPAGE, '')
+          .replace(BLOC_DECOUPAGE_LISIBLE, '')
+          .trim()
+      : message.texte,
     assistant,
   }
 }

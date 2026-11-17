@@ -83,4 +83,6 @@ export const LABELS_ATELIER = [
   { name: 'story:plan-a-valider', color: 'b34000', description: 'Le PO doit valider le plan' },
   { name: 'story:en-verification', color: '0063cb', description: 'Réalisée, contrôles en cours' },
   { name: 'story:besoin-dev', color: 'ce0500', description: 'Bloquée : un développeur doit intervenir' },
+  { name: 'story:decoupage-a-valider', color: 'b34000', description: 'Le PO choisit les stories du découpage proposé' },
+  { name: 'story:parent', color: '6a6af4', description: 'Demande découpée en stories' },
 ];

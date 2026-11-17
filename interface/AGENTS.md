@@ -14,7 +14,10 @@ l'aperçu du produit tourne à droite dès la création du projet.
 - `front/` : Vue 3 + DSFR (`@gouvminint/vue-dsfr`) + Pinia (session, projets, stories).
 - Règles d'une demande (lecture des formulaires GitHub, « prête » = complète et 4 critères au
   maximum, une seule active par projet) : `api/src/stories/story.ts` ; types côté front dans
-  `front/src/lib/story.ts`. **L'atelier ne crée jamais de story** : il lit, vérifie, lance.
+  `front/src/lib/story.ts`. **L'atelier ne crée de story qu'à la demande explicite du PO** :
+  quand il valide un découpage proposé par l'assistant (stories cochées, relues dans la
+  proposition, créées à son nom ; la demande d'origine devient leur parent). Sinon, il lit,
+  vérifie, lance.
 - Aperçu (`api/src/apercu/`) : clone du dépôt avec le jeton du PO (jeton passé par
   l'environnement, jamais en argument), puis `docker compose` (PostgreSQL + application, limites
   mémoire/CPU, ports 5300-5399 sur 127.0.0.1). Dossier de travail `apercus/`, hors git.

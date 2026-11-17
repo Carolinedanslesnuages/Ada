@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import type { Config } from '../config.js';
 import type { GithubService } from '../github/github.service.js';
-import { StoriesService } from './stories.service.js';
+import { MARQUEUR_ASSISTANT, StoriesService } from './stories.service.js';
+import { ajouterDecoupage, cocherEnfant, formaterStory, lireParent, lireStory, texteDecoupage } from './story.js';
 
 const config = { GITHUB_PROPRIETAIRE: 'proprio' } as Config;
 
@@ -48,6 +49,8 @@ describe('StoriesService', () => {
       getLabel: vi.fn(),
       createLabel: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
+      setLabels: vi.fn(),
       listAssignees: vi.fn(),
       addAssignees: vi.fn(),
       removeAssignees: vi.fn(),
@@ -224,6 +227,67 @@ describe('StoriesService', () => {
       await expect(service.assigner('jeton', 'poc', 7, 'inconnu')).rejects.toThrow(/n’a pas accès au projet/);
       await expect(service.assigner('jeton', 'poc', 7, '../x')).rejects.toThrow(/Choisissez un développeur/);
       expect(gh.issues.addAssignees).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('découpage validé par le PO (#36)', () => {
+    const stories = [
+      { titre: 'Voir le matériel', role: 'agent', besoin: 'voir la liste', benefice: 'savoir', criteres: ['Liste'] },
+      { titre: 'Emprunter', role: 'agent', besoin: 'emprunter', benefice: 'ne plus utiliser Excel', criteres: ['Bouton Emprunter'] },
+      { titre: 'Rendre', role: 'agent', besoin: 'rendre', benefice: 'libérer l’objet', criteres: ['Bouton Rendre'] },
+    ];
+    const proposition = texteDecoupage('Trop gros.', stories);
+    const parent = (labels = [{ name: 'user-story' }, { name: 'story:decoupage-a-valider' }]) =>
+      issue(4, { title: 'Tout le prêt de matériel', labels, body: corpsStory(['tout']) });
+
+    beforeEach(() => {
+      gh.issues.get.mockResolvedValue({ data: parent() });
+      gh.issues.listComments.mockResolvedValue({ data: [{ id: 1, user: { login: 'robot' }, body: `${MARQUEUR_ASSISTANT}\n🤖 **Découpage proposé**\n\n${proposition}`, created_at: '' }] });
+      gh.issues.getLabel.mockResolvedValue({});
+      let prochain = 10;
+      gh.issues.create.mockImplementation(async ({ title, body }: { title: string; body: string }) => ({ data: issue(prochain++, { title, body }) }));
+    });
+
+    it('crée à son nom les stories cochées, relues dans la proposition, puis fait de la demande leur parent', async () => {
+      const creees = await service.creerDecoupage('jeton', 'poc', 4, [2, 0], 'po1');
+      expect(creees.map((story) => [story.numero, story.titre])).toEqual([[10, 'Voir le matériel'], [11, 'Rendre']]);
+      const premiere = gh.issues.create.mock.calls[0]![0] as { body: string; labels: string[] };
+      expect(premiere.labels).toEqual(['user-story']);
+      expect(lireStory(premiere.body)?.criteres).toEqual(['Liste']);
+      expect(lireParent(premiere.body)).toBe(4);
+      const corpsParent = (gh.issues.update.mock.calls.find((appel) => (appel[0] as { issue_number: number }).issue_number === 4)![0] as { body: string }).body;
+      expect(corpsParent).toContain('- [ ] #10 Voir le matériel\n- [ ] #11 Rendre');
+      expect(gh.issues.createComment).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 4, body: expect.stringContaining('Découpage validé par po1 : #10, #11') }));
+      expect(gh.issues.setLabels).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 4, labels: ['user-story', 'story:parent'] }));
+    });
+
+    it('refuse une sélection vide ou hors de la proposition, et une demande sans découpage en attente', async () => {
+      await expect(service.creerDecoupage('jeton', 'poc', 4, [], 'po1')).rejects.toThrow(/Cochez au moins une story/);
+      await expect(service.creerDecoupage('jeton', 'poc', 4, [0, 9], 'po1')).rejects.toThrow(/Cochez au moins une story/);
+      gh.issues.get.mockResolvedValue({ data: parent([{ name: 'user-story' }]) });
+      await expect(service.creerDecoupage('jeton', 'poc', 4, [0], 'po1')).rejects.toThrow(/Aucun découpage/);
+      expect(gh.issues.create).not.toHaveBeenCalled();
+    });
+
+    it('story livrée : cochée dans le parent ; le parent se ferme quand toutes le sont', async () => {
+      const corpsParent = ajouterDecoupage('Tout', [{ numero: 10, titre: 'Voir' }, { numero: 11, titre: 'Rendre' }]);
+      const enfant = (numero: number) => issue(numero, { body: formaterStory(stories[0]!, 4) });
+      gh.issues.get.mockImplementation(async ({ issue_number }: { issue_number: number }) => ({ data: issue_number === 4 ? { ...parent([{ name: 'story:parent' }]), body: corpsParent } : enfant(issue_number) }));
+      await service.signalerLivraisonAuParent('jeton', 'poc', 10);
+      expect((gh.issues.update.mock.calls[0]![0] as { body: string }).body).toContain('- [x] #10 Voir');
+      expect(gh.issues.update).not.toHaveBeenCalledWith(expect.objectContaining({ state: 'closed' }));
+      gh.issues.update.mockClear();
+      const corpsUnLivre = cocherEnfant(corpsParent, 10).corps;
+      gh.issues.get.mockImplementation(async ({ issue_number }: { issue_number: number }) => ({ data: issue_number === 4 ? { ...parent([{ name: 'story:parent' }]), body: corpsUnLivre } : enfant(issue_number) }));
+      await service.signalerLivraisonAuParent('jeton', 'poc', 11);
+      expect(gh.issues.update).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 4, state: 'closed' }));
+      expect(gh.issues.createComment).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 4, body: '✅ Toutes les stories du découpage sont livrées.' }));
+    });
+
+    it('une story sans parent n’est pas concernée', async () => {
+      gh.issues.get.mockResolvedValue({ data: issue(12) });
+      await service.signalerLivraisonAuParent('jeton', 'poc', 12);
+      expect(gh.issues.update).not.toHaveBeenCalled();
     });
   });
 });
