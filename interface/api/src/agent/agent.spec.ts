@@ -68,6 +68,15 @@ describe('Consignes données à l’agent', () => {
     expect(consigneAnalyse(demande)).not.toContain('Référentiel RGAA complet');
   });
 
+  it('projet sans DSFR (repris) : l’assistant garde l’apparence du projet, l’accessibilité reste exigée', () => {
+    for (const consigne of [consigneAnalyse(demande, null, [], false), consigneRealisation(demande, 'story/1-x', null, [], ['npm test'], false)]) {
+      expect(consigne).toContain('n’utilise PAS le DSFR'.replace('’', "'"));
+      expect(consigne).not.toContain('composants DSFR d’abord'.replace('’', "'"));
+      expect(consigne).toContain('lang="fr"');
+    }
+    expect(consigneAnalyse(demande)).toContain("composants DSFR d'abord");
+  });
+
   it('limite lecture et écriture au projet, plus la lecture des dossiers de skills', () => {
     const realisation = outilsAutorises('realisation', ['/Users/x/.local/share/dsfr-skill/skills/dsfr-skill']);
     expect(realisation).toContain('Edit(./**)');
@@ -90,6 +99,7 @@ describe('Consignes données à l’agent', () => {
   });
 
   it('indique à l’agent quand utiliser chaque skill disponible', () => {
+    expect(consigneSkills(['dsfr-skill', 'repo-perimetre'], false)).not.toContain('dsfr-skill');
     const texte = consigneSkills(['dsfr-skill', 'repo-perimetre', 'skill-inconnue']);
     expect(texte).toContain('- dsfr-skill : avant d’écrire ou de modifier un composant ou une page DSFR');
     expect(texte).toContain('- repo-perimetre : avant de livrer');

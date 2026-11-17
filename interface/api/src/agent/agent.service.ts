@@ -382,7 +382,8 @@ export class AgentService {
       const cwd = await this.apercu.preparerDepot(jeton, depot);
       const skills = await this.equiperSkills(cwd);
       await this.noter(depot, numero, 'Lit la story et le projet');
-      const consigne = consigneAnalyse(await this.demande(jeton, depot, numero), await this.lireIndexRgaa(), skills.noms);
+      const { dsfr } = await this.apercu.lireConfig(cwd);
+      const consigne = consigneAnalyse(await this.demande(jeton, depot, numero), await this.lireIndexRgaa(), skills.noms, dsfr);
       const reponse = await this.executer(depot, numero, 'analyse', consigne, cwd, skills.dossiers);
       const decision = lireDecision(reponse);
       if (!decision) {
@@ -426,8 +427,8 @@ export class AgentService {
       const reprise = travailRepris
         ? '\n\nReprise : une exécution précédente a été interrompue. Les fichiers modifiés ou non suivis de la branche (git status) sont ce travail en cours : vérifie-les et continue, sans repartir de zéro.'
         : '';
-      const { controles } = await this.apercu.lireConfig(cwd);
-      const consigne = consigneRealisation(demande, branche, await this.lireIndexRgaa(), skills.noms, controles) + reprise;
+      const { controles, dsfr } = await this.apercu.lireConfig(cwd);
+      const consigne = consigneRealisation(demande, branche, await this.lireIndexRgaa(), skills.noms, controles, dsfr) + reprise;
       const reponse = await this.executer(depot, numero, 'realisation', consigne, cwd, skills.dossiers);
       const resultat = lireResultat(reponse);
       if (!resultat || resultat.resultat === 'bloque') {

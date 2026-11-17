@@ -24,7 +24,12 @@ dans son propre compte GitHub.
    formulaires de story et de signalement, vérification du titre des PR, release-please, et
    `ada.json` (seul contrôle exigé : le titre de PR ; la CI du projet reste la sienne). Rien
    n'arrive sur `main` sans la fusion du PO.
-4. **Le projet entre dans ADA quand `ada.json` est sur `main`** ; ADA remplace alors `ada-reprise`
+4. **Apparence choisie par le PO, sans DSFR par défaut** : du code existant garde son design.
+   `ada.json` porte `"dsfr": false` ; l'assistant réutilise alors les composants du projet et
+   n'introduit ni le DSFR ni une autre bibliothèque d'interface (l'accessibilité RGAA reste
+   exigée). Les modèles sans identité de l'État (extension, composant, API) portent aussi
+   `"dsfr": false`.
+5. **Le projet entre dans ADA quand `ada.json` est sur `main`** ; ADA remplace alors `ada-reprise`
    par le topic `ada`.
 
 ## Options écartées

@@ -129,6 +129,14 @@ describe('RepriseService (#37)', () => {
     expect(gh.git.createCommit).not.toHaveBeenCalled();
   });
 
+  it('code existant : par défaut, ada.json garde l’apparence du projet (sans DSFR) ; DSFR sur demande du PO', async () => {
+    await service.reprendre('jeton', 'un-po', { depot: 'un-po~mon-poc', modele: 'vue-node' });
+    const ada = (gh.git.createTree.mock.calls[0]![0] as { tree: { path: string; content: string }[] }).tree.find((fichier) => fichier.path === 'ada.json')!;
+    expect(JSON.parse(ada.content)).toMatchObject({ dsfr: false });
+    expect(gh.pulls.create).toHaveBeenCalledWith(expect.objectContaining({ body: expect.stringContaining('celle du projet') }));
+    expect(JSON.parse(adaJsonReprise(JSON.stringify(ADA_PAR_DEFAUT), true))).toMatchObject({ dsfr: true });
+  });
+
   it('ada.json repris : aperçu du modèle, aucun fichier à personnaliser, seul le titre de PR exigé, pas de chart', () => {
     const ada = JSON.parse(adaJsonReprise(JSON.stringify({ ...ADA_PAR_DEFAUT, personnaliser: ['README.md'], deploiement: { chart: 'charts/app' } }))) as Record<string, unknown>;
     expect(ada).toMatchObject({ personnaliser: [], controlesRequis: ['Titre de PR (Conventional Commits, semver)'], deploiement: null, apercu: ADA_PAR_DEFAUT.apercu });

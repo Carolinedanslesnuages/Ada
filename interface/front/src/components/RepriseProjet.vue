@@ -14,6 +14,12 @@ const projets = useProjetsStore()
 const depots = ref<DepotAReprendre[] | null>(null)
 const depot = ref('')
 const modele = ref('')
+/** Code existant : on garde son apparence par défaut ; le DSFR est un choix explicite. */
+const apparence = ref<'projet' | 'dsfr'>('projet')
+const optionsApparence = [
+  { label: 'Garder l’apparence du projet (sans DSFR)', value: 'projet', hint: 'L’assistant réutilise les composants et le style déjà en place.' },
+  { label: 'Utiliser le DSFR', value: 'dsfr', hint: 'Système de design de l’État : l’assistant l’applique aux écrans qu’il crée ou modifie.' },
+]
 const erreurs = ref<{ depot?: string; modele?: string }>({})
 const erreur = ref<string | null>(null)
 const envoiEnCours = ref(false)
@@ -24,7 +30,9 @@ const libelleCompte = (candidat: DepotAReprendre) => (candidat.compte === 'perso
 const optionsDepots = computed(() =>
   (depots.value ?? []).map((candidat) => ({ value: candidat.id, text: `${candidat.nom} (${libelleCompte(candidat)})` })),
 )
-const optionsModeles = computed(() => props.modeles.filter((m) => m.disponible).map((m) => ({ value: m.id, text: m.libelle })))
+/** La stack décrit la structure du code ; l'apparence se choisit à part. */
+const sansDsfr = (libelle: string) => libelle.replace(/,? avec DSFR$/, '').replace(/ DSFR\b/, '')
+const optionsModeles = computed(() => props.modeles.filter((m) => m.disponible).map((m) => ({ value: m.id, text: sansDsfr(m.libelle) })))
 const pourQuoi = computed(() => props.modeles.find((m) => m.id === modele.value)?.pourQuoi ?? '')
 
 onMounted(async () => {
@@ -44,7 +52,7 @@ async function reprendre(): Promise<void> {
   envoiEnCours.value = true
   erreur.value = null
   try {
-    resultat.value = await projets.reprendre(depot.value, modele.value)
+    resultat.value = await projets.reprendre(depot.value, modele.value, apparence.value === 'dsfr')
   } catch (e) {
     erreur.value = (e as Error).message
   } finally {
@@ -121,6 +129,7 @@ async function reprendre(): Promise<void> {
           default-unselected-text="Choisissez une stack"
         />
         <p v-if="pourQuoi" class="fr-text--sm fr-mt-n2w">{{ pourQuoi }}</p>
+        <DsfrRadioButtonSet v-model="apparence" name="apparence" legend="Apparence" :options="optionsApparence" />
       </template>
     </template>
 

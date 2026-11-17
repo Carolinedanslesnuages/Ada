@@ -8,7 +8,7 @@ import type { Modele } from '@/lib/projet'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
 
 const MODELES: Modele[] = [
-  { id: 'vue-node', type: 'service', libelle: 'Vue + Node', pourQuoi: 'Un service web complet', disponible: true, deployable: true },
+  { id: 'vue-node', type: 'service', libelle: 'Vue + Node, avec DSFR', pourQuoi: 'Un service web complet', disponible: true, deployable: true },
   { id: 'django', type: 'service', libelle: 'Django', pourQuoi: 'Pas encore', disponible: false, deployable: false },
 ]
 const DEPOTS: DepotAReprendre[] = [
@@ -20,7 +20,7 @@ const DEPOTS: DepotAReprendre[] = [
 describe('Reprendre un projet existant (#37)', () => {
   let projets: ReturnType<typeof useProjetsStore>
   const aReprendre = vi.fn<() => Promise<DepotAReprendre[]>>()
-  const reprendre = vi.fn<(depot: string, modele: string) => Promise<ResultatReprise>>()
+  const reprendre = vi.fn<(depot: string, modele: string, dsfr: boolean) => Promise<ResultatReprise>>()
 
   const monter = async () => {
     const wrapper = mount(RepriseProjet, { props: { modeles: MODELES }, global: { plugins: [VueDsfr] }, attachTo: document.body })
@@ -60,9 +60,24 @@ describe('Reprendre un projet existant (#37)', () => {
     await wrapper.findAll('select')[1]!.setValue('vue-node')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
-    expect(reprendre).toHaveBeenCalledWith('un-po~mon-poc', 'vue-node')
+    expect(reprendre).toHaveBeenCalledWith('un-po~mon-poc', 'vue-node', false)
     expect(wrapper.find('a[href="https://github.com/un-po/mon-poc/pull/1"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('fusionnez-la sur GitHub')
+    wrapper.unmount()
+  })
+
+  it('code existant : la stack est proposée sans DSFR, l’apparence du projet est gardée par défaut, le DSFR se choisit', async () => {
+    const wrapper = await monter()
+    await wrapper.findAll('select')[0]!.setValue('commun')
+    const stacks = wrapper.findAll('select')[1]!.findAll('option').map((option) => option.text())
+    expect(stacks).toContain('Vue + Node')
+    const radios = wrapper.findAll('input[type="radio"]')
+    expect(radios.map((radio) => (radio.element as HTMLInputElement).checked)).toEqual([true, false])
+    await wrapper.findAll('select')[1]!.setValue('vue-node')
+    await wrapper.findAll('input[type="radio"]')[1]!.trigger('click')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(reprendre).toHaveBeenCalledWith('commun', 'vue-node', true)
     wrapper.unmount()
   })
 

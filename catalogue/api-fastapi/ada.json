@@ -1,5 +1,6 @@
 {
   "type": "api",
+  "dsfr": false,
   "personnaliser": [
     "PROJET.md",
     "README.md",
