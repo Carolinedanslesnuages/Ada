@@ -11,6 +11,8 @@ export interface Projet {
   compte: 'organisation' | 'personnel'
   /** Reprise pas encore validée (#37) : analyse en cours, ou PR de reprise à fusionner. */
   reprise: { pullRequest: string | null } | null
+  /** Projet repris (pas créé par ADA) : il peut être désynchronisé, sans rien supprimer. */
+  repris: boolean
   description: string | null
   prive: boolean
   url: string

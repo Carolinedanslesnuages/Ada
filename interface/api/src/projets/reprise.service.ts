@@ -6,7 +6,8 @@ import { decrireErreurGithub, traduireErreurGithub } from '../github/erreurs.js'
 import { GithubService } from '../github/github.service.js';
 import { identifiantProjet, lireIdentifiant, verifierAcces } from './depot.js';
 import { ProjetsService, TOPIC_REPRISE, type DepotGithub } from './projets.service.js';
-import { CONTROLE_TITRE, prReprise, TITRE_REPRISE } from './reprise.js';
+import { BRANCHE_REPRISE, CONTROLE_TITRE, prReprise, TITRE_REPRISE } from './reprise.js';
+import { LABEL_LIBRE } from '../stories/story.js';
 import { lireControles, relancerControles } from '../verification/controles-github.js';
 import { numeroDepuisUrl, peutFusionner, type Controle, type Verification } from '../verification/verification.js';
 import { StoriesService } from '../stories/stories.service.js';
@@ -44,9 +45,14 @@ export interface ResultatReprise {
 }
 
 /** Demande enregistrée dans le projet, au nom du PO, et suivie par l'assistant (ADR-0009). */
+/** Début de la demande d'analyse enregistrée par une reprise : sert à la retrouver pour la fermer. */
+export const DEBUT_DEMANDE_ANALYSE = 'Analyser ce projet comme s’il avait été créé avec ADA';
+
+export type ResultatAnnulation = { etat: 'annulee' | 'desynchronisee' };
+
 export function texteDemandeAnalyse(stack: string | null, dsfr: boolean): string {
   return [
-    'Analyser ce projet comme s’il avait été créé avec ADA, et proposer les améliorations pour qu’il en suive les règles (harnais et skills d’ADA).',
+    `${DEBUT_DEMANDE_ANALYSE}, et proposer les améliorations pour qu’il en suive les règles (harnais et skills d’ADA).`,
     stack ? `Stack la plus proche : ${stack}.` : 'Stack : à déduire du projet.',
     dsfr ? 'Apparence : DSFR.' : 'Apparence : celle du projet, sans DSFR.',
   ].join('\n');
@@ -212,12 +218,54 @@ export class RepriseService {
     try {
       await gh.pulls.merge({ owner, repo, pull_number: etat.pullRequest.numero, merge_method: 'squash', commit_title: `${TITRE_REPRISE} (#${etat.pullRequest.numero})` });
       const { data } = await gh.repos.get({ owner, repo });
-      const topics = [...(data.topics ?? []).filter((topic) => topic !== TOPIC_REPRISE), this.config.TOPIC_ATELIER];
+      // Le marquage « reprise » est gardé : il distingue un projet repris d'un projet créé par ADA.
+      const topics = [...(data.topics ?? []), this.config.TOPIC_ATELIER];
       await gh.repos.replaceAllTopics({ owner, repo, names: [...new Set(topics)] });
     } catch (e) {
       traduireErreurGithub(e);
     }
     return { ...etat, pullRequest: { ...etat.pullRequest, etat: 'fusionnee' }, fusionnable: false, raison: 'Déjà fusionnée' };
+  }
+
+  /**
+   * Annule une reprise, ou désynchronise un projet repris. Rien n'est supprimé, ni dépôt ni demande.
+   * - Reprise pas encore validée : la PR de reprise est fermée et sa branche retirée (main n'a
+   *   jamais été modifié), la demande d'analyse est fermée avec une explication, le marquage est retiré.
+   * - Reprise validée : seul le marquage d'ADA est retiré ; fichiers, stories et versions restent.
+   * Un projet créé par ADA n'est pas concerné.
+   */
+  async annuler(jeton: string, login: string, depot: string): Promise<ResultatAnnulation> {
+    const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
+    if (await this.agent.verrouActif(depot)) throw new ConflictException('L’assistant travaille sur ce projet : attendez qu’il ait terminé.');
+    const gh = this.github.client(jeton);
+    try {
+      const { data } = await gh.repos.get({ owner, repo });
+      const topics = data.topics ?? [];
+      if (!topics.includes(TOPIC_REPRISE)) throw new BadRequestException('Ce projet n’a pas été repris : il a été créé par ADA.');
+      const autres = topics.filter((topic) => ![TOPIC_REPRISE, this.config.TOPIC_ATELIER, 'atelier-po'].includes(topic));
+      if (topics.includes(this.config.TOPIC_ATELIER)) {
+        await gh.repos.replaceAllTopics({ owner, repo, names: autres });
+        return { etat: 'desynchronisee' };
+      }
+      const numeroPr = numeroDepuisUrl(await prReprise(gh, owner, repo));
+      if (numeroPr) {
+        await gh.issues.createComment({ owner, repo, issue_number: numeroPr, body: `Reprise annulée depuis ADA par ${login} : rien n'a été ajouté au projet.` });
+        await gh.pulls.update({ owner, repo, pull_number: numeroPr, state: 'closed' });
+      }
+      await gh.git.deleteRef({ owner, repo, ref: `heads/${BRANCHE_REPRISE}` }).catch((e: unknown) => {
+        if (statut(e) !== 404 && statut(e) !== 422) throw e; // branche déjà absente
+      });
+      const ouvertes = (await gh.paginate(gh.issues.listForRepo, { owner, repo, state: 'open', labels: LABEL_LIBRE, per_page: 100 })) as { number: number; body?: string | null }[];
+      for (const demande of ouvertes.filter((issue) => (issue.body ?? '').includes(DEBUT_DEMANDE_ANALYSE))) {
+        await gh.issues.createComment({ owner, repo, issue_number: demande.number, body: `Reprise annulée depuis ADA par ${login} : cette analyse est close.` });
+        await gh.issues.update({ owner, repo, issue_number: demande.number, state: 'closed', state_reason: 'not_planned' });
+      }
+      await gh.repos.replaceAllTopics({ owner, repo, names: autres });
+      return { etat: 'annulee' };
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
+      traduireErreurGithub(e);
+    }
   }
 
   /** Tant que la reprise n'est pas fusionnée, aucune demande ne se lance (ada.json pas encore sur main). */

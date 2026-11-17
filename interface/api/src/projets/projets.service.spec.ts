@@ -153,10 +153,10 @@ describe('ProjetsService', () => {
     gh.pulls.list.mockResolvedValue({ data: [{ html_url: 'https://github.com/proprio/en-attente/pull/2' }] });
     const projets = await service.lister('jeton', 'proprio');
     expect(projets).toEqual([
-      expect.objectContaining({ id: 'repris', reprise: null }),
+      expect.objectContaining({ id: 'repris', reprise: null, repris: true }),
       expect.objectContaining({ id: 'en-attente', reprise: { pullRequest: 'https://github.com/proprio/en-attente/pull/2' } }),
     ]);
-    expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'proprio', repo: 'repris', names: ['vue', 'ada'] });
+    expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'proprio', repo: 'repris', names: ['vue', 'ada-reprise', 'ada'] });
   });
 
   it('refuse un projet invalide sans rien créer', async () => {
