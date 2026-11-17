@@ -57,7 +57,7 @@ export function catalogue(): Omit<Modele, 'disponible' | 'deployable'>[] {
     { id: 'tableau-de-bord', type: 'tableau-de-bord', libelle: 'Vue 3 + NestJS, graphiques DSFR', pourQuoi: 'Indicateurs calculés côté serveur, graphiques accessibles' },
     { id: 'django', type: 'gestion', libelle: 'Python (Django), administration intégrée', pourQuoi: 'Listes, fiches et droits prêts à l’emploi' },
     { id: 'nuxt', type: 'site', libelle: 'Nuxt, avec DSFR', pourQuoi: 'Pages générées pour un bon référencement (SEO)' },
-    { id: 'vitepress', type: 'documentation', libelle: 'VitePress, avec DSFR', pourQuoi: 'Pages écrites en Markdown, recherche intégrée' },
+    { id: 'vitepress', type: 'documentation', libelle: 'VitePress, aux couleurs de l’État', pourQuoi: 'Pages écrites en Markdown, recherche intégrée, accessibilité de chaque page vérifiée' },
     { id: 'carte', type: 'carte', libelle: 'Vue 3 + MapLibre, avec DSFR', pourQuoi: 'Fonds de carte IGN, données GeoJSON' },
     { id: 'pwa', type: 'mobile', libelle: 'Vue 3 installable (PWA), avec DSFR', pourQuoi: 'Une seule application pour téléphone et ordinateur' },
     { id: 'assistant', type: 'assistant', libelle: 'Vue 3 + NestJS, IA branchable', pourQuoi: 'Réponses citant leurs sources ; modèle d’IA choisi par l’équipe' },
