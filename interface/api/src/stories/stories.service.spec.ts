@@ -80,6 +80,16 @@ describe('StoriesService', () => {
     expect(liste[1]!.raison).toMatch(/Plus de 4 critères/);
   });
 
+  it('indique la demande découpée dont vient une story (pour l’ordre conseillé)', async () => {
+    const proposee = { titre: 'Socle du site', role: 'organisateur', besoin: 'ouvrir le site', benefice: 'commencer', criteres: ['la page s’affiche'] };
+    depot([issue(5, { body: formaterStory(proposee, 4) }), issue(1)]);
+    const liste = await service.lister('jeton', 'poc');
+    expect(liste.map((s) => [s.numero, s.parent])).toEqual([
+      [5, 4],
+      [1, null],
+    ]);
+  });
+
   it('donne la date de livraison d’une story fermée (rangée dans « Déjà livrées »)', async () => {
     depot([issue(1, { state: 'closed', closed_at: '2026-11-16T18:00:00Z' }), issue(2)]);
     const liste = await service.lister('jeton', 'poc');

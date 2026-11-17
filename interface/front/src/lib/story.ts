@@ -49,6 +49,24 @@ export interface ResumeStory {
   url: string
   prete: boolean
   raison: string | null
+  /** Demande découpée dont la story est issue (ordre du découpage) ; null sinon. */
+  parent?: number | null
+}
+
+/**
+ * Ordre conseillé des demandes à lancer : d'abord celles qui sont prêtes ; parmi elles, les
+ * problèmes signalés (ils gênent l'usage) ; puis les stories d'un même découpage restent
+ * ensemble, dans l'ordre proposé par ADA (dépendances) ; le reste, de la plus ancienne à la plus récente.
+ */
+export function ordonnerALancer(stories: ResumeStory[]): ResumeStory[] {
+  const origine = (story: ResumeStory) => story.parent ?? story.numero
+  return [...stories].sort(
+    (a, b) =>
+      Number(b.prete) - Number(a.prete) ||
+      Number(b.type === 'bug') - Number(a.type === 'bug') ||
+      origine(a) - origine(b) ||
+      a.numero - b.numero,
+  )
 }
 
 export interface ContenuStory {
