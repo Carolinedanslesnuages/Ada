@@ -1,5 +1,7 @@
 # ADA — Atelier de Développement Assisté
 
+<img src="docs/logo/ada-logo-complet.svg" alt="ADA — Atelier de Développement Assisté" width="420">
+
 **Une interface de développement no-code.** ADA permet à des personnes qui ne codent pas de
 réaliser leurs POC avec un assistant de code. Elles créent un projet, décrivent leurs besoins
 sous forme de user stories ou signalent des problèmes. L'assistant pose ses questions, fait

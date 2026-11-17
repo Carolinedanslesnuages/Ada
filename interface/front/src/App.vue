@@ -28,6 +28,9 @@ const liensRapides = computed(() =>
     service-title="ADA"
     service-description="Atelier de Développement Assisté"
     :logo-text="logoText"
+    operator-img-src="/logo-ada.svg"
+    operator-img-alt="ADA"
+    :operator-img-style="{ width: '5.5rem' }"
     home-to="/"
     :quick-links="liensRapides"
   />
