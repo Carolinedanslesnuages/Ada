@@ -10,6 +10,7 @@ import { ApercuService } from '../apercu/apercu.service.js';
 import { lireConfig } from '../config.js';
 import { GithubService } from '../github/github.service.js';
 import { StoriesService } from '../stories/stories.service.js';
+import { ProjetsService } from '../projets/projets.service.js';
 import { AgentService, type Tache } from './agent.service.js';
 
 const fichierTache = process.argv[2];
@@ -23,7 +24,7 @@ await rm(fichierTache, { force: true });
 const config = lireConfig();
 const github = new GithubService();
 const apercu = new ApercuService(config);
-const agent = new AgentService(config, github, new StoriesService(config, github), apercu);
+const agent = new AgentService(config, github, new StoriesService(config, github), apercu, new ProjetsService(config, github, apercu));
 agent.travailleurSepare = false;
 console.log(`[${new Date().toISOString()}] ${tache.depot}#${tache.numero} : ${tache.phase} (processus ${process.pid})`);
 try {

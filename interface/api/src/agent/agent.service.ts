@@ -24,6 +24,9 @@ import {
   type Phase,
 } from './agent.js';
 import { lireIdentifiant } from '../projets/depot.js';
+import { ProjetsService } from '../projets/projets.service.js';
+import { adaJsonReprise, corpsReprise, fichiersAApporter, MODELE_REFERENCE, ouvrirPrReprise } from '../projets/reprise.js';
+import { consigneReprise, lireAnalyseReprise } from './consigne-reprise.js';
 
 export interface Activite {
   phase: Phase | null;
@@ -41,6 +44,8 @@ export interface Tache {
   login: string;
   depot: string;
   numero: number;
+  /** Phase « reprise » : stack indiquée par le PO (facultative) et apparence choisie. */
+  reprise?: { modele: string | null; dsfr: boolean };
 }
 
 interface Verrou {
@@ -100,13 +105,14 @@ export class AgentService {
   /** Dernière tâche de fond lancée (permet aux tests d'en attendre la fin). */
   derniereTache: Promise<void> = Promise.resolve();
   /** Tours maximum de l'agent par phase. */
-  tours: Record<Phase, number> = { analyse: 30, realisation: 150 };
+  tours: Record<Phase, number> = { analyse: 30, realisation: 150, reprise: 40 };
 
   constructor(
     @Inject(CONFIG) private readonly config: Config,
     private readonly github: GithubService,
     private readonly stories: StoriesService,
     private readonly apercu: ApercuService,
+    private readonly projets: ProjetsService,
   ) {
     this.lancerAgent = lancerParDefaut(config.AGENT_COMMANDE);
   }
@@ -360,6 +366,7 @@ export class AgentService {
     await this.poserVerrou(depot, { pid: process.pid, numero, phase });
     try {
       if (phase === 'analyse') await this.corpsAnalyse(tache);
+      else if (phase === 'reprise') await this.corpsReprise(tache);
       else await this.corpsRealisation(tache);
       await this.enregistrer(depot, numero, { enCours: false });
     } catch (e) {
@@ -401,6 +408,66 @@ export class AgentService {
       await this.stories.changerStatut(jeton, depot, numero, questions ? 'questions' : 'plan-a-valider');
       await this.noter(depot, numero, questions ? 'Attend vos réponses' : 'Attend que vous validiez le plan');
     }
+  }
+
+  /**
+   * Reprise d'un projet existant (#37) : l'assistant analyse le projet comme s'il avait été créé
+   * avec ADA, puis ADA ouvre la PR de reprise (ada.json déduit) et propose les améliorations.
+   */
+  analyserReprise(jeton: string, depot: string, numero: number, login: string, reprise: { modele: string | null; dsfr: boolean }): Promise<void> {
+    return this.lancerTache({ phase: 'reprise', jeton, login, depot, numero, reprise });
+  }
+
+  private async corpsReprise({ jeton, login, depot, numero, reprise }: Tache): Promise<void> {
+    const { modele = null, dsfr = false } = reprise ?? {};
+    const stack = modele ? this.projets.modeles().modeles.find((m) => m.id === modele && m.disponible) : undefined;
+    const dossierModele = join(this.projets.dossierCatalogue, stack?.id ?? MODELE_REFERENCE);
+    const adaModele = stack ? await readFile(join(dossierModele, 'ada.json'), 'utf8') : null;
+
+    await this.noter(depot, numero, 'Prépare le projet');
+    const cwd = await this.apercu.preparerDepot(jeton, depot);
+    const skills = await this.equiperSkills(cwd);
+    await this.noter(depot, numero, 'Compare le projet à un projet créé avec ADA');
+    const consigne = consigneReprise({ stack: stack && adaModele ? { libelle: stack.libelle, ada: adaModele } : null, dsfr }, skills.noms);
+    const analyse = lireAnalyseReprise(await this.executer(depot, numero, 'reprise', consigne, cwd, skills.dossiers));
+    if (!analyse) {
+      await this.bloquer(jeton, depot, numero, 'L’assistant n’a pas réussi à analyser le projet.');
+      return;
+    }
+
+    // Aperçu : celui déduit par l'analyse ; à défaut, celui de la stack indiquée par le PO.
+    let adaJson: string | null = null;
+    for (const source of [analyse.ada, adaModele]) {
+      if (adaJson || !source) continue;
+      try {
+        adaJson = adaJsonReprise(source, dsfr);
+      } catch (e) {
+        this.log.warn(`ada.json de reprise écarté (${depot}) : ${(e as Error).message.split('\n')[0]}`);
+      }
+    }
+    if (!adaJson) {
+      await this.stories.commenterAssistant(jeton, depot, numero, 'Analyse de la reprise', analyse.texte);
+      await this.bloquer(jeton, depot, numero, 'L’assistant n’a pas trouvé comment démarrer l’aperçu du projet : un développeur doit le décrire (ada.json).');
+      return;
+    }
+
+    await this.noter(depot, numero, 'Ouvre la pull request de reprise');
+    const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
+    const gh = this.github.client(jeton);
+    const fichiers = await fichiersAApporter(gh, owner, repo, dossierModele, adaJson);
+    const analyseUrl = `https://github.com/${owner}/${repo}/issues/${numero}`;
+    const pr = await ouvrirPrReprise(gh, { owner, repo, login }, fichiers, corpsReprise({ stack: stack?.libelle ?? null, fichiers: [...fichiers.keys()], login, dsfr, analyse: analyseUrl }));
+    const suite = `**Pull request de reprise** : ${pr}\nFusionnez-la sur GitHub : le projet apparaîtra alors dans ADA.`;
+
+    if (analyse.stories.length) {
+      await this.stories.commenterAssistant(jeton, depot, numero, 'Analyse de la reprise', texteDecoupage(`${analyse.texte}\n\n${suite}`, analyse.stories));
+      await this.stories.changerStatut(jeton, depot, numero, 'decoupage');
+      await this.noter(depot, numero, 'Terminé : fusionnez la reprise, puis choisissez les améliorations');
+      return;
+    }
+    await this.stories.commenterAssistant(jeton, depot, numero, 'Analyse de la reprise', `${analyse.texte}\n\nAucune amélioration à proposer.\n\n${suite}`);
+    await gh.issues.update({ owner, repo, issue_number: numero, state: 'closed', state_reason: 'completed' });
+    await this.noter(depot, numero, 'Terminé : fusionnez la reprise');
   }
 
   /** Le PO valide le plan : réalisation sur une branche, puis branche poussée et PR ouverte. */

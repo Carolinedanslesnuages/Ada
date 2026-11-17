@@ -17,13 +17,19 @@ dans son propre compte GitHub.
    (`~` n'existe ni dans un login ni dans un nom de dépôt GitHub). Toutes les routes
    `projets/:depot` passent par `ProjetGuard` : un PO n'ouvre que les projets de l'organisation et
    de **son** compte ; ses droits GitHub s'appliquent en plus.
-2. **Le PO choisit la stack** la plus proche dans le catalogue : elle fournit l'`ada.json` (aperçu,
-   contrôles de l'assistant).
-3. **ADA propose, le PO valide.** ADA pose le topic `ada-reprise`, les labels, puis ouvre une PR
-   « chore: reprise du projet par ADA » depuis `ada/reprise`, avec les seuls fichiers manquants :
-   formulaires de story et de signalement, vérification du titre des PR, release-please, et
-   `ada.json` (seul contrôle exigé : le titre de PR ; la CI du projet reste la sienne). Rien
-   n'arrive sur `main` sans la fusion du PO.
+2. **Stack facultative, analyse obligatoire.** ADA enregistre dans le projet, au nom du PO, une
+   demande d'analyse (ADR-0009), puis l'assistant analyse le projet en lecture seule **comme
+   s'il avait été créé avec ADA** : harnais (AGENTS.md, tests dont accessibilité, lint, CI,
+   anti-fuite, ADR, aperçu) et attentes des skills (stories courtes, tests d'abord, test qui
+   reproduit un bug, fiche de revue). Il rend un bilan court, 2 à 8 améliorations sous forme de
+   stories (proposées comme un découpage : le PO coche celles à publier) et la description de
+   l'aperçu (`ada.json`), déduite du projet. Une stack indiquée par le PO sert de point de départ
+   et de repli si l'aperçu déduit est invalide ; sans l'un ni l'autre, un développeur le décrit.
+3. **ADA propose, le PO valide.** À la fin de l'analyse, ADA ouvre une PR « chore: reprise du
+   projet par ADA » depuis `ada/reprise`, avec les seuls fichiers manquants : formulaires de story
+   et de signalement, vérification du titre des PR, release-please, et `ada.json` (seul contrôle
+   exigé : le titre de PR ; la CI du projet reste la sienne). Rien n'arrive sur `main` sans la
+   fusion du PO.
 4. **Apparence choisie par le PO, sans DSFR par défaut** : du code existant garde son design.
    `ada.json` porte `"dsfr": false` ; l'assistant réutilise alors les composants du projet et
    n'introduit ni le DSFR ni une autre bibliothèque d'interface (l'accessibilité RGAA reste
@@ -36,8 +42,10 @@ dans son propre compte GitHub.
 - **Pousser directement sur `main`** : contraire à la règle « le PO valide tout ».
 - **Projets sans identifiant de compte (nom seul)** : deux dépôts de même nom (organisation et
   compte perso) se confondraient.
-- **Adapter automatiquement le projet à une stack** (réécrire sa structure) : trop intrusif ; si
-  l'aperçu ne démarre pas, un développeur ajuste `ada.json`.
+- **Adapter automatiquement le projet à une stack** (réécrire sa structure) : trop intrusif ; les
+  écarts deviennent des stories que le PO choisit.
+- **Stack obligatoire** : un PO qui reprend du code ne sait pas toujours laquelle choisir ; l'analyse
+  la déduit.
 
 ## Conséquences
 - La branche principale doit s'appeler `main` (ADA y travaille) ; sinon la reprise est refusée

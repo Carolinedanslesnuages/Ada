@@ -5,7 +5,8 @@ import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
  */
 import { nettoyerStoriesProposees, type ContenuBug, type ContenuStory, type StoryProposee, type TypeDemande } from '../stories/story.js';
 
-export type Phase = 'analyse' | 'realisation';
+/** « reprise » : analyse d'un projet existant repris par ADA (#37), en lecture seule. */
+export type Phase = 'analyse' | 'realisation' | 'reprise';
 
 export interface Demande {
   numero: number;
@@ -50,7 +51,7 @@ export const DANS_CONTENEUR = 'docker compose -f ../compose.yml exec -T -u 1000 
  */
 export function outilsAutorises(phase: Phase, dossiersLisibles: string[] = []): string[] {
   const lecture = ['Read(./**)', 'Glob(./**)', 'Grep(./**)', ...dossiersLisibles.map((dossier) => `Read(/${dossier}/**)`)];
-  if (phase === 'analyse') return ['Skill', ...lecture];
+  if (phase === 'analyse' || phase === 'reprise') return ['Skill', ...lecture];
   return [
     'Skill',
     ...lecture,

@@ -1,36 +1,14 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import type { Octokit } from '@octokit/rest';
 import { z } from 'zod';
 import { CONFIG, type Config } from '../config.js';
 import { decrireErreurGithub, traduireErreurGithub } from '../github/erreurs.js';
 import { GithubService } from '../github/github.service.js';
-import { lireAdaConfig } from '../ada/ada-config.js';
 import { identifiantProjet, lireIdentifiant, verifierAcces } from './depot.js';
 import { ProjetsService, TOPIC_REPRISE, type DepotGithub } from './projets.service.js';
-
-/** Branche et titre de la PR de reprise (Conventional Commits : `chore`, sans nouvelle version). */
-export const BRANCHE_REPRISE = 'ada/reprise';
-export const TITRE_REPRISE = 'chore: reprise du projet par ADA';
-/** Seul contrôle exigé : le titre de PR, ajouté par la reprise. La CI du projet reste la sienne. */
-const CONTROLE_TITRE = 'Titre de PR (Conventional Commits, semver)';
-
-/**
- * Fichiers qu'ADA apporte à un projet repris, s'ils n'y sont pas déjà : formulaires de story et de
- * signalement, vérification du titre des PR, versions par release-please. `ada.json` est toujours
- * proposé (il décrit l'aperçu) ; rien d'autre n'est touché.
- */
-export const FICHIERS_REPRISE = [
-  '.github/ISSUE_TEMPLATE/user-story.yml',
-  '.github/ISSUE_TEMPLATE/bug.yml',
-  '.github/ISSUE_TEMPLATE/config.yml',
-  '.github/workflows/titre-pr.yml',
-  '.github/workflows/release-please.yml',
-  'release-please-config.json',
-  '.release-please-manifest.json',
-  'version.txt',
-];
+import { prReprise } from './reprise.js';
+import { StoriesService } from '../stories/stories.service.js';
+import { AgentService } from '../agent/agent.service.js';
 
 export interface DepotAReprendre {
   id: string;
@@ -41,44 +19,34 @@ export interface DepotAReprendre {
   url: string;
   /** PR de reprise déjà ouverte, en attente de validation par le PO. */
   repriseEnCours: string | null;
+  /** L'assistant analyse le projet ; la PR de reprise s'ouvrira à la fin. */
+  analyseEnCours: boolean;
 }
 
 export interface ResultatReprise {
-  pullRequest: string;
-  fichiers: string[];
+  /** Demande d'analyse (issue du projet), où l'assistant publie son bilan et ses améliorations. */
+  analyse: string | null;
+  /** PR de reprise, si elle était déjà ouverte. */
+  pullRequest: string | null;
+}
+
+/** Demande enregistrée dans le projet, au nom du PO, et suivie par l'assistant (ADR-0009). */
+export function texteDemandeAnalyse(stack: string | null, dsfr: boolean): string {
+  return [
+    'Analyser ce projet comme s’il avait été créé avec ADA, et proposer les améliorations pour qu’il en suive les règles (harnais et skills d’ADA).',
+    stack ? `Stack la plus proche : ${stack}.` : 'Stack : à déduire du projet.',
+    dsfr ? 'Apparence : DSFR.' : 'Apparence : celle du projet, sans DSFR.',
+  ].join('\n');
 }
 
 const schemaReprise = z.object({
   depot: z.string().min(1).max(141),
-  modele: z.string().regex(/^[a-z0-9-]{1,60}$/),
+  /** Facultative : sans elle, l'analyse déduit comment démarrer l'aperçu. */
+  modele: z.string().regex(/^[a-z0-9-]{1,60}$/).nullish(),
   /** Code existant : par défaut, ADA garde l'apparence du projet et n'introduit pas le DSFR. */
   dsfr: z.boolean().default(false),
 });
 const statut = (e: unknown) => (e as { status?: number }).status;
-
-/**
- * ada.json d'un projet repris : celui du modèle choisi, avec le seul contrôle apporté par la
- * reprise, et l'apparence choisie par le PO (DSFR ou celle du projet).
- */
-export function adaJsonReprise(contenuModele: string, dsfr = false): string {
-  const config = JSON.parse(contenuModele) as Record<string, unknown>;
-  lireAdaConfig(contenuModele);
-  return `${JSON.stringify({ ...config, personnaliser: [], controlesRequis: [CONTROLE_TITRE], deploiement: null, dsfr }, null, 2)}\n`;
-}
-
-export function corpsReprise(modele: string, fichiers: string[], login: string, dsfr = false): string {
-  return [
-    `Reprise du projet par ADA, demandée par @${login}, avec la stack la plus proche : **${modele}**.`,
-    dsfr ? 'Apparence : **DSFR** (Système de design de l’État).' : 'Apparence : **celle du projet**, l’assistant n’introduit pas le DSFR.',
-    '',
-    'Fichiers ajoutés (ceux déjà présents ne sont pas modifiés) :',
-    ...fichiers.map((fichier) => `- \`${fichier}\``),
-    '',
-    'Une fois cette PR fusionnée, le projet apparaît dans ADA : stories, aperçu et versions.',
-    '',
-    '`ada.json` décrit comment ADA démarre l’aperçu. Si l’aperçu ne démarre pas après la reprise, un développeur l’ajuste à la structure du projet.',
-  ].join('\n');
-}
 
 @Injectable()
 export class RepriseService {
@@ -88,6 +56,8 @@ export class RepriseService {
     @Inject(CONFIG) private readonly config: Config,
     private readonly github: GithubService,
     private readonly projets: ProjetsService,
+    private readonly stories: StoriesService,
+    private readonly agent: AgentService,
   ) {}
 
   /** Dépôts de l'organisation et du compte du PO qui ne sont pas encore dans ADA. */
@@ -110,7 +80,7 @@ export class RepriseService {
             compte: d.owner.login.toLowerCase() === this.config.GITHUB_PROPRIETAIRE.toLowerCase() ? ('organisation' as const) : ('personnel' as const),
             description: d.description,
             url: d.html_url,
-            repriseEnCours: this.projets.aLeTopic(d, TOPIC_REPRISE) ? await this.prOuverte(gh, d.owner.login, d.name) : null,
+            ...(await this.etatReprise(gh, d, id)),
           })),
       );
     } catch (e) {
@@ -118,18 +88,27 @@ export class RepriseService {
     }
   }
 
+  private async etatReprise(gh: Octokit, depot: DepotGithub, id: string): Promise<Pick<DepotAReprendre, 'repriseEnCours' | 'analyseEnCours'>> {
+    if (!this.projets.aLeTopic(depot, TOPIC_REPRISE)) return { repriseEnCours: null, analyseEnCours: false };
+    const repriseEnCours = await prReprise(gh, depot.owner.login, depot.name);
+    return { repriseEnCours, analyseEnCours: !repriseEnCours && (await this.agent.verrouActif(id)) !== null };
+  }
+
   /**
-   * Propose la reprise : topic provisoire, branche `ada/reprise` (un seul commit avec les fichiers
-   * manquants), labels d'ADA, puis PR vers main. Rien n'arrive sur main sans la validation du PO.
-   * Rejouable : une reprise déjà proposée renvoie sa PR.
+   * Reprise : ADA marque le dépôt (topic provisoire, labels), enregistre la demande d'analyse
+   * dans le projet au nom du PO et lance l'assistant. À la fin de son analyse, ADA ouvre la PR de
+   * reprise (ada.json déduit) et l'assistant propose les améliorations. Rien n'arrive sur main
+   * sans la fusion du PO. Une reprise déjà proposée renvoie sa PR.
    */
   async reprendre(jeton: string, login: string, donnees: unknown): Promise<ResultatReprise> {
     const saisie = schemaReprise.safeParse(donnees);
-    if (!saisie.success) throw new BadRequestException('Choisissez un dépôt et une stack');
-    const { owner, repo } = lireIdentifiant(saisie.data.depot, this.config.GITHUB_PROPRIETAIRE);
+    if (!saisie.success) throw new BadRequestException('Choisissez le dépôt à reprendre');
+    const id = saisie.data.depot.toLowerCase();
+    const { owner, repo } = lireIdentifiant(id, this.config.GITHUB_PROPRIETAIRE);
     verifierAcces({ owner, repo }, login, this.config.GITHUB_PROPRIETAIRE);
-    const modele = this.projets.modeles().modeles.find((m) => m.id === saisie.data.modele);
-    if (!modele?.disponible) throw new BadRequestException('Cette stack n’est pas disponible');
+    const modele = saisie.data.modele ? this.projets.modeles().modeles.find((m) => m.id === saisie.data.modele) : null;
+    if (saisie.data.modele && !modele?.disponible) throw new BadRequestException('Cette stack n’est pas disponible');
+    this.agent.verifierDisponible();
     const gh = this.github.client(jeton);
 
     let depot: DepotGithub;
@@ -143,10 +122,11 @@ export class RepriseService {
     if (depot.default_branch !== 'main') {
       throw new BadRequestException(`La branche principale de ce dépôt s’appelle « ${depot.default_branch} » : ADA travaille sur « main ». Un développeur doit la renommer avant la reprise.`);
     }
+    if (await this.agent.verrouActif(id)) throw new ConflictException('L’assistant analyse déjà ce projet');
 
     try {
-      const dejaOuverte = await this.prOuverte(gh, owner, repo);
-      if (dejaOuverte) return { pullRequest: dejaOuverte, fichiers: [] };
+      const dejaOuverte = await prReprise(gh, owner, repo);
+      if (dejaOuverte) return { analyse: null, pullRequest: dejaOuverte };
 
       await gh.repos
         .replaceAllTopics({ owner, repo, names: [...new Set([...(depot.topics ?? []), TOPIC_REPRISE])] })
@@ -156,75 +136,14 @@ export class RepriseService {
           }
           throw e;
         });
-      const fichiers = await this.fichiersAApporter(gh, owner, repo, modele.id, saisie.data.dsfr);
-      await this.pousserBranche(gh, owner, repo, fichiers, login);
       await this.projets.poserLabels(gh, owner, repo);
-      const { data: pr } = await gh.pulls.create({
-        owner,
-        repo,
-        head: BRANCHE_REPRISE,
-        base: 'main',
-        title: TITRE_REPRISE,
-        body: `${corpsReprise(modele.libelle, [...fichiers.keys()], login, saisie.data.dsfr)}\n\n🤖 Proposée par ADA`,
-      });
-      return { pullRequest: pr.html_url, fichiers: [...fichiers.keys()] };
     } catch (e) {
       if (e instanceof ForbiddenException) throw e;
       this.journal.warn(`Reprise de ${owner}/${repo} : ${decrireErreurGithub(e)}`);
       traduireErreurGithub(e);
     }
-  }
-
-  private async prOuverte(gh: Octokit, owner: string, repo: string): Promise<string | null> {
-    const { data } = await gh.pulls.list({ owner, repo, head: `${owner}:${BRANCHE_REPRISE}`, state: 'open', per_page: 1 });
-    return data[0]?.html_url ?? null;
-  }
-
-  /** Fichiers du modèle absents de main, plus ada.json (toujours proposé). */
-  private async fichiersAApporter(gh: Octokit, owner: string, repo: string, modele: string, dsfr: boolean): Promise<Map<string, string>> {
-    const dossier = join(this.projets.dossierCatalogue, modele);
-    const fichiers = new Map<string, string>();
-    for (const chemin of FICHIERS_REPRISE) {
-      if (await this.existe(gh, owner, repo, chemin)) continue;
-      fichiers.set(chemin, await readFile(join(dossier, chemin), 'utf8'));
-    }
-    fichiers.set('ada.json', adaJsonReprise(await readFile(join(dossier, 'ada.json'), 'utf8'), dsfr));
-    return fichiers;
-  }
-
-  private async existe(gh: Octokit, owner: string, repo: string, path: string): Promise<boolean> {
-    try {
-      await gh.repos.getContent({ owner, repo, path, ref: 'main' });
-      return true;
-    } catch (e) {
-      if (statut(e) === 404) return false;
-      throw e;
-    }
-  }
-
-  /** Un commit au nom du PO sur `ada/reprise`, depuis main (branche recréée si elle existait). */
-  private async pousserBranche(gh: Octokit, owner: string, repo: string, fichiers: Map<string, string>, login: string): Promise<void> {
-    const { data: main } = await gh.git.getRef({ owner, repo, ref: 'heads/main' });
-    const { data: commitMain } = await gh.git.getCommit({ owner, repo, commit_sha: main.object.sha });
-    const { data: arbre } = await gh.git.createTree({
-      owner,
-      repo,
-      base_tree: commitMain.tree.sha,
-      tree: [...fichiers].map(([path, content]) => ({ path, mode: '100644' as const, type: 'blob' as const, content })),
-    });
-    const { data: commit } = await gh.git.createCommit({
-      owner,
-      repo,
-      message: TITRE_REPRISE,
-      tree: arbre.sha,
-      parents: [main.object.sha],
-      author: { name: login, email: `${login}@users.noreply.github.com` },
-    });
-    try {
-      await gh.git.createRef({ owner, repo, ref: `refs/heads/${BRANCHE_REPRISE}`, sha: commit.sha });
-    } catch (e) {
-      if (statut(e) !== 422) throw e; // la branche existe (reprise interrompue) : on la remplace
-      await gh.git.updateRef({ owner, repo, ref: `heads/${BRANCHE_REPRISE}`, sha: commit.sha, force: true });
-    }
+    const demande = await this.stories.prompter(jeton, id, texteDemandeAnalyse(modele?.libelle ?? null, saisie.data.dsfr), login);
+    await this.agent.analyserReprise(jeton, id, demande.numero, login, { modele: modele?.id ?? null, dsfr: saisie.data.dsfr });
+    return { analyse: `https://github.com/${owner}/${repo}/issues/${demande.numero}`, pullRequest: null };
   }
 }

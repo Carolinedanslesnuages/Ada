@@ -11,28 +11,41 @@ const MODELES: Modele[] = [
   { id: 'vue-node', type: 'service', libelle: 'Vue + Node, avec DSFR', pourQuoi: 'Un service web complet', disponible: true, deployable: true },
   { id: 'django', type: 'service', libelle: 'Django', pourQuoi: 'Pas encore', disponible: false, deployable: false },
 ]
-const DEPOTS: DepotAReprendre[] = [
-  { id: 'commun', nom: 'commun', proprietaire: 'org', compte: 'organisation', description: null, url: 'https://github.com/org/commun', repriseEnCours: null },
-  { id: 'un-po~mon-poc', nom: 'mon-poc', proprietaire: 'un-po', compte: 'personnel', description: null, url: 'https://github.com/un-po/mon-poc', repriseEnCours: null },
-  { id: 'un-po~attente', nom: 'attente', proprietaire: 'un-po', compte: 'personnel', description: null, url: 'https://github.com/un-po/attente', repriseEnCours: 'https://github.com/un-po/attente/pull/2' },
+const candidat = (id: string, nom: string, proprietaire: string, extra: Partial<DepotAReprendre> = {}): DepotAReprendre => ({
+  id,
+  nom,
+  proprietaire,
+  compte: proprietaire === 'org' ? 'organisation' : 'personnel',
+  description: null,
+  url: `https://github.com/${proprietaire}/${nom}`,
+  repriseEnCours: null,
+  analyseEnCours: false,
+  ...extra,
+})
+const DEPOTS = [
+  candidat('commun', 'commun', 'org'),
+  candidat('un-po~mon-poc', 'mon-poc', 'un-po'),
+  candidat('un-po~attente', 'attente', 'un-po', { repriseEnCours: 'https://github.com/un-po/attente/pull/2' }),
+  candidat('un-po~analyse', 'analyse', 'un-po', { analyseEnCours: true }),
 ]
 
 describe('Reprendre un projet existant (#37)', () => {
   let projets: ReturnType<typeof useProjetsStore>
   const aReprendre = vi.fn<() => Promise<DepotAReprendre[]>>()
-  const reprendre = vi.fn<(depot: string, modele: string, dsfr: boolean) => Promise<ResultatReprise>>()
+  const reprendre = vi.fn<(depot: string, modele: string | null, dsfr: boolean) => Promise<ResultatReprise>>()
 
   const monter = async () => {
-    const wrapper = mount(RepriseProjet, { props: { modeles: MODELES }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+    const wrapper = mount(RepriseProjet, { props: { modeles: MODELES, intervalleSuivi: 20 }, global: { plugins: [VueDsfr] }, attachTo: document.body })
     await flushPromises()
     return wrapper
   }
+  const selects = (wrapper: Awaited<ReturnType<typeof monter>>) => wrapper.findAll('select')
 
   beforeEach(() => {
     setActivePinia(createPinia())
     projets = useProjetsStore()
-    aReprendre.mockResolvedValue(DEPOTS)
-    reprendre.mockResolvedValue({ pullRequest: 'https://github.com/un-po/mon-poc/pull/1', fichiers: ['ada.json'] })
+    aReprendre.mockReset().mockResolvedValue(DEPOTS)
+    reprendre.mockReset().mockResolvedValue({ analyse: 'https://github.com/un-po/mon-poc/issues/7', pullRequest: null })
     projets.aReprendre = aReprendre
     projets.reprendre = reprendre
   })
@@ -40,60 +53,80 @@ describe('Reprendre un projet existant (#37)', () => {
     document.body.innerHTML = ''
   })
 
-  it('liste les dépôts de l’organisation et du compte du PO, et les seules stacks disponibles', async () => {
+  it('liste les dépôts de l’organisation et du compte du PO ; stack facultative, sans mention du DSFR', async () => {
     const wrapper = await monter()
-    const depots = wrapper.findAll('select')[0]!.findAll('option').map((option) => option.text())
-    expect(depots).toEqual(expect.arrayContaining(['commun (organisation org)', 'mon-poc (votre compte un-po)']))
-    const stacks = wrapper.findAll('select')[1]!.findAll('option').map((option) => option.text())
+    expect(selects(wrapper)[0]!.findAll('option').map((option) => option.text())).toEqual(
+      expect.arrayContaining(['commun (organisation org)', 'mon-poc (votre compte un-po)']),
+    )
+    await selects(wrapper)[0]!.setValue('commun')
+    const stacks = selects(wrapper)[1]!.findAll('option').map((option) => option.text())
+    expect(stacks).toContain('Je ne sais pas : l’assistant la déduit')
     expect(stacks).toContain('Vue + Node')
     expect(stacks).not.toContain('Django')
     wrapper.unmount()
   })
 
-  it('exige un dépôt et une stack, puis propose la reprise et donne le lien de la PR à valider', async () => {
+  it('sans stack : lance l’analyse, puis suit jusqu’à la PR de reprise', async () => {
     const wrapper = await monter()
     await wrapper.find('form').trigger('submit')
     expect(wrapper.text()).toContain('Choisissez le dépôt à reprendre')
     expect(reprendre).not.toHaveBeenCalled()
 
-    await wrapper.findAll('select')[0]!.setValue('un-po~mon-poc')
-    await wrapper.findAll('select')[1]!.setValue('vue-node')
+    await selects(wrapper)[0]!.setValue('un-po~mon-poc')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
-    expect(reprendre).toHaveBeenCalledWith('un-po~mon-poc', 'vue-node', false)
-    expect(wrapper.find('a[href="https://github.com/un-po/mon-poc/pull/1"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('fusionnez-la sur GitHub')
+    expect(reprendre).toHaveBeenCalledWith('un-po~mon-poc', null, false)
+    expect(wrapper.text()).toContain('L’assistant analyse le projet')
+    expect(wrapper.find('a[href="https://github.com/un-po/mon-poc/issues/7"]').exists()).toBe(true)
+
+    aReprendre.mockResolvedValue([candidat('un-po~mon-poc', 'mon-poc', 'un-po', { repriseEnCours: 'https://github.com/un-po/mon-poc/pull/8' })])
+    await new Promise((fin) => setTimeout(fin, 40))
+    await flushPromises()
+    expect(wrapper.text()).toContain('La pull request de reprise est prête')
+    expect(wrapper.find('a[href="https://github.com/un-po/mon-poc/pull/8"]').exists()).toBe(true)
     wrapper.unmount()
   })
 
-  it('code existant : la stack est proposée sans DSFR, l’apparence du projet est gardée par défaut, le DSFR se choisit', async () => {
+  it('analyse arrêtée sans PR : le PO est prévenu et renvoyé vers l’explication', async () => {
     const wrapper = await monter()
-    await wrapper.findAll('select')[0]!.setValue('commun')
-    const stacks = wrapper.findAll('select')[1]!.findAll('option').map((option) => option.text())
-    expect(stacks).toContain('Vue + Node')
+    await selects(wrapper)[0]!.setValue('un-po~mon-poc')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    aReprendre.mockResolvedValue([candidat('un-po~mon-poc', 'mon-poc', 'un-po')])
+    await new Promise((fin) => setTimeout(fin, 40))
+    await flushPromises()
+    expect(wrapper.text()).toContain('L’analyse s’est arrêtée sans pull request')
+    wrapper.unmount()
+  })
+
+  it('avec une stack et le DSFR choisis', async () => {
+    const wrapper = await monter()
+    await selects(wrapper)[0]!.setValue('commun')
     const radios = wrapper.findAll('input[type="radio"]')
     expect(radios.map((radio) => (radio.element as HTMLInputElement).checked)).toEqual([true, false])
-    await wrapper.findAll('select')[1]!.setValue('vue-node')
-    await wrapper.findAll('input[type="radio"]')[1]!.trigger('click')
+    await selects(wrapper)[1]!.setValue('vue-node')
+    await radios[1]!.trigger('click')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(reprendre).toHaveBeenCalledWith('commun', 'vue-node', true)
     wrapper.unmount()
   })
 
-  it('une reprise déjà proposée renvoie vers sa PR au lieu d’en ouvrir une autre', async () => {
+  it('reprise déjà proposée ou analyse en cours : pas de nouvelle demande', async () => {
     const wrapper = await monter()
-    await wrapper.findAll('select')[0]!.setValue('un-po~attente')
+    await selects(wrapper)[0]!.setValue('un-po~attente')
     expect(wrapper.find('a[href="https://github.com/un-po/attente/pull/2"]').exists()).toBe(true)
+    expect(wrapper.find('button[type="submit"]').exists()).toBe(false)
+    await selects(wrapper)[0]!.setValue('un-po~analyse')
+    expect(wrapper.text()).toContain('L’assistant analyse déjà ce projet')
     expect(wrapper.find('button[type="submit"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
-  it('est accessible (formulaire et résultat)', async () => {
+  it('est accessible (formulaire et suivi)', async () => {
     const wrapper = await monter()
+    await selects(wrapper)[0]!.setValue('commun')
     expect(await violationsAccessibilite(wrapper.element)).toEqual([])
-    await wrapper.findAll('select')[0]!.setValue('commun')
-    await wrapper.findAll('select')[1]!.setValue('vue-node')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(await violationsAccessibilite(wrapper.element)).toEqual([])
