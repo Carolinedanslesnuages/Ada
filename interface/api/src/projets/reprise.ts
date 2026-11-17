@@ -39,10 +39,28 @@ const statut = (e: unknown) => (e as { status?: number }).status;
  * aucun fichier à personnaliser, seul le contrôle du titre de PR exigé, pas de chart, et
  * l'apparence choisie par le PO. Lève une erreur si la description de l'aperçu est invalide.
  */
+/**
+ * Projet sans écran (script, traitement de données…) : l'aperçu sert simplement les fichiers du
+ * projet (README, résultats), pour que le projet entre quand même dans ADA. python3 est présent
+ * dans les images d'aperçu d'ADA (node:24-bookworm comme python:3.13-slim).
+ */
+export const APERCU_SANS_ECRAN = { principal: 'cd /app && python3 -m http.server 8000 --bind 0.0.0.0', port: 8000 } as const;
+
+/**
+ * Aperçu sans commande pour servir une page : celui d'un projet sans écran. Une commande sans port
+ * reste telle quelle (le port ne se devine pas) : la validation la refusera, un développeur tranche.
+ */
+function completerApercu(apercu: unknown): Record<string, unknown> {
+  const actuel = apercu && typeof apercu === 'object' && !Array.isArray(apercu) ? (apercu as Record<string, unknown>) : {};
+  const sansCommande = typeof actuel.principal !== 'string' || !actuel.principal.trim();
+  return sansCommande ? { ...actuel, ...APERCU_SANS_ECRAN } : actuel;
+}
+
 export function adaJsonReprise(brut: unknown, dsfr = false): string {
   const base = typeof brut === 'string' ? (JSON.parse(brut) as unknown) : brut;
   if (!base || typeof base !== 'object' || Array.isArray(base)) throw new Error('ada.json absent');
-  const ada = { ...(base as Record<string, unknown>), personnaliser: [], controlesRequis: [CONTROLE_TITRE], deploiement: null, dsfr };
+  const lu = base as Record<string, unknown>;
+  const ada = { ...lu, apercu: completerApercu(lu.apercu), personnaliser: [], controlesRequis: [CONTROLE_TITRE], deploiement: null, dsfr };
   const valide: AdaConfig = lireAdaConfig(JSON.stringify(ada));
   return `${JSON.stringify({ ...ada, apercu: valide.apercu, type: valide.type, controles: valide.controles }, null, 2)}\n`;
 }
