@@ -52,9 +52,19 @@ const dernieresActions = computed(() => (props.activite?.journal ?? []).slice(-8
 
 /** Champ de texte : réponse aux questions, ou modification demandée sur le plan. */
 const modeModification = ref(false)
-const pourquoiOuvert = ref(-1)
+const replisOuverts = ref(-1)
 const texte = ref('')
 const erreur = ref('')
+/** Dernier message de l'assistant (montré en entier sous l'action) ; le reste est l'historique, replié. */
+const dernierMessage = computed(() => [...messages.value].reverse().find((message) => message.assistant) ?? null)
+const historique = computed(() => messages.value.filter((message) => message.id !== dernierMessage.value?.id))
+/** Une action est attendue du PO (sinon pas d'encart « À vous de jouer »). */
+const actionAttendue = computed(
+  () =>
+    ['nouvelle', 'en-verification', 'plan-a-valider', 'questions', 'decoupage', 'besoin-dev'].includes(props.story.statut) ||
+    (props.story.statut === 'en-cours' && Boolean(props.activite)),
+)
+
 /** Choix joints par l'assistant à ses dernières questions : réponse en cases à cocher (#35). */
 const questionsAChoix = computed(() => {
   if (props.story.statut !== 'questions') return []
@@ -113,83 +123,11 @@ function envoyer(): void {
       </a>
     </p>
 
-    <div v-if="story.statut === 'nouvelle'" class="fr-mb-3w">
-      <DsfrAlert v-if="blocage" type="warning" small :description="blocage" />
-      <template v-else>
-        <DsfrButton
-          icon="fr-icon-play-line"
-          :label="lancementEnCours ? 'Lancement…' : story.type === 'bug' ? 'Lancer la correction' : 'Lancer cette story'"
-          aria-describedby="lancement-enregistrement"
-          :disabled="lancementEnCours"
-          @click="emit('lancer')"
-        />
-        <p id="lancement-enregistrement" class="fr-text--sm fr-mt-1w fr-mb-0">
-          <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
-          Le lancement est noté sur GitHub, à votre nom : un commentaire et le statut {{ designation }}.
-        </p>
-      </template>
-      <DsfrAlert v-if="erreurLancement" type="error" small :description="erreurLancement" class="fr-mt-2w" />
-    </div>
-
-    <section v-if="story.contenu" aria-labelledby="titre-story">
-      <h3 id="titre-story" class="fr-sr-only">La story</h3>
-      <p class="fr-mb-1w">
-        <strong>En tant que</strong> {{ story.contenu.role }},<br />
-        <strong>je veux</strong> {{ story.contenu.besoin }},<br />
-        <strong>afin de</strong> {{ story.contenu.benefice }}.
-      </p>
-      <h3 class="fr-h6 fr-mb-1w">Critères d’acceptation</h3>
-      <ul>
-        <li v-for="critere in story.contenu.criteres" :key="critere">{{ critere }}</li>
-      </ul>
-    </section>
-    <section v-else-if="story.contenuBug" aria-labelledby="titre-probleme">
-      <h3 id="titre-probleme" class="fr-sr-only">Le problème signalé</h3>
-      <dl class="fr-mb-2w">
-        <dt><strong>Ce qui se passe</strong></dt>
-        <dd>{{ story.contenuBug.constate }}</dd>
-        <dt><strong>Ce qui devrait se passer</strong></dt>
-        <dd>{{ story.contenuBug.attendu }}</dd>
-        <dt><strong>Comment le reproduire</strong></dt>
-        <dd class="fil-pre">{{ story.contenuBug.etapes }}</dd>
-        <template v-if="story.contenuBug.ecran">
-          <dt><strong>Écran concerné</strong></dt>
-          <dd>{{ story.contenuBug.ecran }}</dd>
-        </template>
-      </dl>
-    </section>
-    <section v-else-if="story.contenuLibre" aria-labelledby="titre-libre">
-      <h3 id="titre-libre" class="fr-h6 fr-mb-1w">Demande libre (hors story)</h3>
-      <p class="fr-text--xs fr-mb-1w">
-        Enregistrée sur GitHub comme demande n° {{ story.numero }} « mode libre ».
-      </p>
-      <p class="fil-pre">{{ story.contenuLibre }}</p>
-    </section>
-    <p v-else class="fr-text--sm">{{ story.texteBrut }}</p>
-
-    <section v-if="story.statut !== 'nouvelle'" aria-labelledby="titre-suivi">
-      <h3 id="titre-suivi" class="fr-h6">Suivi</h3>
-      <DsfrAccordionsGroup v-model="pourquoiOuvert" class="fr-mb-2w">
-        <DsfrAccordion id="pourquoi-github" title="Pourquoi les échanges sont-ils enregistrés sur GitHub ?">
-          <p class="fr-text--sm fr-mb-1w">
-            Vos réponses, votre accord sur le plan et les questions de l’assistant sont des
-            commentaires {{ designation }}. C’est un choix volontaire :
-          </p>
-          <ul class="fr-text--sm">
-            <li><strong>Traçabilité</strong> : on sait qui a demandé quoi et qui a validé quel plan, quand. Important quand du code est écrit par une IA.</li>
-            <li><strong>L’assistant s’en sert</strong> : à chaque reprise, il relit tout l’échange ; rien ne se perd.</li>
-            <li><strong>Un développeur peut reprendre</strong> en cas de blocage : tout le contexte est au même endroit.</li>
-            <li><strong>L’historique appartient au projet</strong>, pas à ADA : il reste si l’outil change.</li>
-          </ul>
-          <p class="fr-text--sm fr-mb-0">
-            N’y écrivez donc rien de confidentiel. Vous pouvez modifier ou supprimer vos commentaires
-            sur GitHub ; l’assistant en tiendra compte à sa prochaine lecture.
-          </p>
-        </DsfrAccordion>
-      </DsfrAccordionsGroup>
-
-      <div class="activite fr-mb-3w" role="status" aria-live="polite">
-        <p v-if="travaille" class="fr-mb-1w">
+    <!-- 1. Ce qu'on attend du PO, toujours en haut : rien à chercher, rien à faire défiler. -->
+    <section v-if="travaille" class="fr-callout fr-mb-3w activite" aria-labelledby="titre-action">
+      <h3 id="titre-action" class="fr-callout__title fr-h6">L’assistant travaille</h3>
+      <div role="status" aria-live="polite">
+        <p class="fr-mb-1w">
           <span class="fr-icon-refresh-line fr-icon--sm activite__icone" aria-hidden="true" />
           <strong>
             L’assistant {{ activite?.phase === 'realisation' ? 'réalise la demande' : 'analyse la demande' }}…
@@ -199,32 +137,39 @@ function envoyer(): void {
             ici quand ce sera prêt à vérifier.
           </span>
         </p>
-        <div v-else-if="(story.statut === 'en-cours' || story.statut === 'besoin-dev') && activite" class="fr-mb-1w">
-          <p class="fr-text--sm fr-mb-1w">
-            {{ story.statut === 'besoin-dev' ? 'L’assistant est bloqué sur cette demande.' : 'L’assistant ne travaille pas sur cette demande en ce moment.' }}
-          </p>
-          <DsfrButton size="sm" secondary icon="fr-icon-refresh-line" label="Relancer l’assistant" :disabled="actionEnCours" @click="emit('relancer')" />
-        </div>
         <ol v-if="dernieresActions.length" class="activite__journal fr-text--sm">
           <li v-for="action in dernieresActions" :key="action.le + action.texte">
             <span class="fr-text--xs">{{ heure(action.le) }}</span> {{ action.texte }}
           </li>
         </ol>
-        <DsfrAlert v-if="activite?.erreur && !travaille" type="error" small :description="activite.erreur" />
-        <p v-if="activite?.pullRequest" class="fr-mt-1w">
-          <a class="fr-link" :href="activite.pullRequest" target="_blank" rel="noopener">
-            Voir la demande de fusion (pull request) et ses contrôles<span class="fr-sr-only"> (nouvelle fenêtre)</span>
-          </a>
-        </p>
       </div>
+    </section>
 
-      <section
-        v-if="story.statut === 'en-verification'"
-        class="fr-callout fr-mb-3w"
-        aria-labelledby="titre-verification"
-      >
-        <h4 id="titre-verification" class="fr-callout__title fr-h6">À vous de vérifier</h4>
-        <p class="fr-callout__text fr-text--sm">
+    <section v-else-if="actionAttendue" class="fr-callout fr-mb-3w a-vous" aria-labelledby="titre-action">
+      <h3 id="titre-action" class="fr-callout__title fr-h6">
+        {{ story.statut === 'en-verification' ? 'À vous de vérifier' : 'À vous de jouer' }}
+      </h3>
+
+      <template v-if="story.statut === 'nouvelle'">
+        <DsfrAlert v-if="blocage" type="warning" small :description="blocage" />
+        <template v-else>
+          <DsfrButton
+            icon="fr-icon-play-line"
+            :label="lancementEnCours ? 'Lancement…' : story.type === 'bug' ? 'Lancer la correction' : 'Lancer cette story'"
+            aria-describedby="lancement-enregistrement"
+            :disabled="lancementEnCours"
+            @click="emit('lancer')"
+          />
+          <p id="lancement-enregistrement" class="fr-text--sm fr-mt-1w fr-mb-0">
+            <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
+            Le lancement est noté sur GitHub, à votre nom : un commentaire et le statut {{ designation }}.
+          </p>
+        </template>
+        <DsfrAlert v-if="erreurLancement" type="error" small :description="erreurLancement" class="fr-mt-2w" />
+      </template>
+
+      <template v-else-if="story.statut === 'en-verification'">
+        <p class="fr-text--sm">
           Regardez le résultat dans l’aperçu. Quand tous les contrôles sont réussis, validez :
           la demande sera ajoutée au projet et la suivante pourra être lancée.
         </p>
@@ -252,19 +197,18 @@ function envoyer(): void {
             @click="emit('fusionner')"
           />
         </template>
-      </section>
+      </template>
 
-      <ol v-if="messages.length" class="fil">
-        <li v-for="message in messages" :key="message.id" :class="{ 'fil__assistant': message.assistant }">
-          <p class="fr-text--xs fr-mb-1v">
-            <strong>{{ message.auteur }}</strong> — {{ date(message.le) }}
-          </p>
-          <TexteRiche :texte="message.texte" />
-        </li>
-      </ol>
+      <template v-else-if="story.statut === 'en-cours' || story.statut === 'besoin-dev'">
+        <p class="fr-text--sm fr-mb-1w">
+          {{ story.statut === 'besoin-dev' ? 'L’assistant est bloqué sur cette demande.' : 'L’assistant ne travaille pas sur cette demande en ce moment.' }}
+        </p>
+        <DsfrAlert v-if="activite?.erreur" type="error" small :description="activite.erreur" class="fr-mb-2w" />
+        <DsfrButton size="sm" secondary icon="fr-icon-refresh-line" label="Relancer l’assistant" :disabled="actionEnCours" @click="emit('relancer')" />
+      </template>
 
-      <div v-if="story.statut === 'plan-a-valider' && !travaille && !modeModification" class="fr-mt-2w">
-        <DsfrAlert type="info" small class="fr-mb-2w" description="L’assistant attend votre accord sur le plan ci-dessus avant de commencer." />
+      <div v-else-if="story.statut === 'plan-a-valider' && !modeModification">
+        <p class="fr-text--sm fr-mb-2w">L’assistant attend votre accord sur le plan ci-dessous avant de commencer.</p>
         <p id="validation-enregistrement" class="fr-text--sm fr-mb-2w">
           <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
           Votre accord est enregistré sur GitHub, en commentaire {{ designation }}, à votre nom.
@@ -279,22 +223,8 @@ function envoyer(): void {
         </ul>
       </div>
 
-      <section v-if="storiesParent.length" class="fr-mb-3w" aria-labelledby="titre-parent">
-        <h4 id="titre-parent" class="fr-h6 fr-mb-1w">Découpée en {{ storiesParent.length }} stories</h4>
-        <ul class="fr-p-0 stories-parent">
-          <li v-for="enfant in storiesParent" :key="enfant.numero" class="fr-mb-1w">
-            <DsfrButton
-              size="sm"
-              tertiary
-              :label="`#${enfant.numero} ${enfant.titre} — ${enfant.livree ? 'livrée' : 'à faire'}`"
-              :icon="enfant.livree ? 'fr-icon-checkbox-circle-line' : 'fr-icon-time-line'"
-              @click="emit('ouvrir', enfant.numero)"
-            />
-          </li>
-        </ul>
-      </section>
       <PropositionDecoupage
-        v-if="!travaille && propositionDecoupage.length && !modeModification"
+        v-if="propositionDecoupage.length && !modeModification"
         :key="`decoupage-${story.messages.length}`"
         :stories="propositionDecoupage"
         :designation="`la demande n° ${story.numero}`"
@@ -319,13 +249,9 @@ function envoyer(): void {
         </template>
       </ReponseChoix>
       <form v-else-if="champVisible" novalidate class="fr-mt-2w" @submit.prevent="envoyer">
-        <DsfrAlert
-          v-if="story.statut === 'questions'"
-          type="info"
-          small
-          class="fr-mb-2w"
-          description="L’assistant attend vos réponses à ses questions ci-dessus pour continuer."
-        />
+        <p v-if="story.statut === 'questions'" class="fr-text--sm fr-mb-2w">
+          L’assistant attend vos réponses à ses questions ci-dessous pour continuer.
+        </p>
         <DsfrInputGroup
           v-model="texte"
           :label="story.statut === 'questions' ? 'Vos réponses' : story.statut === 'decoupage' ? 'Ce qu’il faut changer dans le découpage' : 'Ce qu’il faut changer dans le plan'"
@@ -346,6 +272,110 @@ function envoyer(): void {
           </li>
         </ul>
       </form>
+    </section>
+
+    <!-- 2. Le dernier message de l'assistant, en entier : c'est lui qui explique l'action. -->
+    <section v-if="dernierMessage" class="fr-mb-3w" aria-labelledby="titre-dernier-message">
+      <h3 id="titre-dernier-message" class="fr-h6 fr-mb-1w">Dernier message de l’assistant</h3>
+      <div class="fil__assistant dernier-message">
+        <p class="fr-text--xs fr-mb-1v"><strong>{{ dernierMessage.auteur }}</strong> — {{ date(dernierMessage.le) }}</p>
+        <TexteRiche :texte="dernierMessage.texte" />
+      </div>
+    </section>
+
+    <!-- 3. La demande elle-même. -->
+    <section v-if="story.contenu" aria-labelledby="titre-story">
+      <h3 id="titre-story" class="fr-h6 fr-mb-1w">La story</h3>
+      <p class="fr-mb-1w">
+        <strong>En tant que</strong> {{ story.contenu.role }},<br />
+        <strong>je veux</strong> {{ story.contenu.besoin }},<br />
+        <strong>afin de</strong> {{ story.contenu.benefice }}.
+      </p>
+      <p class="fr-text--bold fr-mb-1v">Critères d’acceptation</p>
+      <ul>
+        <li v-for="critere in story.contenu.criteres" :key="critere">{{ critere }}</li>
+      </ul>
+    </section>
+    <section v-else-if="story.contenuBug" aria-labelledby="titre-probleme">
+      <h3 id="titre-probleme" class="fr-h6 fr-mb-1w">Le problème signalé</h3>
+      <dl class="fr-mb-2w">
+        <dt><strong>Ce qui se passe</strong></dt>
+        <dd>{{ story.contenuBug.constate }}</dd>
+        <dt><strong>Ce qui devrait se passer</strong></dt>
+        <dd>{{ story.contenuBug.attendu }}</dd>
+        <dt><strong>Comment le reproduire</strong></dt>
+        <dd class="fil-pre">{{ story.contenuBug.etapes }}</dd>
+        <template v-if="story.contenuBug.ecran">
+          <dt><strong>Écran concerné</strong></dt>
+          <dd>{{ story.contenuBug.ecran }}</dd>
+        </template>
+      </dl>
+    </section>
+    <section v-else-if="story.contenuLibre" aria-labelledby="titre-libre">
+      <h3 id="titre-libre" class="fr-h6 fr-mb-1w">Demande libre (hors story)</h3>
+      <p class="fr-text--xs fr-mb-1w">
+        Enregistrée sur GitHub comme demande n° {{ story.numero }} « mode libre ».
+      </p>
+      <p class="fil-pre">{{ story.contenuLibre }}</p>
+    </section>
+    <p v-else class="fr-text--sm">{{ story.texteBrut }}</p>
+
+    <section v-if="storiesParent.length" class="fr-mb-3w" aria-labelledby="titre-parent">
+      <h3 id="titre-parent" class="fr-h6 fr-mb-1w">Découpée en {{ storiesParent.length }} stories</h3>
+      <ul class="fr-p-0 stories-parent">
+        <li v-for="enfant in storiesParent" :key="enfant.numero" class="fr-mb-1w">
+          <DsfrButton
+            size="sm"
+            tertiary
+            :label="`#${enfant.numero} ${enfant.titre} — ${enfant.livree ? 'livrée' : 'à faire'}`"
+            :icon="enfant.livree ? 'fr-icon-checkbox-circle-line' : 'fr-icon-time-line'"
+            @click="emit('ouvrir', enfant.numero)"
+          />
+        </li>
+      </ul>
+    </section>
+
+    <!-- 4. Le passé, replié : journal, demande de fusion, échanges dans l'ordre. -->
+    <section v-if="story.statut !== 'nouvelle'" aria-labelledby="titre-suivi">
+      <h3 id="titre-suivi" class="fr-h6">Suivi</h3>
+      <ol v-if="!travaille && dernieresActions.length" class="activite__journal fr-text--sm">
+        <li v-for="action in dernieresActions" :key="action.le + action.texte">
+          <span class="fr-text--xs">{{ heure(action.le) }}</span> {{ action.texte }}
+        </li>
+      </ol>
+      <p v-if="activite?.pullRequest" class="fr-mt-1w">
+        <a class="fr-link" :href="activite.pullRequest" target="_blank" rel="noopener">
+          Voir la demande de fusion (pull request) et ses contrôles<span class="fr-sr-only"> (nouvelle fenêtre)</span>
+        </a>
+      </p>
+      <DsfrAccordionsGroup v-model="replisOuverts" class="fr-mb-2w">
+        <DsfrAccordion v-if="historique.length" id="historique" :title="`Voir l’historique (${historique.length} échange${historique.length > 1 ? 's' : ''})`">
+          <ol class="fil">
+            <li v-for="message in historique" :key="message.id" :class="{ 'fil__assistant': message.assistant }">
+              <p class="fr-text--xs fr-mb-1v">
+                <strong>{{ message.auteur }}</strong> — {{ date(message.le) }}
+              </p>
+              <TexteRiche :texte="message.texte" />
+            </li>
+          </ol>
+        </DsfrAccordion>
+        <DsfrAccordion id="pourquoi-github" title="Pourquoi les échanges sont-ils enregistrés sur GitHub ?">
+          <p class="fr-text--sm fr-mb-1w">
+            Vos réponses, votre accord sur le plan et les questions de l’assistant sont des
+            commentaires {{ designation }}. C’est un choix volontaire :
+          </p>
+          <ul class="fr-text--sm">
+            <li><strong>Traçabilité</strong> : on sait qui a demandé quoi et qui a validé quel plan, quand. Important quand du code est écrit par une IA.</li>
+            <li><strong>L’assistant s’en sert</strong> : à chaque reprise, il relit tout l’échange ; rien ne se perd.</li>
+            <li><strong>Un développeur peut reprendre</strong> en cas de blocage : tout le contexte est au même endroit.</li>
+            <li><strong>L’historique appartient au projet</strong>, pas à ADA : il reste si l’outil change.</li>
+          </ul>
+          <p class="fr-text--sm fr-mb-0">
+            N’y écrivez donc rien de confidentiel. Vous pouvez modifier ou supprimer vos commentaires
+            sur GitHub ; l’assistant en tiendra compte à sa prochaine lecture.
+          </p>
+        </DsfrAccordion>
+      </DsfrAccordionsGroup>
     </section>
   </article>
 </template>
