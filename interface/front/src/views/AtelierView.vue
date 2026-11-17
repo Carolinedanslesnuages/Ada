@@ -263,30 +263,22 @@ onUnmounted(() => {
 
   <div v-else class="atelier">
     <section class="atelier__panneau" aria-label="Projet et stories">
-      <div class="fr-grid-row fr-grid-row--bottom fr-grid-row--gutters">
-        <div class="fr-col">
-          <DsfrSelect
-            :model-value="projets.idCourant ?? undefined"
-            label="Projet"
-            :options="options"
-            default-unselected-text="Choisissez un projet"
-            @update:model-value="choisirProjet"
-          />
-        </div>
-        <div class="fr-col-auto fr-mb-3w">
-          <DsfrButton
-            v-if="projets.idCourant"
-            size="sm"
-            tertiary
-            icon="fr-icon-eye-off-line"
-            label="Masquer le projet"
-            class="fr-mr-1w"
-            @click="masquerProjet"
-          />
-          <DsfrButton size="sm" tertiary icon="fr-icon-add-line" label="Nouveau projet" @click="nouveauProjet" />
-          <DsfrButton size="sm" tertiary icon="fr-icon-download-line" label="Reprendre un projet" class="fr-ml-1w" @click="reprendreProjet" />
-        </div>
-      </div>
+      <DsfrSelect
+        :model-value="projets.idCourant ?? undefined"
+        label="Projet"
+        :options="options"
+        default-unselected-text="Choisissez un projet"
+        @update:model-value="choisirProjet"
+      />
+      <!-- Groupe de boutons DSFR : alignés et espacés de la même façon, retour à la ligne propre
+           quand le panneau est étroit. -->
+      <ul class="fr-btns-group fr-btns-group--inline fr-btns-group--sm fr-btns-group--icon-left actions-projet">
+        <li v-if="projets.idCourant">
+          <DsfrButton tertiary icon="fr-icon-eye-off-line" label="Masquer le projet" @click="masquerProjet" />
+        </li>
+        <li><DsfrButton tertiary icon="fr-icon-add-line" label="Nouveau projet" @click="nouveauProjet" /></li>
+        <li><DsfrButton tertiary icon="fr-icon-download-line" label="Reprendre un projet" @click="reprendreProjet" /></li>
+      </ul>
 
       <AnnulerReprise v-if="projets.courant && (projets.courant.reprise || projets.courant.repris)" :key="projets.courant.id" :projet="projets.courant" @fait="repriseAnnulee" />
       <p v-if="!projets.idCourant" class="fr-text--sm">Choisissez un projet dans la liste pour l’ouvrir.</p>

@@ -13,6 +13,10 @@
   }
 }
 
+.actions-projet {
+  margin-top: -1rem;
+}
+
 .atelier__panneau {
   display: flex;
   flex-direction: column;
