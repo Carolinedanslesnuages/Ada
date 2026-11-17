@@ -39,10 +39,12 @@ describe('Page « Indicateurs »', () => {
     lire.mockResolvedValue(INDICATEURS)
     const wrapper = await monter()
     const texte = wrapper.text()
-    expect(texte).toContain('Tous les projets passés par ADA')
-    expect(texte).toMatch(/Projets passés par ADA\s*6/)
-    expect(texte).toMatch(/Supprimés de GitHub\s*4/)
-    expect(texte).toMatch(/Archivés\s*0/)
+    expect(texte).toContain('Ce que sont devenus les projets')
+    expect(texte).toContain('6 projets passés par ADA : 5 créés avec ADA, 1 repris')
+    const legende = wrapper.findAll('.legende li').map((ligne) => ligne.text().replace(/\s+/g, ' '))
+    expect(legende).toEqual(['2 Actifs dans ADA', '0 Archivés', '0 Retirés d’ADA (reprise annulée, désynchronisés)', '4 Supprimés de GitHub'])
+    // La barre colorée est décorative : la légende donne les mêmes chiffres en texte.
+    expect(wrapper.find('.devenir').attributes('aria-hidden')).toBe('true')
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
@@ -51,8 +53,9 @@ describe('Page « Indicateurs »', () => {
     lire.mockResolvedValue(INDICATEURS)
     const wrapper = await monter()
     expect(lire).toHaveBeenCalledWith('/indicateurs')
-    const cartes = wrapper.findAll('.indicateurs li').map((carte) => carte.findAll('p').map((ligne) => ligne.text()))
+    const cartes = wrapper.findAll('.chiffres li').map((carte) => carte.findAll('p').map((ligne) => ligne.text()))
     expect(cartes).toEqual([
+      ['6', 'Projets passés par ADA'],
       ['2', 'Projets actifs dans ADA'],
       ['5', 'Stories livrées'],
       ['25 min', 'Temps moyen du lancement à la livraison'],
@@ -70,6 +73,16 @@ describe('Page « Indicateurs »', () => {
       ['pret-de-materiel', '5', '25 min'],
       ['annuaire', '0', 'Pas encore mesurable'],
     ])
+    wrapper.unmount()
+  })
+
+  it('pendant le calcul : un squelette de la page, annoncé aux lecteurs d’écran', async () => {
+    lire.mockReturnValue(new Promise(() => {}))
+    const wrapper = await monter()
+    expect(wrapper.find('[aria-busy="true"]').exists()).toBe(true)
+    expect(wrapper.findAll('.squelette__carte')).toHaveLength(4)
+    expect(wrapper.find('[role="status"]').text()).toBe('Calcul des indicateurs…')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
 
