@@ -65,7 +65,7 @@ const garanties = [
     <section class="accueil__hero fr-grid-row fr-grid-row--gutters fr-grid-row--middle">
       <div class="fr-col-12 fr-col-lg-6">
         <p class="fr-badge fr-badge--info fr-badge--no-icon fr-mb-2w">Atelier de Développement Assisté</p>
-        <h1 class="fr-display--sm fr-mb-2w">ADA</h1>
+        <h1 class="fr-mb-2w"><img class="accueil__logo" src="/logo-ada-capitales.svg" alt="ADA" /></h1>
         <p class="fr-text--lead fr-mb-2w">
           Un outil pour les non-développeurs : décrivez votre besoin, un assistant de code réalise
           votre POC et vous le voyez se construire.
@@ -147,6 +147,13 @@ const garanties = [
 </template>
 
 <style scoped>
+.accueil__logo {
+  display: block;
+  width: 13rem;
+  max-width: 100%;
+  height: auto;
+}
+
 .accueil {
   max-width: 78rem;
   margin: 0 auto;

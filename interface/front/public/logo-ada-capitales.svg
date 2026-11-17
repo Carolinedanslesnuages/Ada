@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 274 120" role="img" aria-labelledby="titre-ada-capitales">
+  <title id="titre-ada-capitales">ADA — Atelier de Développement Assisté</title>
+  <g fill="none" stroke="#000091" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 102 L44 14 L74 102"/>
+    <line x1="26" y1="70" x2="62" y2="70"/>
+    <path d="M102 14 H118 A44 44 0 0 1 118 102 H102 Z"/>
+    <path d="M178 102 L208 14 L238 102"/>
+    <line x1="190" y1="70" x2="226" y2="70"/>
+  </g>
+  <path fill="#E1000F" d="M250 4 Q253 21 270 24 Q253 27 250 44 Q247 27 230 24 Q247 21 250 4 Z"/>
+</svg>

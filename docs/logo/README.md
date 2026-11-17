@@ -4,6 +4,7 @@
 |---|---|
 | `ada-logo.svg` | Le mot « ada » : en-tête de l'interface (logo d'opérateur du DSFR), documents |
 | `ada-logo-complet.svg` | « ada » et « Atelier de Développement Assisté » : README, présentations |
+| `ada-logo-capitales.svg` | « ADA » en capitales : grand titre de la page d'accueil |
 | `ada-icone.svg` | Icône carrée : onglet du navigateur (`interface/front/public/favicon.svg`) |
 
 - Couleurs du DSFR : bleu France `#000091`, rouge `#E1000F` (l'étincelle : « Assisté »).

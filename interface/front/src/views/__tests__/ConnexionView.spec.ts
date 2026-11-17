@@ -25,6 +25,10 @@ describe('Écran de connexion', () => {
   it('présente ADA comme un outil pour les non-développeurs', async () => {
     const wrapper = await monter('/connexion')
     expect(wrapper.findAll('h1')).toHaveLength(1)
+    // Le titre est le logo en capitales ; son texte alternatif donne le nom aux lecteurs d'écran.
+    const logo = wrapper.find('h1 img')
+    expect(logo.attributes('alt')).toBe('ADA')
+    expect(logo.attributes('src')).toMatch(/logo-ada-capitales|titre-ada-capitales/)
     expect(wrapper.text()).toContain('Un outil pour les non-développeurs')
     wrapper.unmount()
   })
