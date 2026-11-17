@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { appendFile, lstat, mkdir, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { appendFile, lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { PREFIXE_LIBRE, texteDecoupage } from '../stories/story.js';
 import { ApercuService } from '../apercu/apercu.service.js';
@@ -26,6 +27,8 @@ import { lireIdentifiant } from '../projets/depot.js';
 import { ProjetsService } from '../projets/projets.service.js';
 import { adaJsonReprise, corpsReprise, fichiersAApporter, MODELE_REFERENCE, ouvrirPrReprise } from '../projets/reprise.js';
 import { consigneReprise, lireAnalyseReprise } from './consigne-reprise.js';
+import { consigneConseilStack, lireConseilStack, OUTILS_CONSEIL_INTERDITS, type ConseilStack } from './conseil-stack.js';
+import { IDEE_MAX } from '../projets/projet.js';
 
 export interface Activite {
   phase: Phase | null;
@@ -304,6 +307,53 @@ export class AgentService {
       contenuLibre: detail.contenuLibre,
       echanges,
     };
+  }
+
+  /**
+   * Conseil de stack à la création (#68) : l'assistant lit l'idée du PO et propose le modèle livré
+   * le plus adapté, avec une phrase d'explication. Sans outil, dans un dossier vide et jetable.
+   */
+  async conseillerStack(idee: unknown): Promise<ConseilStack> {
+    if (!this.config.AGENT_COMMANDE) {
+      throw new BadRequestException('Aucun agent n’est configuré pour cet atelier (AGENT_COMMANDE). Choisissez la stack vous-même.');
+    }
+    const texte = typeof idee === 'string' ? idee.trim() : '';
+    if (texte.length < 10 || texte.length > IDEE_MAX) {
+      throw new BadRequestException('Racontez votre idée (une phrase au moins) pour que l’assistant puisse vous conseiller');
+    }
+    const { modeles, types } = this.projets.modeles();
+    const disponibles = modeles.filter((modele) => modele.disponible);
+    const dossier = await mkdtemp(join(tmpdir(), 'ada-conseil-'));
+    let reponse = '';
+    try {
+      const args = [
+        '-p',
+        consigneConseilStack(texte, disponibles, types),
+        '--output-format',
+        'stream-json',
+        '--verbose',
+        '--max-turns',
+        '2',
+        '--no-session-persistence',
+        '--disallowedTools',
+        ...OUTILS_CONSEIL_INTERDITS,
+      ];
+      await this.lancerAgent(args, dossier, (ligne) => {
+        try {
+          const evt = JSON.parse(ligne) as { type?: string; result?: string };
+          if (evt.type === 'result' && typeof evt.result === 'string') reponse = evt.result;
+        } catch {
+          /* ligne non JSON : ignorée */
+        }
+      });
+    } catch (e) {
+      this.log.warn(`Conseil de stack impossible : ${(e as Error).message}`);
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
+    const conseil = lireConseilStack(reponse, disponibles.map((modele) => modele.id));
+    if (!conseil) throw new ConflictException('L’assistant n’a pas pu proposer de stack : choisissez-la vous-même dans la liste.');
+    return conseil;
   }
 
   /** Exécute une phase de l'agent et renvoie sa réponse finale (texte). */

@@ -69,6 +69,7 @@ export function catalogue(): Omit<Modele, 'disponible' | 'deployable'>[] {
 /** Labels posés à la création d'un projet : types de demande et statuts gérés par l'atelier. */
 export const LABELS_ATELIER = [
   { name: 'user-story', color: '000091', description: 'Story écrite par le PO' },
+  { name: 'mode-libre', color: '6a6af4', description: 'Demande libre du PO (mode sauvage, hors story)' },
   { name: 'bug', color: 'ce0500', description: 'Problème signalé par le PO' },
   { name: 'story:en-cours', color: '0063cb', description: 'Lancée depuis ADA' },
   { name: 'story:questions', color: 'b34000', description: 'L’assistant attend des réponses du PO' },

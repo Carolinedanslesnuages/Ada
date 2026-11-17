@@ -232,6 +232,7 @@ onUnmounted(() => {
         :types="projets.types"
         :modeles="projets.modeles"
         :erreurs-serveur="erreursProjet"
+        :conseiller="projets.conseillerStack"
         :envoi-en-cours="envoiEnCours"
         @soumettre="creerProjet"
         @annuler="fermerCreationProjet"

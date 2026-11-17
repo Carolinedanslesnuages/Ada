@@ -11,8 +11,13 @@ const emit = defineEmits<{ fermer: [] }>()
     <DsfrAlert
       type="success"
       small
-      description="Le dépôt est prêt sur GitHub, avec ses tests, ses contrôles et sa première version. Vous pouvez écrire votre première story."
+      description="Le dépôt est prêt sur GitHub, avec ses tests, ses contrôles et sa première version."
     />
+    <p v-if="resultat.idee" class="fr-mt-2w">
+      <strong>Votre idée est enregistrée (demande n° {{ resultat.idee }}).</strong> L’assistant l’étudie :
+      il va vous poser ses questions, puis vous proposer l’objectif et les premières stories à valider.
+    </p>
+    <p v-else class="fr-mt-2w">Vous pouvez écrire votre première story, ou « Prompter » une demande libre.</p>
 
     <div class="fr-mt-3w" role="status">
       <h3 class="fr-h6">Réglages GitHub</h3>

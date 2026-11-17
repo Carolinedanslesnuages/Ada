@@ -1,7 +1,7 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api, ErreurApi } from '@/services/api'
-import type { ErreursProjet, FamilleDeProjet, Modele, NouveauProjet, ResultatCreation, TypeDeProjet } from '@/lib/projet'
+import type { ErreursProjet, FamilleDeProjet, Modele, NouveauProjet, ResultatCreation, TypeDeProjet, ConseilStack } from '@/lib/projet'
 
 export interface Projet {
   /** Identifiant dans ADA : le nom, ou « compte~nom » pour un projet du compte personnel du PO. */
@@ -78,6 +78,11 @@ export const useProjetsStore = defineStore('projets', () => {
   }
 
   /** Crée le projet, l'ajoute en tête et le sélectionne ; renvoie les erreurs de validation éventuelles. */
+  /** L'assistant lit l'idée du PO et propose la stack la plus adaptée (#68). */
+  function conseillerStack(idee: string): Promise<ConseilStack> {
+    return api.envoyer<ConseilStack>('/projets/conseil-stack', { idee })
+  }
+
   async function creer(
     projet: NouveauProjet,
   ): Promise<{ resultat: ResultatCreation } | { erreurs: ErreursProjet }> {
@@ -127,6 +132,7 @@ export const useProjetsStore = defineStore('projets', () => {
     charger,
     chargerModeles,
     creer,
+    conseillerStack,
     choisir,
     fermer,
     aReprendre,

@@ -20,6 +20,7 @@ import { GithubService } from '../github/github.service.js';
 import { lireAdaConfig, type AdaConfig } from '../ada/ada-config.js';
 import { catalogue, FAMILLES, LABELS_ATELIER, TYPES, type Modele } from './modeles.js';
 import { personnaliser, validerProjet, type ValeursProjet } from './projet.js';
+import { formaterPrompt, LABEL_LIBRE, MARQUEUR_LANCEMENT, STATUTS, titrePrompt } from '../stories/story.js';
 import { identifiantProjet } from './depot.js';
 import { prReprise } from './reprise.js';
 
@@ -52,6 +53,8 @@ export interface Reglage {
 export interface ResultatCreation {
   projet: Projet;
   reglages: { versionsAutomatiques: Reglage; protectionMain: Reglage };
+  /** Numéro de la demande créée à partir de l'idée du PO (l'assistant s'en saisit) ; null sans idée. */
+  idee: number | null;
 }
 
 export type DepotGithub = {
@@ -271,6 +274,7 @@ export class ProjetsService {
       if (e instanceof ForbiddenException) throw e;
       traduireErreurGithub(e);
     }
+    const idee = projet.idee ? await this.enregistrerIdee(gh, owner, slug, projet.idee, login) : null;
 
     const base = `https://github.com/${owner}/${slug}/settings`;
     return {
@@ -279,7 +283,30 @@ export class ProjetsService {
         versionsAutomatiques: { etat: versionsAutomatiques, lien: `${base}/actions` },
         protectionMain: { etat: protectionMain, lien: `${base}/rules` },
       },
+      idee,
     };
+  }
+
+  /**
+   * L'idée racontée à la création devient la première demande libre du projet, lancée aussitôt (#68) :
+   * l'assistant pose ses questions puis propose l'objectif et les premières stories (découpage),
+   * que le PO valide. Un échec ici ne défait pas la création : le PO pourra « Prompter » son idée.
+   */
+  private async enregistrerIdee(gh: Octokit, owner: string, repo: string, idee: string, login: string): Promise<number | null> {
+    try {
+      const { data } = await gh.issues.create({
+        owner,
+        repo,
+        title: titrePrompt(idee),
+        body: formaterPrompt(idee),
+        labels: [LABEL_LIBRE, STATUTS['en-cours']],
+      });
+      await gh.issues.createComment({ owner, repo, issue_number: data.number, body: `${MARQUEUR_LANCEMENT} par ${login} (idée de départ du projet).` });
+      return data.number;
+    } catch (e) {
+      this.journal.warn(`Idée de départ non enregistrée dans ${owner}/${repo} : ${decrireErreurGithub(e)}`);
+      return null;
+    }
   }
 
   /**

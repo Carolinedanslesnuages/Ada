@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, useTemplateRef, watch } from 'vue'
 import {
+  type ConseilStack,
   type FamilleDeProjet,
   type TypeDeProjet,
   type TypeProjet,
@@ -17,11 +18,13 @@ const props = defineProps<{
   types: TypeDeProjet[]
   modeles: Modele[]
   erreursServeur?: ErreursProjet | null
+  /** L'assistant propose une stack d'après l'idée (#68) ; absent : pas de bouton de conseil. */
+  conseiller?: (idee: string) => Promise<ConseilStack>
   envoiEnCours?: boolean
 }>()
 const emit = defineEmits<{ soumettre: [projet: NouveauProjet]; annuler: [] }>()
 
-const projet = reactive<NouveauProjet>({ nom: '', objectif: '', modele: '', baseline: '', deploye: false })
+const projet = reactive<NouveauProjet>({ nom: '', idee: '', objectif: '', modele: '', baseline: '', deploye: false })
 const erreursLocales = ref<ErreursProjet>({})
 const erreurs = computed<ErreursProjet>(() => ({ ...erreursLocales.value, ...props.erreursServeur }))
 const adresse = computed(() => slugifier(normaliserNom(projet.nom)))
@@ -51,7 +54,79 @@ watch(modeleChoisi, (modele) => {
   if (!modele?.deployable) projet.deploye = false
 })
 
+/** Conseil de l'assistant : il lit l'idée, puis ADA présélectionne le type et la stack proposés. */
+const conseil = ref<ConseilStack | null>(null)
+const conseilEnCours = ref(false)
+const erreurConseil = ref<string | null>(null)
+const ideeSuffisante = computed(() => (projet.idee ?? '').trim().length >= 10)
+const modeleConseille = computed(() => props.modeles.find((modele) => modele.id === conseil.value?.modele) ?? null)
+async function demanderConseil(): Promise<void> {
+  if (!props.conseiller || !ideeSuffisante.value) return
+  conseilEnCours.value = true
+  erreurConseil.value = null
+  conseil.value = null
+  try {
+    const reponse = await props.conseiller(projet.idee ?? '')
+    const modele = props.modeles.find((candidat) => candidat.id === reponse.modele && candidat.disponible)
+    if (!modele) throw new Error('L’assistant n’a pas pu proposer de stack : choisissez-la vous-même dans la liste.')
+    conseil.value = reponse
+    typeChoisi.value = modele.type
+    await nextTick()
+    projet.modele = modele.id
+  } catch (e) {
+    erreurConseil.value = (e as Error).message
+  } finally {
+    conseilEnCours.value = false
+  }
+}
+
+/**
+ * Étapier (#68) : d'abord l'idée (l'assistant peut orienter la stack), puis le type et la stack,
+ * enfin le nom et la présentation. Chaque étape est vérifiée avant de passer à la suivante.
+ */
+const ETAPES = ['Votre idée', 'Type de projet et stack', 'Nom et présentation'] as const
+const CHAMPS_PAR_ETAPE: (keyof NouveauProjet)[][] = [['idee'], ['modele'], ['nom', 'objectif', 'baseline']]
+const etape = ref(1)
+const zoneEtapes = useTemplateRef<HTMLElement>('zone-etapes')
+
+/** Le focus va au titre de l'étape : lecteurs d'écran et clavier savent où ils en sont. */
+async function allerA(numero: number): Promise<void> {
+  etape.value = numero
+  await nextTick()
+  const titre = zoneEtapes.value?.querySelector<HTMLElement>('h2, h3')
+  titre?.setAttribute('tabindex', '-1')
+  titre?.focus()
+}
+
+/** Erreurs de l'étape en cours seulement (les autres champs ne sont pas encore remplis). */
+function etapeValide(numero: number): boolean {
+  const toutes = verifierProjet(projet)
+  const champs = CHAMPS_PAR_ETAPE[numero - 1]!
+  erreursLocales.value = Object.fromEntries(Object.entries(toutes).filter(([champ]) => champs.includes(champ as keyof NouveauProjet)))
+  return Object.keys(erreursLocales.value).length === 0
+}
+
+/** Le serveur refuse un champ : retour à l'étape qui le contient. */
+watch(
+  () => props.erreursServeur,
+  (erreursServeur) => {
+    if (!erreursServeur) return
+    const numero = CHAMPS_PAR_ETAPE.findIndex((champs) => champs.some((champ) => erreursServeur[champ]))
+    if (numero >= 0) void allerA(numero + 1)
+  },
+)
+
+function precedent(): void {
+  erreursLocales.value = {}
+  void allerA(etape.value - 1)
+}
+
 function envoyer(): void {
+  if (!etapeValide(etape.value)) return
+  if (etape.value < ETAPES.length) {
+    void allerA(etape.value + 1)
+    return
+  }
   erreursLocales.value = verifierProjet(projet)
   if (Object.keys(erreursLocales.value).length > 0) return
   emit('soumettre', {
@@ -66,113 +141,167 @@ function envoyer(): void {
   <form novalidate @submit.prevent="envoyer">
     <h2 class="fr-h4">Nouveau projet</h2>
     <p class="fr-text--sm">
-      Le projet est créé sur GitHub, en votre nom, prêt à recevoir sa première story. Tous les
-      champs sont obligatoires, sauf la baseline.
+      Racontez votre idée : ADA crée le projet sur GitHub, en votre nom, et l’assistant s’en
+      saisit aussitôt. L’objectif et la baseline sont facultatifs.
     </p>
 
-    <DsfrInputGroup
-      v-model="projet.nom"
-      label="Nom du projet"
-      :hint="adresse ? `Adresse du dépôt : ${adresse}` : 'Exemple : Réservation de salles'"
-      label-visible
-      :error-message="erreurs.nom"
-    />
-    <DsfrInputGroup
-      v-model="projet.baseline"
-      label="Baseline (facultatif)"
-      hint="Phrase courte affichée sous le nom du service dans l’en-tête. Exemple : Ma journée avec POC Portail"
-      label-visible
-      :error-message="erreurs.baseline"
-    />
-    <DsfrInputGroup
-      v-model="projet.objectif"
-      label="Objectif"
-      hint="En une ou deux phrases : à quoi va servir ce projet, et pour qui ?"
-      label-visible
-      is-textarea
-      :error-message="erreurs.objectif"
-    />
+    <div ref="zone-etapes">
+      <DsfrStepper :steps="[...ETAPES]" :current-step="etape" />
+    </div>
 
-    <fieldset class="fr-fieldset" :class="{ 'fr-fieldset--error': erreurs.modele && !typeChoisi }">
-      <legend class="fr-fieldset__legend">Que voulez-vous créer ?</legend>
-      <div v-for="famille in famillesAvecTypes" :key="famille.id" class="fr-fieldset__element">
-        <fieldset class="fr-fieldset">
-          <legend class="fr-fieldset__legend fr-fieldset__legend--regular fr-text--bold">
-            {{ famille.libelle }}
-          </legend>
-          <div v-for="type in famille.types" :key="type.id" class="fr-fieldset__element">
-            <div class="fr-radio-group">
-              <input
-                :id="`type-${type.id}`"
-                v-model="typeChoisi"
-                type="radio"
-                name="type-projet"
-                :value="type.id"
-              />
-              <label class="fr-label" :for="`type-${type.id}`">
-                {{ type.libelle }}
-                <span class="fr-hint-text">{{ type.description }}</span>
-              </label>
-            </div>
-          </div>
-        </fieldset>
-      </div>
-    </fieldset>
-
-    <fieldset
-      v-if="typeChoisi"
-      class="fr-fieldset"
-      :class="{ 'fr-fieldset--error': erreurs.modele }"
-      aria-describedby="stack-aide"
-    >
-      <legend class="fr-fieldset__legend">Stack technique</legend>
-      <p id="stack-aide" class="fr-hint-text fr-fieldset__element">
-        Celle indiquée par l’équipe technique pour ce type de projet.
-      </p>
-      <div v-for="modele in modelesDuType" :key="modele.id" class="fr-fieldset__element">
-        <div class="fr-radio-group">
-          <input
-            :id="`modele-${modele.id}`"
-            v-model="projet.modele"
-            type="radio"
-            name="modele"
-            :value="modele.id"
+    <template v-if="etape === 1">
+      <DsfrInputGroup
+        v-model="projet.idee"
+        label="Votre idée"
+        hint="Racontez-la comme elle vient, même en vrac : le besoin, pour qui, ce qui vous gêne aujourd’hui… L’assistant vous posera ses questions, puis vous proposera les premières stories à valider."
+        label-visible
+        is-textarea
+        rows="6"
+        :error-message="erreurs.idee"
+      />
+      <div v-if="conseiller" class="fr-mb-3w">
+        <DsfrButton
+          type="button"
+          secondary
+          size="sm"
+          :label="conseilEnCours ? 'L’assistant réfléchit…' : 'Demander conseil à l’assistant pour la stack'"
+          :disabled="conseilEnCours || !ideeSuffisante"
+          aria-describedby="conseil-aide"
+          @click="demanderConseil"
+        />
+        <p id="conseil-aide" class="fr-hint-text fr-mt-1v">
+          L’assistant lit votre idée et présélectionne, à l’étape suivante, le type de projet et la
+          stack les plus adaptés. Vous pourrez toujours choisir autre chose.
+        </p>
+        <div role="status">
+          <DsfrAlert
+            v-if="conseil && modeleConseille"
+            type="info"
+            small
+            :description="`Conseil de l’assistant : ${modeleConseille.libelle}. ${conseil.raison}`"
           />
-          <label class="fr-label" :for="`modele-${modele.id}`">
-            {{ modele.libelle }}
-            <span class="fr-hint-text">{{ modele.pourQuoi }}</span>
+        </div>
+        <p v-if="erreurConseil" class="fr-error-text" role="alert">{{ erreurConseil }}</p>
+      </div>
+    </template>
+
+    <template v-else-if="etape === 2">
+      <DsfrAlert
+        v-if="conseil && modeleConseille"
+        type="info"
+        small
+        class="fr-mb-3w"
+        :description="`L’assistant conseille : ${modeleConseille.libelle}. Il est présélectionné ; vous pouvez choisir autre chose.`"
+      />
+      <fieldset class="fr-fieldset" :class="{ 'fr-fieldset--error': erreurs.modele && !typeChoisi }">
+        <legend class="fr-fieldset__legend">Que voulez-vous créer ?</legend>
+        <div v-for="famille in famillesAvecTypes" :key="famille.id" class="fr-fieldset__element">
+          <fieldset class="fr-fieldset">
+            <legend class="fr-fieldset__legend fr-fieldset__legend--regular fr-text--bold">
+              {{ famille.libelle }}
+            </legend>
+            <div v-for="type in famille.types" :key="type.id" class="fr-fieldset__element">
+              <div class="fr-radio-group">
+                <input
+                  :id="`type-${type.id}`"
+                  v-model="typeChoisi"
+                  type="radio"
+                  name="type-projet"
+                  :value="type.id"
+                />
+                <label class="fr-label" :for="`type-${type.id}`">
+                  {{ type.libelle }}
+                  <span class="fr-hint-text">{{ type.description }}</span>
+                </label>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+      </fieldset>
+
+      <fieldset
+        v-if="typeChoisi"
+        class="fr-fieldset"
+        :class="{ 'fr-fieldset--error': erreurs.modele }"
+        aria-describedby="stack-aide"
+      >
+        <legend class="fr-fieldset__legend">Stack technique</legend>
+        <p id="stack-aide" class="fr-hint-text fr-fieldset__element">
+          Celle indiquée par l’équipe technique pour ce type de projet.
+        </p>
+        <div v-for="modele in modelesDuType" :key="modele.id" class="fr-fieldset__element">
+          <div class="fr-radio-group">
+            <input
+              :id="`modele-${modele.id}`"
+              v-model="projet.modele"
+              type="radio"
+              name="modele"
+              :value="modele.id"
+            />
+            <label class="fr-label" :for="`modele-${modele.id}`">
+              {{ modele.libelle }}<template v-if="modele.id === conseil?.modele"> (conseillée par l’assistant)</template>
+              <span class="fr-hint-text">{{ modele.pourQuoi }}</span>
+            </label>
+          </div>
+        </div>
+        <p v-if="erreurs.modele" class="fr-error-text fr-fieldset__element" role="alert">
+          {{ erreurs.modele }}
+        </p>
+      </fieldset>
+      <p v-else-if="erreurs.modele" class="fr-error-text" role="alert">Choisissez ce que vous voulez créer</p>
+
+      <div v-if="modeleChoisi?.deployable" class="fr-fieldset__element fr-mb-3w">
+        <div class="fr-checkbox-group">
+          <input id="projet-deploye" v-model="projet.deploye" type="checkbox" aria-describedby="projet-deploye-aide" />
+          <label class="fr-label" for="projet-deploye">
+            Ce projet sera déployé (mis en ligne)
+            <span id="projet-deploye-aide" class="fr-hint-text">
+              ADA ajoute de quoi l’héberger : un chart Helm, vérifié à chaque demande. L’équipe
+              infra fournit ensuite l’adresse et le registre. Modifiable plus tard par un développeur.
+            </span>
           </label>
         </div>
       </div>
-      <p v-if="erreurs.modele" class="fr-error-text fr-fieldset__element" role="alert">
-        {{ erreurs.modele }}
-      </p>
-    </fieldset>
-    <p v-else-if="erreurs.modele" class="fr-error-text" role="alert">Choisissez ce que vous voulez créer</p>
+    </template>
 
-    <div v-if="modeleChoisi?.deployable" class="fr-fieldset__element fr-mb-3w">
-      <div class="fr-checkbox-group">
-        <input id="projet-deploye" v-model="projet.deploye" type="checkbox" aria-describedby="projet-deploye-aide" />
-        <label class="fr-label" for="projet-deploye">
-          Ce projet sera déployé (mis en ligne)
-          <span id="projet-deploye-aide" class="fr-hint-text">
-            ADA ajoute de quoi l’héberger : un chart Helm, vérifié à chaque demande. L’équipe
-            infra fournit ensuite l’adresse et le registre. Modifiable plus tard par un développeur.
-          </span>
-        </label>
-      </div>
-    </div>
+    <template v-else>
+      <DsfrInputGroup
+        v-model="projet.nom"
+        label="Nom du projet"
+        :hint="adresse ? `Adresse du dépôt : ${adresse}` : 'Exemple : Réservation de salles'"
+        label-visible
+        :error-message="erreurs.nom"
+      />
+      <DsfrInputGroup
+        v-model="projet.objectif"
+        label="Objectif en une phrase (facultatif)"
+        hint="Si vous savez déjà le dire. Sinon, ADA reprend la première phrase de votre idée."
+        label-visible
+        is-textarea
+        :error-message="erreurs.objectif"
+      />
+      <DsfrInputGroup
+        v-model="projet.baseline"
+        label="Baseline (facultatif)"
+        hint="Phrase courte affichée sous le nom du service dans l’en-tête. Exemple : Ma journée avec POC Portail"
+        label-visible
+        :error-message="erreurs.baseline"
+      />
+    </template>
 
     <ul class="fr-btns-group fr-btns-group--inline-md">
+      <li v-if="etape > 1">
+        <DsfrButton type="button" secondary label="Étape précédente" @click="precedent" />
+      </li>
       <li>
         <DsfrButton
           type="submit"
-          :label="envoiEnCours ? 'Création en cours…' : 'Créer le projet'"
+          :label="etape < ETAPES.length ? 'Étape suivante' : envoiEnCours ? 'Création en cours…' : 'Créer le projet'"
           :disabled="envoiEnCours"
         />
       </li>
       <li>
-        <DsfrButton type="button" secondary label="Annuler" @click="emit('annuler')" />
+        <DsfrButton type="button" tertiary label="Annuler" @click="emit('annuler')" />
       </li>
     </ul>
   </form>

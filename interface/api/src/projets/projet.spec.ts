@@ -26,8 +26,28 @@ describe('Nom d’un nouveau projet', () => {
     expect(resultat).toEqual({
       ok: true,
       slug: 'l-annuaire-des-agents',
-      projet: { nom: 'L’annuaire des agents', objectif: 'Trouver un collègue et son bureau.', modele: 'vue-nest-dsfr', baseline: '', deploye: false },
+      projet: { nom: 'L’annuaire des agents', objectif: 'Trouver un collègue et son bureau.', modele: 'vue-nest-dsfr', idee: '', baseline: '', deploye: false },
     });
+  });
+
+  it('accepte une idée racontée librement, sans objectif : l’objectif vient de sa première phrase (#68)', () => {
+    const resultat = validerProjet({
+      nom: 'Covoiturage',
+      modele: 'vue-nest-dsfr',
+      idee: '  bon en gros je voudrais que les agents puissent partager leurs trajets. genre le matin\net on verra pour le reste ',
+    });
+    expect(resultat).toMatchObject({
+      ok: true,
+      projet: {
+        idee: 'bon en gros je voudrais que les agents puissent partager leurs trajets. genre le matin\net on verra pour le reste',
+        objectif: 'bon en gros je voudrais que les agents puissent partager leurs trajets.',
+      },
+    });
+  });
+
+  it('exige une idée (ou un objectif), même courte', () => {
+    expect(validerProjet({ nom: 'Covoiturage', modele: 'vue-nest-dsfr' })).toMatchObject({ ok: false, erreurs: { idee: 'Racontez votre idée, même en quelques mots' } });
+    expect(validerProjet({ nom: 'Covoiturage', modele: 'vue-nest-dsfr', idee: 'trajets' })).toMatchObject({ ok: false, erreurs: { idee: expect.stringContaining('une phrase') } });
   });
 
   it('accepte une baseline facultative, sans apostrophe droite', () => {

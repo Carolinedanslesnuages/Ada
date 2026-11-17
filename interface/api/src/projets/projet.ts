@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { resumerPrompt } from '../stories/story.js';
+
+/** Idée racontée librement à la création : longue si besoin, sans format imposé (#68). */
+export const IDEE_MAX = 4000;
 
 /** Marqueurs présents dans les dépôts modèles, remplacés à la création d'un projet. */
 export interface ValeursProjet {
@@ -42,11 +46,20 @@ const schema = z.object({
           'Lettres, chiffres, espaces, tirets et apostrophes uniquement',
         ),
     ),
+  /** Facultatif dès qu'une idée est racontée : déduit alors de sa première phrase. */
   objectif: z
     .string()
+    .optional()
+    .default('')
     .transform((o) => o.replace(/\s+/g, ' ').trim())
-    .pipe(z.string().min(10, 'Décrivez l’objectif en une ou deux phrases').max(300, '300 caractères au maximum'))
-    .transform((o) => (/[.!?]$/.test(o) ? o : `${o}.`)),
+    .pipe(z.string().max(300, '300 caractères au maximum')),
+  /** L'idée du PO, telle qu'elle vient (même succincte ou décousue) : première demande du projet. */
+  idee: z
+    .string()
+    .optional()
+    .default('')
+    .transform((texte) => texte.trim())
+    .pipe(z.string().max(IDEE_MAX, `${IDEE_MAX} caractères au maximum`)),
   modele: z.string().min(1, 'Choisissez une stack'),
   /** Le PO prévoit de déployer le projet : le chart Helm du modèle est ajouté. */
   deploye: z.boolean().optional().default(false),
@@ -61,7 +74,21 @@ const schema = z.object({
         .max(80, '80 caractères au maximum')
         .regex(/^[\p{L}\p{N} ’.,!?:;()«»-]*$/u, 'Lettres, chiffres, espaces et ponctuation simple uniquement'),
     ),
-});
+})
+  .superRefine((projet, ctx) => {
+    if (!projet.idee && !projet.objectif) {
+      ctx.addIssue({ code: 'custom', path: ['idee'], message: 'Racontez votre idée, même en quelques mots' });
+    } else if (projet.idee && projet.idee.length < 10) {
+      ctx.addIssue({ code: 'custom', path: ['idee'], message: 'Quelques mots de plus : une phrase au moins' });
+    }
+    if (projet.objectif && projet.objectif.length < 10) {
+      ctx.addIssue({ code: 'custom', path: ['objectif'], message: 'Décrivez l’objectif en une ou deux phrases' });
+    }
+  })
+  .transform((projet) => {
+    const objectif = projet.objectif || resumerPrompt(projet.idee, 290);
+    return { ...projet, objectif: /[.!?…]$/.test(objectif) ? objectif : `${objectif}.` };
+  });
 
 export type NouveauProjet = z.output<typeof schema>;
 export type ErreursProjet = Partial<Record<keyof NouveauProjet, string>>;
