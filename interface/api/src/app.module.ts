@@ -15,6 +15,7 @@ import { DemoController } from './demo/demo.controller.js';
 import { DemoService } from './demo/demo.service.js';
 import { ProjetsService } from './projets/projets.service.js';
 import { RepriseService } from './projets/reprise.service.js';
+import { RepriseController } from './projets/reprise.controller.js';
 import { StoriesController } from './stories/stories.controller.js';
 import { StoriesService } from './stories/stories.service.js';
 import { VerificationController } from './verification/verification.controller.js';
@@ -24,7 +25,7 @@ import { VersionsController } from './versions/versions.controller.js';
 import { VersionsService } from './versions/versions.service.js';
 
 @Module({
-  controllers: [AgentController, DemoController, IndicateursController, ApercuController, AuthController, DiagnosticController, ProjetsController, StoriesController, VerificationController, VersionController, VersionsController],
+  controllers: [AgentController, DemoController, IndicateursController, ApercuController, AuthController, DiagnosticController, ProjetsController, RepriseController, StoriesController, VerificationController, VersionController, VersionsController],
   providers: [
     { provide: CONFIG, useFactory: () => lireConfig() },
     AgentService,

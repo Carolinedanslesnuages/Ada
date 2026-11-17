@@ -10,6 +10,7 @@ import PanneauApercu from '@/components/PanneauApercu.vue'
 import PanneauVersions from '@/components/PanneauVersions.vue'
 import ResultatProjet from '@/components/ResultatProjet.vue'
 import RepriseProjet from '@/components/RepriseProjet.vue'
+import RepriseEnAttente from '@/components/RepriseEnAttente.vue'
 import type { ErreursProjet, NouveauProjet, ResultatCreation } from '@/lib/projet'
 import { lienNouvelleIssue, STATUTS_ACTIFS, type StoryProposee } from '@/lib/story'
 import { useProjetsStore } from '@/stores/projets'
@@ -76,8 +77,25 @@ function fermerRepriseProjet(): void {
   void projets.charger()
 }
 
+/** Analyse lancée : le projet repris s'ouvre aussitôt, le PO y suit l'assistant. */
+async function repriseLancee(id: string, analyse: number | null): Promise<void> {
+  repriseProjet.value = false
+  await projets.charger()
+  projets.choisir(id)
+  await stories.charger(id)
+  if (analyse) await stories.ouvrir(id, analyse)
+}
+
+async function repriseFusionnee(): Promise<void> {
+  await projets.charger()
+  if (projets.idCourant) await stories.charger(projets.idCourant)
+}
+
 const options = computed(() =>
-  projets.liste.map((p) => ({ value: p.id, text: p.compte === 'personnel' ? `${p.nom} (votre compte)` : p.nom })),
+  projets.liste.map((p) => ({
+    value: p.id,
+    text: [p.nom, p.compte === 'personnel' ? '(votre compte)' : '', p.reprise ? '— reprise à valider' : ''].filter(Boolean).join(' '),
+  })),
 )
 
 watch(
@@ -209,7 +227,7 @@ onUnmounted(() => {
   <div v-else-if="repriseProjet" class="fr-grid-row">
     <div class="fr-col-12 fr-col-md-8 fr-col-lg-6">
       <DsfrAlert v-if="erreurProjet" type="error" small :description="erreurProjet" class="fr-mb-3w" />
-      <RepriseProjet :modeles="projets.modeles" @annuler="fermerRepriseProjet" @terminee="fermerRepriseProjet" />
+      <RepriseProjet :modeles="projets.modeles" @annuler="fermerRepriseProjet" @lancee="repriseLancee" />
     </div>
   </div>
 
@@ -245,7 +263,8 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <PanneauVersions v-if="projets.idCourant" :projet="projets.idCourant" />
+      <RepriseEnAttente v-if="projets.courant?.reprise" :projet="projets.courant.id" @fusionnee="repriseFusionnee" />
+      <PanneauVersions v-else-if="projets.idCourant" :projet="projets.idCourant" />
 
       <div class="fr-grid-row fr-grid-row--middle fr-grid-row--gutters">
         <h2 id="titre-stories" class="fr-h5 fr-col fr-mb-0">Stories</h2>
@@ -342,6 +361,9 @@ onUnmounted(() => {
       <DsfrAlert v-if="stories.erreurAction" type="error" small :description="stories.erreurAction" />
     </section>
 
-    <PanneauApercu :projet="projets.idCourant" />
+    <PanneauApercu
+      :projet="projets.idCourant"
+      :en-attente="projets.courant?.reprise ? 'L’aperçu démarrera une fois la reprise validée : ADA saura alors comment lancer le projet.' : null"
+    />
   </div>
 </template>

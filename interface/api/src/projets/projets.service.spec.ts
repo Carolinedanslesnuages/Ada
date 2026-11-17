@@ -88,6 +88,7 @@ describe('ProjetsService', () => {
       update: vi.fn(),
     },
     issues: { createLabel: vi.fn() },
+    pulls: { list: vi.fn() },
   };
   const github = { client: vi.fn(() => gh) } as unknown as GithubService;
   const apercu = { environnementGit: () => ({ ...process.env }) } as unknown as ApercuService;
@@ -142,15 +143,19 @@ describe('ProjetsService', () => {
     ]);
   });
 
-  it('une reprise n’entre dans ADA qu’une fois sa PR fusionnée (ada.json sur main), puis reçoit le topic ada', async () => {
+  it('une reprise est visible dès son lancement (PR à valider), puis devient un projet ADA une fois fusionnée', async () => {
     gh.paginate.mockResolvedValue([depot('repris', ['vue', 'ada-reprise']), depot('en-attente', ['ada-reprise'])]);
     gh.repos.getContent.mockImplementation(async ({ repo }: { repo: string }) => {
       if (repo === 'repris') return { data: { content: '' } };
       throw Object.assign(new Error('absent'), { status: 404 });
     });
     gh.repos.replaceAllTopics.mockResolvedValue({});
+    gh.pulls.list.mockResolvedValue({ data: [{ html_url: 'https://github.com/proprio/en-attente/pull/2' }] });
     const projets = await service.lister('jeton', 'proprio');
-    expect(projets.map((p) => p.nom)).toEqual(['repris']);
+    expect(projets).toEqual([
+      expect.objectContaining({ id: 'repris', reprise: null }),
+      expect.objectContaining({ id: 'en-attente', reprise: { pullRequest: 'https://github.com/proprio/en-attente/pull/2' } }),
+    ]);
     expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'proprio', repo: 'repris', names: ['vue', 'ada'] });
   });
 

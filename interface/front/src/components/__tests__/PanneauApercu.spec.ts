@@ -53,6 +53,17 @@ describe('Panneau d’aperçu', () => {
     wrapper.unmount()
   })
 
+  it('reprise à valider : n’essaie pas de démarrer, explique pourquoi (#37)', () => {
+    const wrapper = mount(PanneauApercu, {
+      props: { projet: 'aminimo', enAttente: 'L’aperçu démarrera une fois la reprise validée.' },
+      global: { plugins: [VueDsfr] },
+      attachTo: document.body,
+    })
+    expect(wrapper.text()).toContain('L’aperçu démarrera une fois la reprise validée.')
+    expect(envoyer).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
   it('invite à choisir un projet quand aucun n’est sélectionné', () => {
     const wrapper = monter(null)
     expect(wrapper.text()).toContain('Choisissez un projet')

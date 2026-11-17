@@ -9,7 +9,8 @@ interface Apercu {
   journal: string | null
 }
 
-const props = defineProps<{ projet: string | null; intervalleMs?: number }>()
+/** `enAttente` : l'aperçu ne peut pas encore démarrer (reprise à valider) ; le texte l'explique. */
+const props = defineProps<{ projet: string | null; intervalleMs?: number; enAttente?: string | null }>()
 
 const apercu = ref<Apercu | null>(null)
 const erreur = ref<string | null>(null)
@@ -54,11 +55,11 @@ function recharger(): void {
 }
 
 watch(
-  () => props.projet,
-  (projet) => {
+  () => [props.projet, props.enAttente] as const,
+  ([projet, enAttente]) => {
     arreterSuivi()
     apercu.value = null
-    if (projet) void demarrer(projet)
+    if (projet && !enAttente) void demarrer(projet)
   },
   { immediate: true },
 )
@@ -96,6 +97,7 @@ onUnmounted(arreterSuivi)
 
     <div v-else class="apercu" role="status">
       <p v-if="!projet">Choisissez un projet pour afficher son aperçu.</p>
+      <p v-else-if="enAttente">{{ enAttente }}</p>
       <DsfrAlert v-else-if="erreur" type="error" small :description="erreur" />
       <div v-else-if="apercu?.etat === 'erreur'">
         <DsfrAlert

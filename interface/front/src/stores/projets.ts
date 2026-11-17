@@ -9,6 +9,8 @@ export interface Projet {
   nom: string
   proprietaire: string
   compte: 'organisation' | 'personnel'
+  /** Reprise pas encore validée (#37) : analyse en cours, ou PR de reprise à fusionner. */
+  reprise: { pullRequest: string | null } | null
   description: string | null
   prive: boolean
   url: string
@@ -30,6 +32,8 @@ export interface DepotAReprendre {
 }
 
 export interface ResultatReprise {
+  /** Identifiant du projet : il apparaît dans ADA dès le lancement de l'analyse. */
+  id: string
   /** Demande d'analyse, sur GitHub : bilan et améliorations proposées par l'assistant. */
   analyse: string | null
   pullRequest: string | null
