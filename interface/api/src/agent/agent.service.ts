@@ -21,6 +21,7 @@ import {
   outilsAutorises,
   skillSure,
   type Demande,
+  type StoryExistante,
   type Phase,
 } from './agent.js';
 import { lireIdentifiant } from '../projets/depot.js';
@@ -287,6 +288,14 @@ export class AgentService {
     }
   }
 
+  /** Les autres stories du projet, les plus récentes d'abord : ADA s'en sert pour éviter les doublons. */
+  private async existantes(jeton: string, depot: string, numero: number): Promise<StoryExistante[]> {
+    const stories = await this.stories.lister(jeton, depot);
+    return stories
+      .filter((story) => story.numero !== numero)
+      .map((story) => ({ numero: story.numero, titre: story.titre, livree: story.fermeeLe !== null }));
+  }
+
   /** Reconstitue la demande et les échanges depuis l'issue. */
   private async demande(jeton: string, depot: string, numero: number): Promise<Demande> {
     const detail = await this.stories.detail(jeton, depot, numero);
@@ -456,7 +465,8 @@ export class AgentService {
       const skills = await this.equiperSkills(cwd);
       await this.noter(depot, numero, 'Lit la story et le projet');
       const { dsfr } = await this.apercu.lireConfig(cwd);
-      const consigne = consigneAnalyse(await this.demande(jeton, depot, numero), await this.lireIndexRgaa(), skills.noms, dsfr);
+      const demande = { ...(await this.demande(jeton, depot, numero)), existantes: await this.existantes(jeton, depot, numero) };
+      const consigne = consigneAnalyse(demande, await this.lireIndexRgaa(), skills.noms, dsfr);
       const reponse = await this.executer(depot, numero, 'analyse', consigne, cwd, skills.dossiers);
       const decision = lireDecision(reponse);
       if (!decision) {

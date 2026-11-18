@@ -18,6 +18,25 @@ export interface Demande {
   contenuLibre: string | null;
   /** Échanges depuis le lancement (questions, plan, réponses du PO), dans l'ordre. */
   echanges: { auteur: 'assistant' | 'po'; texte: string }[];
+  /** Analyse : les autres stories du projet, pour ne jamais en proposer une deuxième fois. */
+  existantes?: StoryExistante[];
+}
+
+/** Une story ou un problème déjà écrit dans le projet (ouvert, ou livré). */
+export interface StoryExistante {
+  numero: number;
+  titre: string;
+  livree: boolean;
+}
+
+/** Au plus 80 stories (les plus récentes) : de quoi repérer un doublon sans noyer la consigne. */
+function decrireExistantes(existantes: StoryExistante[] = []): string {
+  if (!existantes.length) return '';
+  const lignes = existantes.slice(0, 80).map((s) => `- #${s.numero} « ${s.titre} »${s.livree ? ' (livrée)' : ''}`);
+  return `
+
+Stories et problèmes DÉJÀ écrits dans ce projet (hors cette demande) :
+${lignes.join('\n')}`;
 }
 
 /** Une question qui se tranche entre quelques options : le PO répond en cochant (#35). */
@@ -195,7 +214,7 @@ export function consigneAnalyse(d: Demande, indexRgaa: string | null = null, ski
 
 PHASE : ANALYSE (lecture seule — tu ne modifies rien).
 
-${decrireDemande(d)}
+${decrireDemande(d)}${decrireExistantes(d.existantes)}
 
 Ta tâche :
 0. SOIS BREF : le PO doit pouvoir tout lire en une minute. Phrases courtes, aucune répétition,
@@ -221,11 +240,19 @@ Ta tâche :
    réaliser, chacune avec un titre, « en tant que » (role), « je veux » (besoin), « afin de »
    (benefice) et 1 à 4 critères d'acceptation vérifiables. Le PO relira, corrigera si besoin, et
    ADA les publiera sur GitHub pour lui.
+5. Doublons — le PO est souvent pressé : il ne se souvient pas toujours de ce qu'il a déjà écrit.
+   Compare avec les stories DÉJÀ écrites ci-dessus (même but pour l'utilisateur, même si les mots
+   diffèrent) :
+   - si cette demande refait une story existante, ne planifie rien : réponds par « questions »,
+     cite-la (#numéro et titre) et demande au PO s'il veut poursuivre ici ou continuer celle-là ;
+   - dans un découpage, ne propose JAMAIS une story déjà écrite : renvoie à elle dans ton
+     explication (« déjà prévue : #numéro ») ; si une story proposée en recoupe une en partie,
+     ajoute « doublonDe » : le numéro de celle qu'elle recoupe.
 
 Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
 {"decision":"questions","texte":"<tes questions>","choix":[{"question":"<question 1>","choix":["<option>","<option>"],"plusieurs":false}]}
 ou {"decision":"plan","texte":"<ton plan>"}  (« choix » est facultatif)
-ou {"decision":"decoupage","texte":"<pourquoi découper>","stories":[{"titre":"<titre court>","role":"<en tant que>","besoin":"<je veux>","benefice":"<afin de>","criteres":["<critère>"]}]}`;
+ou {"decision":"decoupage","texte":"<pourquoi découper>","stories":[{"titre":"<titre court>","role":"<en tant que>","besoin":"<je veux>","benefice":"<afin de>","criteres":["<critère>"],"doublonDe":<numéro, seulement si elle recoupe une story existante>}]}`;
 }
 
 export function consigneRealisation(

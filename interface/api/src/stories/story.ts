@@ -198,6 +198,8 @@ export interface StoryProposee {
   besoin: string;
   benefice: string;
   criteres: string[];
+  /** Story déjà dans le projet que celle-ci recoupe : ADA la signale, le PO ne la publie pas par erreur. */
+  doublonDe?: number;
 }
 
 export const MARQUEUR_DECOUPAGE = 'ada:decoupage';
@@ -221,6 +223,7 @@ export function nettoyerStoriesProposees(brut: unknown): StoryProposee[] {
         .map((critere) => texteCourt(critere, 300))
         .filter(Boolean)
         .slice(0, CRITERES_MAX),
+      ...(Number.isInteger(element.doublonDe) && (element.doublonDe as number) > 0 ? { doublonDe: element.doublonDe as number } : {}),
     }))
     .filter((story) => story.titre && story.role && story.besoin && story.benefice && story.criteres.length > 0)
     .slice(0, 8);
@@ -232,7 +235,7 @@ export function texteDecoupage(explication: string, stories: StoryProposee[]): s
   const lisible = stories
     .map(
       (story, rang) =>
-        `${rang + 1}. **${story.titre}** — en tant que ${story.role}, je veux ${story.besoin}, afin de ${story.benefice}.\n` +
+        `${rang + 1}. **${story.titre}**${story.doublonDe ? ` _(recoupe #${story.doublonDe}, déjà dans le projet)_` : ''} — en tant que ${story.role}, je veux ${story.besoin}, afin de ${story.benefice}.\n` +
         story.criteres.map((critere) => `   - ${critere}`).join('\n'),
     )
     .join('\n');

@@ -30,6 +30,12 @@ describe('Découpage d’une demande en stories (#36)', () => {
     expect(lireDecoupage('sans proposition')).toEqual([]);
   });
 
+  it('signale sur GitHub la story qui recoupe une story existante, et garde l’information à la relecture', () => {
+    const texte = texteDecoupage('Trop gros.', [STORY, { ...AUTRE, doublonDe: 31 }]);
+    expect(texte).toContain('2. **Emprunter** _(recoupe #31, déjà dans le projet)_');
+    expect(lireDecoupage(texte)[1]!.doublonDe).toBe(31);
+  });
+
   it('crée une story au format du formulaire, qui renvoie à sa demande parent', () => {
     const corps = formaterStory(STORY, 4);
     expect(lireStory(corps)).toEqual({ role: 'agent', besoin: 'voir la liste', benefice: 'savoir quoi emprunter', criteres: ['Liste du matériel'] });
