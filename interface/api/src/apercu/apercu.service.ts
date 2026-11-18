@@ -1,7 +1,7 @@
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { CONFIG, type Config } from '../config.js';
@@ -34,10 +34,21 @@ const execFileAsync = promisify(execFile);
 const executerParDefaut: Executer = (commande, args, options) =>
   execFileAsync(commande, args, { ...options, maxBuffer: 10 * 1024 * 1024 });
 
+/** Un aperçu sans usage depuis ce délai est mis en veille : le Mac ne fait plus tourner tous les projets. */
+export const DELAI_VEILLE_MS = 30 * 60 * 1000;
+const FREQUENCE_VEILLE_MS = 5 * 60 * 1000;
+/** Fichier posé dans le dossier d'un aperçu mis en veille : il est arrêté, pas en panne. */
+const MARQUE_VEILLE = 'en-veille';
+
 @Injectable()
-export class ApercuService {
+export class ApercuService implements OnModuleInit, OnModuleDestroy {
   private readonly journal = new Logger(ApercuService.name);
   private readonly enPreparation = new Set<string>();
+  /** Dernier usage de chaque aperçu (écran qui l'affiche, agent qui y travaille). */
+  private readonly utilisations = new Map<string, number>();
+  /** Au démarrage de l'API, chacun a droit au délai complet. */
+  private readonly demarrageApi = Date.now();
+  private minuteurVeille: ReturnType<typeof setInterval> | null = null;
   executer: Executer = executerParDefaut;
   repond: (url: string) => Promise<boolean> = async (url) => {
     try {
@@ -48,6 +59,57 @@ export class ApercuService {
   };
 
   constructor(@Inject(CONFIG) private readonly config: Config) {}
+
+  onModuleInit(): void {
+    this.minuteurVeille = setInterval(() => void this.mettreEnVeille().catch((e: unknown) => this.journal.warn(`Mise en veille : ${(e as Error).message}`)), FREQUENCE_VEILLE_MS);
+    this.minuteurVeille.unref();
+  }
+
+  onModuleDestroy(): void {
+    if (this.minuteurVeille) clearInterval(this.minuteurVeille);
+  }
+
+  /** Aperçu mis en veille faute d'usage : à réveiller avant qu'un agent y travaille. */
+  estEnVeille(projet: string): boolean {
+    return existsSync(join(this.dossierProjet(projet), MARQUE_VEILLE));
+  }
+
+  /** L'aperçu sert (affiché, ou un agent y travaille) : il reste allumé. */
+  noterUtilisation(projet: string): void {
+    this.utilisations.set(projet, Date.now());
+  }
+
+  /** Un agent travaille dans ce projet (son verrou existe et son processus vit) : on n'y touche pas. */
+  private agentActif(projet: string): boolean {
+    try {
+      const { pid } = JSON.parse(readFileSync(join(this.racine, projet, 'agent', 'verrou.json'), 'utf8')) as { pid?: number };
+      if (!pid) return false;
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Met en veille les aperçus inutilisés depuis DELAI_VEILLE_MS : conteneurs arrêtés (données et
+   * installation gardées), redémarrés à la prochaine ouverture du projet. Renvoie les projets arrêtés.
+   */
+  async mettreEnVeille(maintenant = Date.now()): Promise<string[]> {
+    const arretes: string[] = [];
+    const projets = await readdir(this.racine).catch(() => [] as string[]);
+    for (const projet of projets) {
+      const dossier = join(this.racine, projet);
+      if (!existsSync(join(dossier, 'compose.yml')) || existsSync(join(dossier, MARQUE_VEILLE))) continue;
+      const dernierUsage = this.utilisations.get(projet) ?? this.demarrageApi;
+      if (maintenant - dernierUsage < DELAI_VEILLE_MS || this.enPreparation.has(projet) || this.agentActif(projet)) continue;
+      await this.executer('docker', ['compose', '-f', 'compose.yml', 'stop'], { cwd: dossier });
+      await writeFile(join(dossier, MARQUE_VEILLE), new Date(maintenant).toISOString());
+      this.journal.log(`Aperçu de ${projet} mis en veille (inutilisé depuis ${Math.round((maintenant - dernierUsage) / 60000)} min)`);
+      arretes.push(projet);
+    }
+    return arretes;
+  }
 
   private get racine(): string {
     return resolve(this.config.DOSSIER_APERCUS);
@@ -83,7 +145,9 @@ export class ApercuService {
 
   async etat(projet: string): Promise<Apercu> {
     this.verifier(projet);
+    this.noterUtilisation(projet);
     const dossier = join(this.racine, projet);
+    if (!this.enPreparation.has(projet) && existsSync(join(dossier, MARQUE_VEILLE))) return { etat: 'arrete', url: null, journal: null };
     if (!existsSync(join(dossier, 'compose.yml'))) {
       return { etat: this.enPreparation.has(projet) ? 'demarrage' : 'arrete', url: null, journal: null };
     }
@@ -171,15 +235,16 @@ export class ApercuService {
   /**
    * Relance l'application de l'aperçu (API en arrière-plan) après un changement de branche fait par
    * git : le rechargement automatique (node --watch, nest --watch) ne voit pas toujours les
-   * fichiers remplacés, et l'aperçu servirait alors l'ancienne API. Sans arrière-plan (maquette,
-   * extension), le rechargement à chaud du front suffit : rien à faire.
+   * fichiers remplacés, et l'aperçu servirait alors l'ancienne API. Le front seul non plus : le
+   * rechargement à chaud de Vite peut garder d'anciens modules. Rien à faire s'il est en veille.
    */
   async relancerApplication(projet: string): Promise<void> {
     this.verifier(projet);
     const dossier = join(this.racine, projet);
-    if (!existsSync(join(dossier, 'compose.yml'))) return;
-    const { apercu } = await this.lireConfig(this.cheminDepot(projet));
-    if (apercu.arrierePlan.length === 0) return;
+    if (!existsSync(join(dossier, 'compose.yml')) || existsSync(join(dossier, MARQUE_VEILLE))) return;
+    // Toujours, même sans API en arrière-plan : après un changement de branche (des dizaines de
+    // fichiers d'un coup), le rechargement à chaud de Vite garde parfois d'anciens modules et
+    // l'application ne s'ouvre plus (Gladys : « ErreurReseau » introuvable).
     await this.executer('docker', ['compose', '-f', 'compose.yml', 'restart', 'app'], { cwd: dossier });
   }
 
@@ -188,6 +253,7 @@ export class ApercuService {
     this.verifier(projet);
     if (this.enPreparation.has(projet)) return this.etat(projet);
     this.enPreparation.add(projet);
+    this.noterUtilisation(projet);
     const dossier = join(this.racine, projet);
     try {
       const depot = await this.preparerDepot(jeton, projet);
@@ -197,6 +263,7 @@ export class ApercuService {
       await writeFile(join(dossier, 'travail.sh'), genererScriptTravail(config), { mode: 0o755 });
       for (const volume of volumesPartages(config)) await this.executer('docker', ['volume', 'create', volume]);
       await this.executer('docker', ['compose', '-f', 'compose.yml', 'up', '-d', '--remove-orphans'], { cwd: dossier });
+      await rm(join(dossier, MARQUE_VEILLE), { force: true });
     } catch (e) {
       this.journal.warn(`Aperçu de ${projet} : ${(e as Error).message.split('\n')[0]}`);
       throw new BadRequestException('L’aperçu n’a pas pu démarrer. Réessayez ; si cela persiste, prévenez un développeur.');
