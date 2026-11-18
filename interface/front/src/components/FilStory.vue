@@ -411,7 +411,10 @@ function envoyer(): void {
         </DsfrAccordion>
       </DsfrAccordionsGroup>
     </section>
-    <AvatarAda v-if="travaille" :phase="activite?.phase" />
+    <!-- Attaché à la page, pas à la colonne : la colonne qui défile seule ne le cache plus sous l'aperçu. -->
+    <Teleport to="body">
+      <AvatarAda v-if="travaille" :phase="activite?.phase" />
+    </Teleport>
   </article>
 </template>
 
