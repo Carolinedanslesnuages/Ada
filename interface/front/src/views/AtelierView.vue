@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import FilStory from '@/components/FilStory.vue'
 import FormulairePrompt from '@/components/FormulairePrompt.vue'
 import FormulaireConversation from '@/components/FormulaireConversation.vue'
@@ -170,6 +170,17 @@ const autreEnCours = computed(() =>
 
 const actionEnCours = ref(false)
 
+/** Liste OU demande : une demande, une conversation ou un formulaire ouvert prend toute la colonne. */
+const vueDetail = computed(() => modePrompt.value || modeConversation.value || Boolean(stories.courante))
+
+async function retourListe(): Promise<void> {
+  modePrompt.value = false
+  modeConversation.value = false
+  stories.fermer()
+  await nextTick()
+  document.getElementById('titre-stories')?.focus()
+}
+
 /** Mode sauvage : formulaire « Prompter » à la place du détail d'une demande. */
 const modePrompt = ref(false)
 const erreurPrompt = ref<string | null>(null)
@@ -305,7 +316,13 @@ onUnmounted(() => {
   </div>
 
   <div v-else class="atelier">
-    <section class="atelier__panneau" aria-label="Projet et stories">
+    <section class="atelier__panneau atelier__gauche" aria-label="Projet et stories">
+      <!-- Liste OU demande : une demande ouverte prend toute la colonne ; on revient à la liste d'un clic. -->
+      <div v-if="vueDetail" class="retour-liste">
+        <DsfrButton tertiary size="sm" icon="fr-icon-arrow-left-line" label="Toutes les demandes" @click="retourListe" />
+        <span v-if="projets.courant" class="fr-text--sm fr-mb-0">Projet : <strong>{{ projets.courant.nom }}</strong></span>
+      </div>
+      <template v-if="!vueDetail">
       <DsfrSelect
         :model-value="projets.idCourant ?? undefined"
         label="Projet"
@@ -324,13 +341,15 @@ onUnmounted(() => {
       </ul>
 
       <AnnulerReprise v-if="projets.courant && (projets.courant.reprise || projets.courant.repris)" :key="projets.courant.id" :projet="projets.courant" @fait="repriseAnnulee" />
+      </template>
       <p v-if="!projets.idCourant" class="fr-text--sm">Choisissez un projet dans la liste pour l’ouvrir.</p>
       <template v-else>
+      <template v-if="!vueDetail">
       <RepriseEnAttente v-if="projets.courant?.reprise" :projet="projets.courant.id" @fusionnee="repriseFusionnee" />
       <PanneauVersions v-else-if="projets.idCourant" :projet="projets.idCourant" />
 
       <div class="fr-grid-row fr-grid-row--middle fr-grid-row--gutters">
-        <h2 id="titre-stories" class="fr-h5 fr-col fr-mb-0">Stories</h2>
+        <h2 id="titre-stories" class="fr-h5 fr-col fr-mb-0" tabindex="-1">Stories</h2>
         <div class="fr-col-auto">
           <DsfrButton size="sm" tertiary icon="fr-icon-refresh-line" label="Actualiser" @click="actualiser" />
         </div>
@@ -401,6 +420,7 @@ onUnmounted(() => {
           :numero-courant="stories.courante?.numero ?? null"
           @ouvrir="ouvrir"
         />
+      </template>
       </template>
 
       <FormulaireConversation

@@ -24,6 +24,28 @@
   min-width: 0;
 }
 
+/* Retour à la liste, au-dessus d'une demande ouverte. */
+.retour-liste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+/* Grand écran : la colonne de gauche défile seule, à la hauteur de la fenêtre, comme l'aperçu :
+   la page ne s'allonge plus avec la conversation. */
+@media (min-width: 62em) {
+  .atelier__gauche {
+    position: sticky;
+    top: 1rem;
+    align-self: start;
+    height: calc(100vh - 2rem);
+    overflow-y: auto;
+    /* De quoi garder visibles les contours de focus au bord de la zone qui défile. */
+    padding: 0.25rem 0.75rem 0 0.25rem;
+  }
+}
+
 /* Grand écran : l'aperçu reste à la hauteur de la fenêtre et suit le défilement de la conversation,
    au lieu de s'étirer avec elle (une longue conversation ferait sinon une page immense). */
 @media (min-width: 62em) {

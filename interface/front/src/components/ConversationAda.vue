@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import TexteRiche from '@/components/TexteRiche.vue'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { MARQUEUR_LANCEMENT, MESSAGE_MAX, presenterMessage, type DetailStory } from '@/lib/story'
 
 /**
@@ -16,6 +16,17 @@ const echanges = computed(() => [
     .filter((message) => !message.texte.startsWith(MARQUEUR_LANCEMENT))
     .map((message) => ({ id: message.id, le: message.le, ...presenterMessage(message) })),
 ])
+
+/* Comme dans une messagerie : on arrive sur le dernier message, et on y revient à chaque réponse. */
+const liste = ref<HTMLOListElement | null>(null)
+watch(
+  () => echanges.value.length,
+  async () => {
+    await nextTick()
+    liste.value?.lastElementChild?.scrollIntoView?.({ block: 'nearest' })
+  },
+  { immediate: true },
+)
 
 const texte = ref('')
 const erreur = ref('')
@@ -41,7 +52,7 @@ function envoyer(): void {
 <template>
   <section class="fr-mb-3w" aria-labelledby="titre-conversation">
     <h3 id="titre-conversation" class="fr-h6 fr-mb-1w">Conversation avec ADA</h3>
-    <ol class="fil conversation">
+    <ol ref="liste" class="fil conversation">
       <li v-for="message in echanges" :key="message.id" :class="{ fil__assistant: message.assistant, conversation__po: !message.assistant }">
         <p class="fr-text--xs fr-mb-1v">
           <strong>{{ message.assistant ? 'ADA' : message.auteur }}</strong> — {{ date(message.le) }}
@@ -50,7 +61,7 @@ function envoyer(): void {
       </li>
     </ol>
 
-    <div v-if="attendReponse" class="fr-callout fr-mt-2w a-vous">
+    <div v-if="attendReponse" class="fr-callout fr-mt-2w a-vous zone-message">
       <form novalidate @submit.prevent="envoyer">
         <DsfrInputGroup v-model="texte" label="Votre message à ADA" label-visible is-textarea :error-message="erreur" />
         <p id="message-enregistrement" class="fr-text--sm fr-mb-2w">
@@ -98,5 +109,13 @@ function envoyer(): void {
 <style scoped>
 .conversation__po {
   margin-left: 2rem;
+}
+
+/* La zone de message reste collée en bas pendant qu'on relit la conversation. */
+.zone-message {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  box-shadow: 0 -4px 8px rgb(0 0 18 / 8%);
 }
 </style>
