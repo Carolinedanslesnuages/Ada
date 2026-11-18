@@ -93,6 +93,10 @@ export function outilsAutorises(phase: Phase, dossiersLisibles: string[] = []): 
     'Bash(git status*)',
     'Bash(git diff*)',
     'Bash(git add *)',
+    // Supprimer ou renommer un fichier du projet (une page retirée, par exemple) : git refuse tout
+    // chemin hors du dépôt ; .github/ et charts/ restent protégés par cheminsReserves avant l'envoi.
+    'Bash(git rm *)',
+    'Bash(git mv *)',
     'Bash(git commit *)',
     'Bash(git log*)',
   ];
@@ -104,6 +108,14 @@ export function outilsAutorises(phase: Phase, dossiersLisibles: string[] = []): 
  */
 /** Réservés aux développeurs : la CI et les versions (.github), le déploiement (charts). */
 export const OUTILS_INTERDITS = ['Edit(./.github/**)', 'Write(./.github/**)', 'Edit(./charts/**)', 'Write(./charts/**)'];
+
+/** Dossiers réservés aux développeurs (CI, versions, déploiement) : jamais modifiés par ADA. */
+const DOSSIERS_RESERVES = ['.github/', 'charts/'];
+
+/** Fichiers modifiés, ajoutés ou supprimés dans un dossier réservé : la branche ne doit pas partir. */
+export function cheminsReserves(fichiers: string[]): string[] {
+  return fichiers.filter((fichier) => DOSSIERS_RESERVES.some((dossier) => fichier.trim().startsWith(dossier)));
+}
 
 /** Une skill qui pré-autorise des outils ou exécute des commandes au chargement casserait ce cloisonnement. */
 export function skillSure(contenuSkill: string): boolean {
@@ -313,6 +325,7 @@ Règles :
 - Noms explicites partout : chaque variable, fonction, paramètre dit ce qu'il contient ou fait
   (« salleLibre », « reservationsDuJour »), jamais « el », « x », « s », « tmp » ; seuls les noms
   imposés par les bibliothèques restent tels quels (vi, expect…). Le lint le vérifie.
+- Pour supprimer ou renommer un fichier : « git rm <fichier> » ou « git mv <ancien> <nouveau> ».
 - Ne modifie jamais les dossiers .github/ (CI, versions) et charts/ (déploiement) : ils sont réservés aux développeurs. Si la
   demande l'exige, arrête-toi et réponds « bloque » en expliquant pourquoi.
 - Reste dans le périmètre de la demande : aucun « refactor au passage », aucune dépendance non
@@ -363,6 +376,7 @@ Règles :
 ${controles.map((commande) => `  ${DANS_CONTENEUR} ${JSON.stringify(commande)}`).join('\n')}
 - Enregistre chaque changement par un commit au format Conventional Commits (« feat: … »,
   « fix: … »). Ne pousse pas, ne fusionne jamais : l'atelier s'en charge quand le PO dit « c'est bon ».
+- Pour supprimer ou renommer un fichier : « git rm <fichier> » ou « git mv <ancien> <nouveau> ».
 - Ne modifie jamais .github/ ni charts/ (réservés aux développeurs) ; aucun secret, aucune donnée réelle.
 - Dans ta réponse : ce que tu as fait, où le voir dans l'aperçu, et ce qu'il peut demander ensuite.
   Rappelle-lui, quand c'est utile, qu'il peut dire « c'est bon » pour proposer ces changements au projet.

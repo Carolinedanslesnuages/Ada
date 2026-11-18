@@ -7,6 +7,7 @@ import {
   texteQuestions,
   consigneRealisation,
   consigneConversation,
+  cheminsReserves,
   lireReponseConversation,
   decrireEvenement,
   lireDecision,
@@ -43,7 +44,7 @@ describe('Consignes données à l’agent', () => {
   it('la réalisation n’autorise ni push ni commande hors du conteneur', () => {
     const realisation = outilsAutorises('realisation');
     expect(realisation.some((o) => o.includes('push'))).toBe(false);
-    expect(realisation.filter((o) => o.startsWith('Bash(')).every((o) => /^Bash\((docker compose -f \.\.\/compose\.yml exec|git (status|diff|add|commit|log))/.test(o))).toBe(true);
+    expect(realisation.filter((o) => o.startsWith('Bash(')).every((o) => /^Bash\((docker compose -f \.\.\/compose\.yml exec|git (status|diff|add|rm|mv|commit|log))/.test(o))).toBe(true);
     const consigne = consigneRealisation(demande, 'story/1-page-d-accueil-ma-journee');
     expect(consigne).toContain('Closes #1');
     expect(consigne).toContain('Ne pousse pas');
@@ -213,6 +214,22 @@ describe('Décision « découpage » d’ADA (#36)', () => {
 
   it('la consigne demande un découpage en stories quand la demande est trop grosse', () => {
     expect(consigneAnalyse(demande)).toContain('réponds par la décision « decoupage »');
+  });
+});
+
+describe('Supprimer ou renommer un fichier', () => {
+  it('ADA peut supprimer ou renommer un fichier quand elle modifie le projet, jamais en analyse', () => {
+    for (const phase of ['realisation', 'conversation'] as const) {
+      expect(outilsAutorises(phase)).toEqual(expect.arrayContaining(['Bash(git rm *)', 'Bash(git mv *)']));
+    }
+    expect(outilsAutorises('analyse')).not.toContain('Bash(git rm *)');
+    expect(consigneRealisation(demande, 'story/1-x')).toContain('« git rm <fichier> »');
+  });
+  it('repère les fichiers des dossiers réservés aux développeurs', () => {
+    expect(cheminsReserves(['src/pages/Bientot.vue', '.github/workflows/ci.yml', 'charts/app/values.yaml', 'docs/github.md'])).toEqual([
+      '.github/workflows/ci.yml',
+      'charts/app/values.yaml',
+    ]);
   });
 });
 
