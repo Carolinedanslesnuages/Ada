@@ -362,6 +362,7 @@ onUnmounted(() => {
         <FilStory
           v-else-if="stories.courante"
           :story="stories.courante"
+          :projet="projets.idCourant"
           :autre-en-cours="autreEnCours"
           :erreur-lancement="stories.erreurLancement"
           :lancement-en-cours="lancementEnCours"

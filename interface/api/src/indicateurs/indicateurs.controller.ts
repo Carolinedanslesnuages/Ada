@@ -8,6 +8,12 @@ import { IndicateursService } from './indicateurs.service.js';
 export class IndicateursController {
   constructor(private readonly indicateurs: IndicateursService) {}
 
+  /** Empreinte carbone estimée de l'usage d'ADA (méthode EcoLogits, équivalents ADEME). */
+  @Get('empreinte')
+  empreinte(@Req() req: Request) {
+    return this.indicateurs.empreinte(req.session.jeton!, req.session.utilisateur!.login);
+  }
+
   @Get()
   lire(@Req() req: Request) {
     return this.indicateurs.calculer(req.session.jeton!, req.session.utilisateur!.login);

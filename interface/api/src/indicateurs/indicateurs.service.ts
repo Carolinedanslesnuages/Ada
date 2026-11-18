@@ -6,6 +6,8 @@ import { ProjetsService, type Projet } from '../projets/projets.service.js';
 import { RegistreService } from './registre.service.js';
 import { bilan, etatProjet, type BilanProjets } from './registre.js';
 import { STATUTS, typeDepuis } from '../stories/story.js';
+import { EQUIVALENTS, G_CO2_PAR_KWH, HYPOTHESES_MODELES, type Empreinte } from '../empreinte/empreinte.js';
+import { lireEmpreintes, sommer } from '../empreinte/journal-empreinte.js';
 import { calculerIndicateurs, lireHistorique, type DemandeMesuree, type Indicateurs } from './indicateurs.js';
 
 type IssueGithub = {
@@ -50,6 +52,31 @@ export class IndicateursService {
       }),
     );
     return bilan(etats);
+  }
+
+  /**
+   * Empreinte carbone estimée de l'usage d'ADA sur les projets que ce PO voit (actuels), en tout et
+   * par projet, avec la méthode, les hypothèses et les sources pour l'expliquer.
+   */
+  async empreinte(jeton: string, login: string): Promise<{
+    total: Empreinte;
+    parProjet: { projet: string; empreinte: Empreinte }[];
+    depuis: string | null;
+    equivalents: typeof EQUIVALENTS;
+    hypotheses: { electriciteGCo2ParKwh: number; modeles: typeof HYPOTHESES_MODELES };
+  }> {
+    const visibles = new Set((await this.projets.lister(jeton, login)).map((projet) => projet.id));
+    const entrees = (await lireEmpreintes(this.config.DOSSIER_REGISTRE)).filter((entree) => visibles.has(entree.projet));
+    const projets = [...new Set(entrees.map((entree) => entree.projet))];
+    return {
+      total: sommer(entrees),
+      parProjet: projets
+        .map((projet) => ({ projet, empreinte: sommer(entrees.filter((entree) => entree.projet === projet)) }))
+        .sort((a, b) => b.empreinte.co2g.max - a.empreinte.co2g.max),
+      depuis: entrees[0]?.le ?? null,
+      equivalents: EQUIVALENTS,
+      hypotheses: { electriciteGCo2ParKwh: G_CO2_PAR_KWH, modeles: HYPOTHESES_MODELES },
+    };
   }
 
   async calculer(jeton: string, login: string): Promise<Indicateurs> {

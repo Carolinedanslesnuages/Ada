@@ -2,10 +2,12 @@
 import AvatarAda from '@/components/AvatarAda.vue'
 import BoutonDicter from '@/components/BoutonDicter.vue'
 import ConversationAda from '@/components/ConversationAda.vue'
+import { api } from '@/services/api'
+import { enStreaming, formaterCo2, type Empreinte } from '@/lib/empreinte'
 import PropositionDecoupage from '@/components/PropositionDecoupage.vue'
 import ReponseChoix from '@/components/ReponseChoix.vue'
 import TexteRiche from '@/components/TexteRiche.vue'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   LIBELLES_CONTROLE,
   aLancerOuRelancer,
@@ -30,6 +32,8 @@ const props = defineProps<{
   erreurLancement?: string | null
   lancementEnCours?: boolean
   actionEnCours?: boolean
+  /** Projet de la demande : pour lire son empreinte carbone estimée. */
+  projet?: string | null
 }>()
 const emit = defineEmits<{
   lancer: []
@@ -56,6 +60,24 @@ const blocage = computed(() => {
 
 const messages = computed(() => props.story.messages.map((m) => ({ id: m.id, le: m.le, ...presenterMessage(m) })))
 const travaille = computed(() => props.activite?.enCours === true)
+
+/** Empreinte carbone estimée de la demande : relue à l'ouverture, et quand ADA a fini un travail. */
+const empreinte = ref<{ empreinte: Empreinte; equivalents: { streamingHeureG: number } } | null>(null)
+async function lireEmpreinte(): Promise<void> {
+  if (!props.projet) return
+  try {
+    empreinte.value = await api.lire(`/projets/${encodeURIComponent(props.projet)}/stories/${props.story.numero}/empreinte`)
+  } catch {
+    empreinte.value = null
+  }
+}
+watch(
+  () => [props.projet, props.story.numero, travaille.value] as const,
+  ([, , enTravail]) => {
+    if (!enTravail) void lireEmpreinte()
+  },
+  { immediate: true },
+)
 /** Conversation en cours (avant « c'est bon ») : tout le fil s'affiche, comme une discussion. */
 const enConversation = computed(
   () => props.story.type === 'conversation' && ['en-cours', 'echange', 'besoin-dev'].includes(props.story.statut),
@@ -385,6 +407,12 @@ function envoyer(): void {
           <span class="fr-text--xs">{{ heure(action.le) }}</span> {{ action.texte }}
         </li>
       </ol>
+      <p v-if="empreinte" class="fr-text--xs fr-mt-1w" data-testid="empreinte-demande">
+        <span class="fr-icon-leaf-line fr-icon--sm" aria-hidden="true" />
+        Empreinte estimée de cette demande : {{ formaterCo2(empreinte.empreinte.co2g) }}, soit
+        {{ enStreaming(empreinte.empreinte.co2g, empreinte.equivalents.streamingHeureG) }}.
+        <RouterLink to="/indicateurs">Comment c’est calculé</RouterLink>
+      </p>
       <p v-if="activite?.pullRequest" class="fr-mt-1w">
         <a class="fr-link" :href="activite.pullRequest" target="_blank" rel="noopener">
           Voir la demande de fusion (pull request) et ses contrôles<span class="fr-sr-only"> (nouvelle fenêtre)</span>
