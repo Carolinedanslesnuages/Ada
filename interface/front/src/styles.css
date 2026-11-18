@@ -24,6 +24,22 @@
   min-width: 0;
 }
 
+/* Grand écran : l'aperçu reste à la hauteur de la fenêtre et suit le défilement de la conversation,
+   au lieu de s'étirer avec elle (une longue conversation ferait sinon une page immense). */
+@media (min-width: 62em) {
+  .atelier__apercu {
+    position: sticky;
+    top: 1rem;
+    align-self: start;
+    height: calc(100vh - 2rem);
+  }
+  /* Le cadre prend la place restante sous les boutons, sans déborder du panneau. */
+  .atelier__apercu .apercu--cadre,
+  .atelier__apercu .apercu {
+    min-height: 0;
+  }
+}
+
 .liste-stories {
   list-style: none;
   padding: 0;

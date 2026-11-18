@@ -395,6 +395,7 @@ onUnmounted(() => {
     </section>
 
     <PanneauApercu
+      class="atelier__apercu"
       :projet="projets.idCourant"
       :en-attente="projets.courant?.reprise ? 'L’aperçu démarrera une fois la reprise validée : ADA saura alors comment lancer le projet.' : null"
     />
