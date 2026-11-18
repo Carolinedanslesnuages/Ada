@@ -30,14 +30,19 @@ const reponses: Record<string, unknown> = {
   '/projets/annuaire/versions': { actuelle: null, proposee: null },
 }
 
-/** Monte l'atelier ; aucun projet n'est ouvert à l'arrivée : on choisit `projet` dans le sélecteur. */
+/** Choisit un projet dans la barre latérale. */
+const choisir = async (wrapper: ReturnType<typeof mount>, projet: string) => {
+  await wrapper.findAll('nav[aria-label="Projets et demandes"] ul[aria-label="Vos projets"] button').find((bouton) => bouton.text().includes(projet))!.trigger('click')
+  await flushPromises()
+}
+const bouton = (wrapper: ReturnType<typeof mount>, texte: string) =>
+  wrapper.findAll('button').find((b) => b.text().includes(texte) || b.attributes('title') === texte || b.attributes('aria-label') === texte)
+
+/** Monte l'atelier ; aucun projet n'est ouvert à l'arrivée : on choisit `projet` dans la barre latérale. */
 const monter = async (projet: string | null = 'poc-portail') => {
   const wrapper = mount(AtelierView, { global: { plugins: [VueDsfr] }, attachTo: document.body })
   await flushPromises()
-  if (projet) {
-    await wrapper.find('select').setValue(projet)
-    await flushPromises()
-  }
+  if (projet) await choisir(wrapper, projet)
   return wrapper
 }
 
@@ -50,99 +55,115 @@ describe('Écran de l’atelier', () => {
     envoyer.mockResolvedValue({ etat: 'demarrage', url: null, journal: null })
   })
 
-  it('à l’arrivée, aucun projet n’est ouvert : le PO choisit dans le sélecteur', async () => {
+  it('à l’arrivée, aucun projet n’est ouvert : le PO le choisit dans la barre latérale', async () => {
     const wrapper = await monter(null)
-    expect(wrapper.text()).toContain('Choisissez un projet dans la liste pour l’ouvrir.')
-    expect(wrapper.text()).not.toContain('Page d’accueil')
-    expect(wrapper.findAll('select option').map((option) => option.text())).toEqual(expect.arrayContaining(['poc-portail', 'annuaire']))
+    expect(wrapper.text()).toContain('Choisissez un projet dans la barre de gauche.')
+    expect(wrapper.findAll('ul[aria-label="Vos projets"] button').map((b) => b.text())).toEqual(expect.arrayContaining(['poc-portail', 'annuaire']))
     expect(envoyer).not.toHaveBeenCalledWith('/projets/poc-portail/apercu', {})
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
 
-  it('« Masquer le projet » ferme le projet ouvert, qui reste dans le sélecteur', async () => {
+  it('un projet ouvert : ses demandes dans la barre, l’accueil « Que fait-on ? » au centre, l’aperçu qui démarre', async () => {
     const wrapper = await monter()
-    expect(wrapper.text()).toContain('Page d’accueil')
-    await wrapper.findAll('button').find((bouton) => bouton.text() === 'Masquer le projet')!.trigger('click')
+    expect(wrapper.find('ul[aria-label="Vos projets"] button[aria-current="true"]').text()).toBe('poc-portail')
+    expect(wrapper.find('nav').text()).toContain('Page d’accueil')
+    expect(wrapper.find('#titre-accueil').text()).toBe('Que fait-on sur poc-portail ?')
+    expect(wrapper.text()).toContain('Story conseillée : #1 Page d’accueil')
+    expect(wrapper.text()).toContain('Préparation de l’aperçu de « poc-portail »')
+    expect(envoyer).toHaveBeenCalledWith('/projets/poc-portail/apercu', {})
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('l’accueil ouvre une conversation avec ADA (Entrée envoie)', async () => {
+    const conversation = { ...story, numero: 9, type: 'conversation', titre: 'Conversation : mets le titre en bleu', statut: 'en-cours' }
+    envoyer.mockImplementation(async (chemin: string) => (chemin.endsWith('/conversation') ? conversation : { etat: 'demarrage', url: null, journal: null }))
+    const wrapper = await monter()
+    await wrapper.find('#message-accueil').setValue('Mets le titre en bleu')
+    await wrapper.find('#message-accueil').trigger('keydown', { key: 'Enter' })
     await flushPromises()
-    expect(wrapper.text()).not.toContain('Page d’accueil')
-    expect(wrapper.text()).toContain('Choisissez un projet dans la liste pour l’ouvrir.')
-    expect(wrapper.findAll('select option').map((option) => option.text())).toContain('poc-portail')
-    expect(wrapper.findAll('button').some((bouton) => bouton.text() === 'Masquer le projet')).toBe(false)
+    expect(envoyer).toHaveBeenCalledWith('/projets/poc-portail/stories/conversation', { texte: 'Mets le titre en bleu' })
+    wrapper.unmount()
+  })
+
+  it('« Masquer le projet » ferme le projet ouvert, qui reste dans la barre', async () => {
+    const wrapper = await monter()
+    await bouton(wrapper, 'Masquer le projet')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Choisissez un projet dans la barre de gauche.')
+    expect(wrapper.findAll('ul[aria-label="Vos projets"] button').map((b) => b.text())).toContain('poc-portail')
+    expect(bouton(wrapper, 'Masquer le projet')).toBeUndefined()
     wrapper.unmount()
   })
 
   it('un projet créé par ADA ne propose ni d’annuler une reprise ni de le désynchroniser', async () => {
     const wrapper = await monter()
-    expect(wrapper.findAll('button').some((bouton) => /Annuler la reprise|Désynchroniser/.test(bouton.text()))).toBe(false)
+    expect(wrapper.findAll('button').some((b) => /Annuler la reprise|Désynchroniser/.test(b.text()))).toBe(false)
     wrapper.unmount()
   })
 
-  it('affiche les stories écrites dans GitHub à côté de l’aperçu, qui démarre tout seul', async () => {
+  it('stories et problèmes s’écrivent sur GitHub, liens rangés en bas de la barre', async () => {
     const wrapper = await monter()
-    expect(wrapper.text()).toContain('Page d’accueil')
-    expect(wrapper.text()).toContain('Préparation de l’aperçu de « poc-portail »')
-    expect(envoyer).toHaveBeenCalledWith('/projets/poc-portail/apercu', {})
-    wrapper.unmount()
-  })
-
-  it('n’offre aucun formulaire de story : on écrit sur GitHub', async () => {
-    const wrapper = await monter()
-    expect(wrapper.find('form').exists()).toBe(false)
     expect(wrapper.find('a[href="https://github.com/p/poc-portail/issues/new?template=user-story.yml"]').exists()).toBe(true)
     expect(wrapper.find('a[href="https://github.com/p/poc-portail/issues/new?template=bug.yml"]').exists()).toBe(true)
     wrapper.unmount()
   })
 
-  it('ouvre le formulaire « Prompter » quand aucune demande n’est en cours', async () => {
+  it('la demande guidée (avec plan) reste proposée en suggestion', async () => {
     const wrapper = await monter()
-    const prompter = wrapper.findAll('button').find((b) => b.text().includes('Prompter'))!
-    expect(prompter.attributes('disabled')).toBeUndefined()
-    await prompter.trigger('click')
+    await bouton(wrapper, 'Demande guidée, avec un plan à valider')!.trigger('click')
     expect(wrapper.find('h2.fr-h4').text()).toBe('Prompter (mode libre)')
     wrapper.unmount()
   })
 
-  it('liste OU demande : « Discuter avec ADA » prend toute la colonne ; « Toutes les demandes » ramène la liste', async () => {
-    const wrapper = await monter()
-    await wrapper.findAll('button').find((b) => b.text().includes('Discuter avec ADA'))!.trigger('click')
-    expect(wrapper.find('h2.fr-h4').text()).toBe('Discuter avec ADA')
-    expect(wrapper.find('#titre-stories').exists()).toBe(false)
-    expect(wrapper.find('select').exists()).toBe(false)
-    expect(wrapper.text()).toContain('Projet : poc-portail')
-    await wrapper.findAll('button').find((b) => b.text().includes('Toutes les demandes'))!.trigger('click')
-    await flushPromises()
-    expect(wrapper.find('#titre-stories').exists()).toBe(true)
-    expect(document.activeElement?.id).toBe('titre-stories')
-    expect(wrapper.text()).not.toContain('Discuter avec ADA »')
-    wrapper.unmount()
-  })
-
-  it('désactive « Prompter » quand une demande est déjà en cours', async () => {
+  it('une demande en cours : l’accueil propose d’y aller, pas d’en ouvrir une autre', async () => {
     lire.mockImplementation(async (chemin: string) =>
       chemin === '/projets/poc-portail/stories' ? [{ ...story, statut: 'en-cours' }] : reponses[chemin],
     )
     const wrapper = await monter()
-    const prompter = wrapper.findAll('button').find((b) => b.text().includes('Prompter'))!
-    expect(prompter.attributes('disabled')).toBeDefined()
+    expect(wrapper.find('#message-accueil').exists()).toBe(false)
+    expect(wrapper.text()).toContain('#1 « Page d’accueil » est en cours')
+    expect(bouton(wrapper, 'Y aller')).toBeDefined()
     wrapper.unmount()
   })
 
-  it('relit la liste quand on clique sur « Actualiser »', async () => {
+  it('« Nouvelle conversation » ramène à l’accueil, zone de message prête', async () => {
+    const wrapper = await monter()
+    await wrapper.findAll('ul.liste-stories button').find((b) => b.text().includes('Page d’accueil'))?.trigger('click')
+    await flushPromises()
+    await bouton(wrapper, 'Nouvelle conversation')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('#titre-accueil').exists()).toBe(true)
+    expect(document.activeElement?.id).toBe('message-accueil')
+    wrapper.unmount()
+  })
+
+  it('l’aperçu se masque et se réaffiche', async () => {
+    const wrapper = await monter()
+    expect(wrapper.find('#panneau-apercu').exists()).toBe(true)
+    await bouton(wrapper, 'Masquer l’aperçu')!.trigger('click')
+    expect(wrapper.find('#panneau-apercu').exists()).toBe(false)
+    expect(wrapper.find('.atelier--sans-apercu').exists()).toBe(true)
+    await bouton(wrapper, 'Afficher l’aperçu')!.trigger('click')
+    expect(wrapper.find('#panneau-apercu').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('relit les demandes quand on clique sur « Actualiser »', async () => {
     const wrapper = await monter()
     lire.mockClear()
-    await wrapper.findAll('button').find((b) => b.text().includes('Actualiser'))!.trigger('click')
+    await bouton(wrapper, 'Actualiser les demandes')!.trigger('click')
     await flushPromises()
     expect(lire).toHaveBeenCalledWith('/projets/poc-portail/stories')
     wrapper.unmount()
   })
 
-  it('recharge les stories quand on change de projet', async () => {
+  it('recharge les demandes quand on change de projet', async () => {
     const wrapper = await monter()
-    await wrapper.find('select').setValue('annuaire')
-    await flushPromises()
+    await choisir(wrapper, 'annuaire')
     expect(lire).toHaveBeenCalledWith('/projets/annuaire/stories')
-    expect(wrapper.text()).toContain('Aucune story pour l’instant')
+    expect(wrapper.text()).toContain('Aucune demande pour l’instant')
     wrapper.unmount()
   })
 

@@ -224,6 +224,8 @@ export function presenterMessage(message: Message): { auteur: string; texte: str
           .replace(BLOC_CHOIX_LISIBLE, '')
           .replace(DONNEES_DECOUPAGE, '')
           .replace(BLOC_DECOUPAGE_LISIBLE, '')
+          // Réponse en conversation : le titre « 🤖 ADA » redit l'auteur, déjà affiché.
+          .replace(/^\s*🤖 \*\*ADA\*\*\s*/, '')
           .trim()
       : message.texte,
     assistant,

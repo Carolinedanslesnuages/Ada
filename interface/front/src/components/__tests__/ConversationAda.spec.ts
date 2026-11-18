@@ -2,7 +2,6 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import VueDsfr from '@gouvminint/vue-dsfr'
 import ConversationAda from '../ConversationAda.vue'
-import FormulaireConversation from '../FormulaireConversation.vue'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
 import type { DetailStory } from '@/lib/story'
 
@@ -44,6 +43,7 @@ describe('Conversation avec ADA', () => {
     expect(messages[1]).toContain('ADA')
     expect(messages[1]).toContain('C’est fait : le titre est bleu.')
     expect(wrapper.text()).not.toContain('Lancée depuis ADA')
+    expect(messages[1]).not.toContain('🤖')
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
@@ -76,26 +76,6 @@ describe('Conversation avec ADA', () => {
     const wrapper = monter({ attendReponse: false })
     expect(wrapper.find('textarea').exists()).toBe(false)
     expect(wrapper.findAll('button')).toHaveLength(0)
-    wrapper.unmount()
-  })
-})
-
-describe('Premier message de la conversation', () => {
-  afterEach(() => {
-    document.body.innerHTML = ''
-  })
-
-  it('sans limite courte : un long message passe ; une phrase au moins', async () => {
-    const wrapper = mount(FormulaireConversation, { global: { plugins: [VueDsfr] }, attachTo: document.body })
-    await wrapper.find('textarea').setValue('bleu')
-    await wrapper.find('form').trigger('submit')
-    expect(wrapper.text()).toContain('en une phrase au moins')
-    const long = 'Je voudrais une page d’accueil plus claire. '.repeat(60)
-    await wrapper.find('textarea').setValue(long)
-    await wrapper.find('form').trigger('submit')
-    expect(wrapper.emitted('soumettre')).toEqual([[long.trim()]])
-    expect(wrapper.text()).toContain('Rien n’arrive sur le projet')
-    expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
 })
