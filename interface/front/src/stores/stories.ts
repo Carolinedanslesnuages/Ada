@@ -1,6 +1,6 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { api } from '@/services/api'
+import { api, ErreurApi } from '@/services/api'
 import {
   STATUTS_ACTIFS,
   type Activite,
@@ -69,13 +69,18 @@ export const useStoriesStore = defineStore('stories', () => {
 
   async function lancer(projet: string, numero: number): Promise<void> {
     erreurLancement.value = null
+    // Ce que le PO a sous les yeux : ADA refuse de lancer si l'issue a été modifiée sur GitHub depuis.
+    const empreinte = courante.value?.numero === numero ? courante.value.empreinte : undefined
     try {
-      await api.envoyer<ResumeStory>(`${chemin(projet)}/${numero}/lancer`, {})
+      await api.envoyer<ResumeStory>(`${chemin(projet)}/${numero}/lancer`, { empreinte })
       await charger(projet, true)
       await ouvrir(projet, numero)
       await chargerActivite(projet, numero)
     } catch (e) {
-      erreurLancement.value = (e as Error).message
+      const message = (e as Error).message
+      // Demande modifiée entre-temps (ou autre conflit) : on montre la version actuelle, à relire avant de relancer.
+      if (e instanceof ErreurApi && e.statut === 409) await ouvrir(projet, numero)
+      erreurLancement.value = message
     }
   }
 

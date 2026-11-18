@@ -17,6 +17,7 @@ import {
   lireStory,
   ajouterDecoupage,
   cocherEnfant,
+  empreinteDemande,
   formaterStory,
   lireParent,
   validerStoriesAPublier,
@@ -85,6 +86,10 @@ export interface DetailStory extends ResumeStory {
   contenuLibre: string | null;
   texteBrut: string;
   messages: Message[];
+  /** Empreinte du titre et du corps affichés : renvoyée au lancement pour vérifier que rien n'a changé. */
+  empreinte: string;
+  /** Commentaires écrits directement sur GitHub depuis le lancement, qu'ADA ne lit pas (le PO doit répondre dans ADA). */
+  commentairesIgnores: number;
 }
 
 type Issue = {
@@ -291,6 +296,9 @@ export class StoriesService {
         texteBrut: corps,
         assignes: (issue.assignees ?? []).map((personne) => ({ login: personne.login, avatar: personne.avatar_url ?? null })),
         messages,
+        empreinte: empreinteDemande(issue.title, corps),
+        // Tout commentaire de l'issue qui n'est pas une copie d'un message du journal a été écrit à la main sur GitHub.
+        commentairesIgnores: utiliseLeJournal ? Math.max(0, (issue.comments ?? 0) - journal.length) : 0,
       };
     } catch (e) {
       traduireErreurGithub(e);
@@ -440,7 +448,7 @@ export class StoriesService {
   }
 
   /** Lance (ou relance, si elle était en attente) une demande : une seule à la fois par projet, et seulement si elle est prête. */
-  async lancer(jeton: string, depot: string, numero: number, login: string): Promise<ResumeStory> {
+  async lancer(jeton: string, depot: string, numero: number, login: string, empreinte?: unknown): Promise<ResumeStory> {
     const toutes = await this.lister(jeton, depot);
     const cible = toutes.find((s) => s.numero === numero);
     if (!cible) throw new BadRequestException(`La demande #${numero} n’est ni une story ni un problème de l’atelier`);
@@ -453,6 +461,11 @@ export class StoriesService {
       );
     }
     const gh = this.github.client(jeton);
+    // L'issue telle qu'elle est maintenant : c'est elle qui sera figée, et elle doit être celle que le PO a lue.
+    const { data: issue } = await gh.issues.get({ ...this.cible(depot), issue_number: numero }).catch((e: unknown) => traduireErreurGithub(e));
+    if (typeof empreinte === 'string' && empreinte !== empreinteDemande(issue.title, issue.body)) {
+      throw new ConflictException('Cette demande a été modifiée sur GitHub depuis que vous l’avez ouverte. Relisez-la, puis lancez-la de nouveau.');
+    }
     try {
       const labelType = { bug: LABEL_BUG, libre: LABEL_LIBRE, conversation: LABEL_CONVERSATION, story: LABEL_STORY }[cible.type];
       await this.assurerLabel(jeton, depot, labelType);
@@ -465,8 +478,7 @@ export class StoriesService {
       if (cible.statut === 'attente') await gh.issues.removeLabel({ ...this.cible(depot), issue_number: numero, name: STATUTS.attente });
       const lancement = `${MARQUEUR_LANCEMENT} par ${login}.`;
       await gh.issues.createComment({ ...this.cible(depot), issue_number: numero, body: lancement });
-      // La demande est figée telle qu'elle est à cet instant : l'agent ne lira jamais l'issue vivante.
-      const { data: issue } = await gh.issues.get({ ...this.cible(depot), issue_number: numero });
+      // La demande est figée telle que le PO l'a lue : l'agent ne lira jamais l'issue vivante.
       await this.enregistrerLancement(depot, this.figeeDepuisIssue(issue as Issue, cible.type, login), login, lancement);
     } catch (e) {
       traduireErreurGithub(e);

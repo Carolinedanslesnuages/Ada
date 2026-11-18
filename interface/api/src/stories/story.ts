@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { BadRequestException } from '@nestjs/common';
 import { z } from 'zod';
 
@@ -361,3 +362,13 @@ export function validerStoriesAPublier(brut: unknown): StoryProposee[] {
     return story;
   });
 }
+
+/**
+ * Empreinte d'une demande telle que le PO la voit (titre et corps de l'issue). L'écran la renvoie
+ * au lancement : si l'issue a été modifiée sur GitHub entre-temps, ADA refuse de lancer une
+ * version que le PO n'a pas lue.
+ */
+export function empreinteDemande(titre: string, corps: string | null | undefined): string {
+  return createHash('sha256').update(`${titre}\n${corps ?? ''}`).digest('hex').slice(0, 32);
+}
+

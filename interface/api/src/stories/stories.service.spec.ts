@@ -315,6 +315,38 @@ describe('StoriesService', () => {
       depot([issue(2, { labels: (sur.labels ?? ['user-story', 'story:en-cours']).map((name) => ({ name })) })]);
     }
 
+    it('refuse de lancer une demande modifiée sur GitHub depuis que le PO l’a ouverte, sans rien écrire', async () => {
+      depot([issue(2)]);
+      gh.issues.get.mockResolvedValue({ data: issue(2) });
+      const { empreinte } = await service.detail('jeton', 'poc', 2);
+      gh.issues.get.mockResolvedValue({ data: issue(2, { body: corpsFalsifie }) }); // éditée entre l'affichage et le clic
+      await expect(service.lancer('jeton', 'poc', 2, 'po1', empreinte)).rejects.toThrow(/modifiée sur GitHub depuis que vous l’avez ouverte/);
+      expect(gh.issues.addLabels).not.toHaveBeenCalled();
+      expect(gh.issues.createComment).not.toHaveBeenCalled();
+      expect(await store.lireFigee('poc', 2)).toBeNull();
+      expect(await store.lireStatut('poc', 2)).toBeNull();
+    });
+
+    it('lance quand la demande est celle que le PO a lue, et fige exactement ce contenu', async () => {
+      depot([issue(2)]);
+      gh.issues.get.mockResolvedValue({ data: issue(2) });
+      const { empreinte } = await service.detail('jeton', 'poc', 2);
+      await expect(service.lancer('jeton', 'poc', 2, 'po1', empreinte)).resolves.toMatchObject({ statut: 'en-cours' });
+      expect((await store.lireFigee('poc', 2))?.contenu?.criteres).toEqual(['un critère']);
+    });
+
+    it('compte les commentaires écrits directement sur GitHub depuis le lancement (ADA ne les lit pas)', async () => {
+      depot([issue(2)]);
+      gh.issues.get.mockResolvedValue({ data: issue(2) });
+      await service.lancer('jeton', 'poc', 2, 'po1');
+      await service.commenterAssistant('jeton', 'poc', 2, 'Questions d’ADA', 'Quelle date ?');
+      // Sur GitHub : le lancement et la question d'ADA (copies du journal), plus 2 commentaires écrits à la main.
+      gh.issues.get.mockResolvedValue({ data: issue(2, { comments: 4, labels: [{ name: 'user-story' }, { name: 'story:en-cours' }] }) });
+      expect((await service.detail('jeton', 'poc', 2)).commentairesIgnores).toBe(2);
+      gh.issues.get.mockResolvedValue({ data: issue(2, { comments: 2 }) });
+      expect((await service.detail('jeton', 'poc', 2)).commentairesIgnores).toBe(0);
+    });
+
     it('fige la demande, le statut et le journal au lancement', async () => {
       depot([issue(2)]);
       gh.issues.get.mockResolvedValue({ data: issue(2) });

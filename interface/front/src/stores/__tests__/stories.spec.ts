@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useStoriesStore } from '../stories'
 import { api, ErreurApi } from '@/services/api'
-import type { ResumeStory } from '@/lib/story'
+import type { DetailStory, ResumeStory } from '@/lib/story'
 
 vi.mock('@/services/api', async (original) => ({
   ...(await original<typeof import('@/services/api')>()),
@@ -27,7 +27,7 @@ const resume = (numero: number, extra: Partial<ResumeStory> = {}): ResumeStory =
   ...extra,
 })
 
-const detail = (numero: number, extra: Partial<ResumeStory> = {}) => ({
+const detail = (numero: number, extra: Partial<DetailStory> = {}) => ({
   ...resume(numero, extra),
   assignes: [],
   contenu: null,
@@ -69,6 +69,25 @@ describe('Store des stories', () => {
     expect(store.liste[0]?.statut).toBe('en-cours')
     expect(store.courante?.statut).toBe('en-cours')
     expect(store.erreurLancement).toBeNull()
+  })
+
+  it('renvoie au lancement l’empreinte de la demande affichée', async () => {
+    const store = useStoriesStore()
+    store.courante = detail(2, { empreinte: 'empreinte-affichee' })
+    envoyer.mockResolvedValue(resume(2, { statut: 'en-cours' }))
+    lire.mockImplementation(async (chemin: string) => (chemin.endsWith('/stories') ? [resume(2)] : detail(2)))
+    await store.lancer('mon-poc', 2)
+    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/2/lancer', { empreinte: 'empreinte-affichee' })
+  })
+
+  it('demande modifiée sur GitHub entre-temps : montre la nouvelle version et garde le message', async () => {
+    const store = useStoriesStore()
+    store.courante = detail(2, { empreinte: 'ancienne', titre: 'Ancien titre' })
+    envoyer.mockRejectedValue(new ErreurApi(409, 'Cette demande a été modifiée sur GitHub depuis que vous l’avez ouverte. Relisez-la, puis lancez-la de nouveau.'))
+    lire.mockResolvedValue(detail(2, { empreinte: 'nouvelle', titre: 'Nouveau titre' }))
+    await store.lancer('mon-poc', 2)
+    expect(store.courante?.titre).toBe('Nouveau titre')
+    expect(store.erreurLancement).toMatch(/modifiée sur GitHub/)
   })
 
   it('garde le message de refus du lancement (une autre est en cours)', async () => {

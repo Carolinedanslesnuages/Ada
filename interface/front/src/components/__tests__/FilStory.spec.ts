@@ -73,6 +73,19 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
+  it('prévient que des commentaires écrits directement sur GitHub ne sont pas lus par ADA', async () => {
+    const wrapper = monterAvec({ story: { ...story, commentairesIgnores: 2 } })
+    expect(wrapper.text()).toContain('2 commentaires ont été écrits directement sur GitHub. ADA ne les lit pas')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+    const un = monterAvec({ story: { ...story, commentairesIgnores: 1 } })
+    expect(un.text()).toContain('Un commentaire a été écrit directement sur GitHub. ADA ne le lit pas')
+    un.unmount()
+    const aucun = monterAvec({ story: { ...story, commentairesIgnores: 0 } })
+    expect(aucun.text()).not.toContain('directement sur GitHub. ADA ne')
+    aucun.unmount()
+  })
+
   it('signe « ADA » les messages d’ADA, sans marqueur technique', () => {
     const wrapper = monterAvec({
       story: {

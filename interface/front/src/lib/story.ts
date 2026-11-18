@@ -120,6 +120,10 @@ export interface DetailStory extends ResumeStory {
   contenuLibre: string | null
   texteBrut: string
   messages: Message[]
+  /** Empreinte du contenu affiché : renvoyée au lancement (ADA refuse si l'issue a changé entre-temps). */
+  empreinte?: string
+  /** Commentaires écrits directement sur GitHub depuis le lancement : ADA ne les lit pas. */
+  commentairesIgnores?: number
 }
 
 /** Adresse du formulaire GitHub pour écrire une story ou signaler un problème. */
