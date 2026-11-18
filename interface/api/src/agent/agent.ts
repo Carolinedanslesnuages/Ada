@@ -6,7 +6,7 @@ import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
 import { nettoyerStoriesProposees, type ContenuBug, type ContenuStory, type StoryProposee, type TypeDemande } from '../stories/story.js';
 
 /** « reprise » : analyse d'un projet existant repris par ADA (#37), en lecture seule. */
-export type Phase = 'analyse' | 'realisation' | 'reprise';
+export type Phase = 'analyse' | 'realisation' | 'reprise' | 'conversation';
 
 export interface Demande {
   numero: number;
@@ -120,8 +120,8 @@ export function brancheDe(demande: Pick<Demande, 'numero' | 'titre' | 'type'>): 
     .replace(/^-+|-+$/g, '')
     .slice(0, 40)
     .replace(/-+$/, '');
-  const prefixe = { bug: 'fix', libre: 'libre', story: 'story' }[demande.type];
-  return `${prefixe}/${demande.numero}-${slug.replace(/^demande-libre-/, '') || 'demande'}`;
+  const prefixe = { bug: 'fix', libre: 'libre', story: 'story', conversation: 'conversation' }[demande.type];
+  return `${prefixe}/${demande.numero}-${slug.replace(/^(demande-libre|conversation)-/, '') || 'demande'}`;
 }
 
 function decrireDemande(d: Demande): string {
@@ -150,6 +150,9 @@ function decrireDemande(d: Demande): string {
   }
   if (d.type === 'libre' && d.contenuLibre) {
     lignes.push('Demande libre du PO (mode sauvage, hors story) :', d.contenuLibre);
+  }
+  if (d.type === 'conversation' && d.contenuLibre) {
+    lignes.push('Premier message du PO :', d.contenuLibre);
   }
   if (d.echanges.length) {
     lignes.push('', 'Échanges avec le PO depuis le lancement :');
@@ -326,6 +329,54 @@ ${controles.map((commande) => `  ${DANS_CONTENEUR} ${JSON.stringify(commande)}`)
 Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
 {"resultat":"ok","resume":"<3 ou 4 phrases pour le PO : ce qui a changé, comment le voir, ce qu'un humain doit encore vérifier>"}
 ou {"resultat":"bloque","raison":"<ce qui bloque, simplement>"}`;
+}
+
+/**
+ * Conversation (« vrai prompt ») : le PO parle librement, ADA agit tout de suite sur une branche
+ * à part, sans plan à valider. Rien n'arrive sur le projet avant que le PO dise « c'est bon » :
+ * ADA ouvre alors la PR, contrôles verts obligatoires, et le PO fusionne.
+ */
+export function consigneConversation(
+  d: Demande,
+  branche: string,
+  indexRgaa: string | null = null,
+  skills: string[] = [],
+  controles: string[] = ADA_PAR_DEFAUT.controles,
+  dsfr = true,
+): string {
+  return `${commun(dsfr)}${consigneSkills(skills, dsfr)}${referentielRgaa(indexRgaa)}
+
+PHASE : CONVERSATION. Le PO te parle librement, comme à une développeuse à côté de lui. Tu es sur
+la branche ${branche}. L'application tourne dans un conteneur : le PO voit tes changements en direct.
+
+${decrireDemande(d)}
+
+Règles :
+- Réponds à son DERNIER message, en tenant compte de toute la conversation.
+- Il demande un changement : fais-le TOUT DE SUITE, sans plan à valider. Il pose une question :
+  réponds, sans rien modifier. Une demande vraiment ambiguë, ou risquée (effacer des données,
+  changer de stack, toucher à la sécurité) : demande-lui avant, en une question courte.
+- Garde le projet sain : tests à jour pour ce que tu changes (accessibilité comprise), noms
+  explicites, règles d'AGENTS.md. Toute commande s'exécute DANS LE CONTENEUR, par exemple :
+  ${DANS_CONTENEUR} "cd /app/<dossier> && npx vitest run <fichier de test>"
+- Après un changement de code, lance les contrôles et corrige ce que tu as cassé :
+${controles.map((commande) => `  ${DANS_CONTENEUR} ${JSON.stringify(commande)}`).join('\n')}
+- Enregistre chaque changement par un commit au format Conventional Commits (« feat: … »,
+  « fix: … »). Ne pousse pas, ne fusionne jamais : l'atelier s'en charge quand le PO dit « c'est bon ».
+- Ne modifie jamais .github/ ni charts/ (réservés aux développeurs) ; aucun secret, aucune donnée réelle.
+- Dans ta réponse : ce que tu as fait, où le voir dans l'aperçu, et ce qu'il peut demander ensuite.
+  Rappelle-lui, quand c'est utile, qu'il peut dire « c'est bon » pour proposer ces changements au projet.
+
+Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
+{"reponse":"<ton message au PO>"}`;
+}
+
+/** Réponse d'ADA en conversation : son JSON, ou à défaut son texte brut (mieux qu'un blocage). */
+export function lireReponseConversation(texte: string): string | null {
+  const json = lireJson<{ reponse?: unknown }>(texte, (valeur) => 'reponse' in valeur);
+  if (json && typeof json.reponse === 'string' && json.reponse.trim()) return json.reponse.trim();
+  const brut = texte.replace(/```(?:json)?/g, '').trim();
+  return brut && !brut.startsWith('{') ? brut : null;
 }
 
 /** Extrait le dernier objet JSON d'une réponse (l'agent l'entoure parfois de ```json). */

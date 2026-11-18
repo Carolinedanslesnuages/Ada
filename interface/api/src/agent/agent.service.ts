@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { appendFile, lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { PREFIXE_LIBRE, texteDecoupage } from '../stories/story.js';
+import { PREFIXE_CONVERSATION, PREFIXE_LIBRE, texteDecoupage, verifierMessage } from '../stories/story.js';
 import { ApercuService } from '../apercu/apercu.service.js';
 import { CONFIG, type Config } from '../config.js';
 import { GithubService } from '../github/github.service.js';
@@ -12,6 +12,8 @@ import { DEBUT_LANCEMENT, MARQUEUR_ASSISTANT, StoriesService } from '../stories/
 import {
   brancheDe,
   consigneAnalyse,
+  consigneConversation,
+  lireReponseConversation,
   consigneRealisation,
   decrireEvenement,
   lireDecision,
@@ -130,7 +132,7 @@ export class AgentService {
   /** Dernière tâche de fond lancée (permet aux tests d'en attendre la fin). */
   derniereTache: Promise<void> = Promise.resolve();
   /** Tours maximum de l'agent par phase. */
-  tours: Record<Phase, number> = { analyse: 30, realisation: 150, reprise: 40 };
+  tours: Record<Phase, number> = { analyse: 30, realisation: 150, reprise: 40, conversation: 100 };
 
   constructor(
     @Inject(CONFIG) private readonly config: Config,
@@ -261,7 +263,10 @@ export class AgentService {
     }
     await this.stories.changerStatut(jeton, depot, numero, 'en-cours');
     const precedente = await this.lireActivite(depot, numero);
-    if (precedente.phase === 'realisation') {
+    if (precedente.phase === 'conversation') {
+      await this.noter(depot, numero, 'Reprend la conversation');
+      await this.converser(jeton, login, depot, numero);
+    } else if (precedente.phase === 'realisation') {
       await this.noter(depot, numero, 'Reprend la réalisation');
       await this.realiser(jeton, login, depot, numero);
     } else {
@@ -449,6 +454,7 @@ export class AgentService {
     try {
       if (phase === 'analyse') await this.corpsAnalyse(tache);
       else if (phase === 'reprise') await this.corpsReprise(tache);
+      else if (phase === 'conversation') await this.corpsConversation(tache);
       else await this.corpsRealisation(tache);
       await this.enregistrer(depot, numero, { enCours: false });
     } catch (e) {
@@ -615,6 +621,92 @@ export class AgentService {
     }
   }
 
+  /** Conversation : ADA répond au dernier message du PO, en agissant tout de suite sur sa branche. */
+  converser(jeton: string, login: string, depot: string, numero: number): Promise<void> {
+    return this.lancerTache({ phase: 'conversation', jeton, login, depot, numero });
+  }
+
+  private async corpsConversation({ jeton, login, depot, numero }: Tache): Promise<void> {
+    const demande = await this.demande(jeton, depot, numero);
+    const branche = brancheDe(demande);
+    const { cwd } = await this.preparerBranche(jeton, login, depot, branche);
+    const skills = await this.equiperSkills(cwd);
+    await this.noter(depot, numero, `Lit votre message (branche ${branche})`);
+    const { controles, dsfr } = await this.apercu.lireConfig(cwd);
+    const consigne = consigneConversation(demande, branche, await this.lireIndexRgaa(), skills.noms, controles, dsfr);
+    const reponse = lireReponseConversation(await this.executer(depot, numero, 'conversation', consigne, cwd, skills.dossiers));
+    if (!reponse) {
+      await this.bloquer(jeton, depot, numero, 'ADA n’a pas réussi à répondre à votre message.');
+      return;
+    }
+    // Des commits pas encore sur GitHub : on pousse la branche (jamais main) et l'aperçu les montre.
+    const { stdout: nouveaux } = await this.apercu.executer('git', ['-C', cwd, 'rev-list', '--count', branche, '--not', '--remotes=origin']);
+    if (Number(nouveaux.trim()) > 0) {
+      await this.noter(depot, numero, 'Envoie la branche sur GitHub');
+      await this.apercu.executer('git', ['-C', cwd, 'push', '--quiet', '-u', 'origin', branche], { env: this.apercu.environnementGit(jeton) });
+      await this.noter(depot, numero, 'Relance l’aperçu');
+      await this.apercu.relancerApplication(depot).catch((e: unknown) => this.log.warn(`Relance de l’aperçu de ${depot} : ${(e as Error).message.split('\n')[0]}`));
+    }
+    await this.stories.commenterAssistant(jeton, depot, numero, 'ADA', reponse);
+    await this.stories.changerStatut(jeton, depot, numero, 'echange');
+    await this.noter(depot, numero, 'À vous : répondez à ADA');
+  }
+
+  /** Le PO écrit dans la conversation : ADA reprend la main. */
+  async reprendreConversation(jeton: string, login: string, depot: string, numero: number, texte: unknown): Promise<void> {
+    this.verifierDisponible();
+    const verification = verifierMessage(texte, false);
+    if (!verification.ok) throw new BadRequestException(verification.erreur);
+    const detail = await this.stories.detail(jeton, depot, numero);
+    if (detail.type !== 'conversation' || detail.statut !== 'echange') throw new ConflictException('ADA n’attend pas de message dans cette conversation');
+    await this.stories.repondre(jeton, depot, numero, verification.texte);
+    await this.stories.changerStatut(jeton, depot, numero, 'en-cours');
+    await this.converser(jeton, login, depot, numero);
+  }
+
+  /**
+   * « C'est bon » : les changements de la conversation deviennent une PR (contrôles, vérification
+   * et fusion par le PO, comme une story). Aucun changement : la conversation se ferme, sans suite.
+   */
+  async terminerConversation(jeton: string, login: string, depot: string, numero: number): Promise<{ pullRequest: string | null }> {
+    if (await this.verrouActif(depot)) throw new ConflictException('ADA travaille encore : attendez sa réponse');
+    const demande = await this.demande(jeton, depot, numero);
+    const detail = await this.stories.detail(jeton, depot, numero);
+    if (detail.type !== 'conversation' || detail.statut !== 'echange') throw new ConflictException('Cette conversation ne peut pas être terminée maintenant');
+    const branche = brancheDe(demande);
+    const cwd = await this.apercu.preparerDepot(jeton, depot);
+    const { stdout: branches } = await this.apercu.executer('git', ['-C', cwd, 'branch', '--list', branche]);
+    const { stdout: nombre } = branches.trim()
+      ? await this.apercu.executer('git', ['-C', cwd, 'rev-list', '--count', `origin/main..${branche}`])
+      : { stdout: '0' };
+    if (Number(nombre.trim()) === 0) {
+      await this.stories.fermerSansSuite(jeton, depot, numero, `💬 Conversation terminée par ${login}, sans changement à proposer au projet.`);
+      return { pullRequest: null };
+    }
+    // Par sûreté (exécution interrompue avant l'envoi) : la branche doit être sur GitHub pour la PR.
+    await this.apercu.executer('git', ['-C', cwd, 'push', '--quiet', '-u', 'origin', branche], { env: this.apercu.environnementGit(jeton) });
+    const resume = `Changements faits avec ADA pendant la conversation #${numero}, demandés par ${login}.`;
+    const pr = await this.ouvrirPullRequest(jeton, depot, cwd, branche, demande, resume);
+    await this.enregistrer(depot, numero, { pullRequest: pr });
+    await this.stories.commenterAssistant(
+      jeton,
+      depot,
+      numero,
+      'Changements proposés au projet',
+      `Je propose ces changements au projet.\n\nLes contrôles automatiques tournent sur la pull request : ${pr}`,
+    );
+    await this.stories.changerStatut(jeton, depot, numero, 'en-verification');
+    return { pullRequest: pr };
+  }
+
+  /** Le PO arrête la conversation : rien n'arrive sur le projet (la branche reste sur GitHub). */
+  async arreterConversation(jeton: string, login: string, depot: string, numero: number): Promise<void> {
+    if (await this.verrouActif(depot)) throw new ConflictException('ADA travaille encore : attendez sa réponse');
+    const detail = await this.stories.detail(jeton, depot, numero);
+    if (detail.type !== 'conversation' || detail.statut === 'livree') throw new ConflictException('Cette conversation est déjà terminée');
+    await this.stories.fermerSansSuite(jeton, depot, numero, `💬 Conversation arrêtée par ${login} : rien n’est ajouté au projet.`);
+  }
+
   /** Le PO demande de revoir le plan, ou répond aux questions : nouvelle analyse. */
   async reprendreAnalyse(jeton: string, depot: string, numero: number, texte: string): Promise<void> {
     this.verifierDisponible();
@@ -683,7 +775,7 @@ export class AgentService {
       head: branche,
       base: 'main',
       // Mode libre : sans le préfixe « Demande libre : », pour des notes de version lisibles.
-      title: `${demande.type === 'bug' ? 'fix' : 'feat'}: ${demande.titre.replace(PREFIXE_LIBRE, '')}`,
+      title: `${demande.type === 'bug' ? 'fix' : 'feat'}: ${demande.titre.replace(PREFIXE_LIBRE, '').replace(PREFIXE_CONVERSATION, '')}`,
       body: `${resume}\n\nCloses #${demande.numero}\n\n${fiche}`.trim(),
     });
     return data.html_url;

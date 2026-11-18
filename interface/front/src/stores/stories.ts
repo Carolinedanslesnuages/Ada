@@ -164,6 +164,26 @@ export const useStoriesStore = defineStore('stories', () => {
     }
   }
 
+  /** Conversation (« vrai prompt ») : le premier message ouvre l'issue, ADA répond en agissant. */
+  async function ouvrirConversation(projet: string, texte: string): Promise<string | null> {
+    try {
+      const conversation = await api.envoyer<ResumeStory>(`${chemin(projet)}/conversation`, { texte })
+      await charger(projet, true)
+      await ouvrir(projet, conversation.numero)
+      await chargerActivite(projet, conversation.numero)
+      return null
+    } catch (e) {
+      return (e as Error).message
+    }
+  }
+  const envoyerMessage = (projet: string, numero: number, texte: string) =>
+    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/conversation/message`, { texte }))
+  /** « C'est bon » : ADA propose les changements au projet (PR), ou ferme s'il n'y en a pas. */
+  const terminerConversation = (projet: string, numero: number) =>
+    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/conversation/terminer`, {}))
+  const arreterConversation = (projet: string, numero: number) =>
+    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/conversation/arreter`, {}))
+
   const relancer = (projet: string, numero: number) =>
     agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/relancer`, {}))
 
@@ -225,6 +245,10 @@ export const useStoriesStore = defineStore('stories', () => {
     validerPlan,
     relancer,
     prompter,
+    ouvrirConversation,
+    envoyerMessage,
+    terminerConversation,
+    arreterConversation,
     ouvrir,
     lancer,
     repondre,

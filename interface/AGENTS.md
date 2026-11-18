@@ -18,6 +18,10 @@ l'aperçu du produit tourne à droite dès la création du projet.
   quand il valide un découpage proposé par l'assistant (stories préremplies, relues et
   éventuellement corrigées par lui, publiées à son nom ; la demande d'origine devient leur
   parent). Sinon, il lit, vérifie, lance.
+- Conversation (« vrai prompt », issue `mode-conversation`) : le PO parle librement, ADA agit tout de
+  suite sur une branche `conversation/<n>-…` (consigne `consigneConversation`), sans plan ; statut
+  `story:conversation` quand c'est au PO. « C'est bon » ouvre la PR (circuit habituel) ; « arrêter »
+  ferme l'issue sans suite. Jamais de push sur main ni de fusion par l'agent.
 - Projets : **un nouveau projet est créé sur le compte GitHub de la personne connectée** (jeton
   utilisateur), jamais sur `GITHUB_PROPRIETAIRE`. Identifiant `nom` (compte `GITHUB_PROPRIETAIRE`)
   ou `compte~nom` (compte personnel du PO),

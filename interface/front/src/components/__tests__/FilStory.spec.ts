@@ -209,6 +209,27 @@ describe('Fil d’une story', () => {
     wrapper.unmount()
   })
 
+  it('conversation : tout le fil s’affiche, et les actions remontent à l’atelier', async () => {
+    const wrapper = monterAvec({
+      story: {
+        ...story,
+        type: 'conversation',
+        statut: 'echange',
+        contenu: null,
+        contenuLibre: 'Mets le titre en bleu',
+        messages: [{ id: 5, auteur: 'po1', avatar: null, texte: '<!-- atelier-po:assistant -->\n🤖 **ADA**\n\nC’est fait.', le: '2026-11-18T10:01:00Z' }],
+      },
+    })
+    expect(wrapper.find('#titre-conversation').exists()).toBe(true)
+    expect(wrapper.find('#titre-dernier-message').exists()).toBe(false)
+    await wrapper.find('textarea').setValue('plutôt en rouge')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('envoyerMessage')).toEqual([['plutôt en rouge']])
+    await bouton(wrapper, 'C’est bon : proposer ces changements')!.trigger('click')
+    expect(wrapper.emitted('terminerConversation')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('propose de relancer ADA sur une demande en cours où rien ne tourne', async () => {
     const wrapper = monterAvec({
       story: { ...story, statut: 'en-cours' },

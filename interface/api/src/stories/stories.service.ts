@@ -9,6 +9,11 @@ import {
   LABEL_STORY,
   lireBug,
   lirePrompt,
+  lireConversation,
+  formaterConversation,
+  titreConversation,
+  verifierMessage,
+  LABEL_CONVERSATION,
   lireStory,
   ajouterDecoupage,
   cocherEnfant,
@@ -98,7 +103,7 @@ const resumer = (i: Issue): ResumeStory => {
   const labels = nomsLabels(i.labels);
   const corps = i.body ?? '';
   const type = typeDepuis(labels, corps) ?? 'story';
-  const verification = verifierPrete(type, lireStory(corps), lireBug(corps), lirePrompt(corps));
+  const verification = verifierPrete(type, lireStory(corps), lireBug(corps), lirePrompt(corps) ?? lireConversation(corps));
   return {
     numero: i.number,
     type,
@@ -159,7 +164,7 @@ export class StoriesService {
         ...resumer(issue as Issue),
         contenu: lireStory(corps),
         contenuBug: lireBug(corps),
-        contenuLibre: lirePrompt(corps),
+        contenuLibre: lirePrompt(corps) ?? lireConversation(corps),
         texteBrut: corps,
         assignes: (issue.assignees ?? []).map((personne) => ({ login: personne.login, avatar: personne.avatar_url ?? null })),
         messages: commentaires.map((c) => ({
@@ -249,6 +254,51 @@ export class StoriesService {
     }
   }
 
+  /**
+   * Conversation (« vrai prompt ») : le premier message devient une issue « mode-conversation »,
+   * lancée tout de suite. Une seule demande active par projet, comme le reste.
+   */
+  async ouvrirConversation(jeton: string, depot: string, texte: unknown, login: string): Promise<ResumeStory> {
+    const verification = verifierMessage(texte, true);
+    if (!verification.ok) throw new BadRequestException({ erreurs: { texte: verification.erreur } });
+    const active = (await this.lister(jeton, depot)).find((s) => STATUTS_ACTIFS.includes(s.statut));
+    if (active) {
+      throw new ConflictException(`La demande #${active.numero} « ${active.titre} » est en cours : une seule demande à la fois`);
+    }
+    const gh = this.github.client(jeton);
+    try {
+      await this.assurerLabel(jeton, depot, LABEL_CONVERSATION);
+      await this.assurerLabel(jeton, depot, STATUTS['en-cours']);
+      const { data } = await gh.issues.create({
+        ...this.cible(depot),
+        title: titreConversation(verification.texte),
+        body: formaterConversation(verification.texte),
+        labels: [LABEL_CONVERSATION, STATUTS['en-cours']],
+      });
+      await gh.issues.createComment({
+        ...this.cible(depot),
+        issue_number: data.number,
+        body: `${MARQUEUR_LANCEMENT} par ${login} (conversation).`,
+      });
+      return resumer(data as Issue);
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+  }
+
+  /** Ferme une demande sans la réaliser (« not planned ») : elle disparaît de la liste, sans être livrée. */
+  async fermerSansSuite(jeton: string, depot: string, numero: number, commentaire: string): Promise<void> {
+    const gh = this.github.client(jeton);
+    try {
+      await gh.issues.createComment({ ...this.cible(depot), issue_number: numero, body: commentaire });
+      const { data } = await gh.issues.get({ ...this.cible(depot), issue_number: numero });
+      const garder = nomsLabels((data as Issue).labels).filter((l) => !l.startsWith('story:'));
+      await gh.issues.update({ ...this.cible(depot), issue_number: numero, state: 'closed', state_reason: 'not_planned', labels: garder });
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+  }
+
   /** Lance (ou relance, si elle était en attente) une demande : une seule à la fois par projet, et seulement si elle est prête. */
   async lancer(jeton: string, depot: string, numero: number, login: string): Promise<ResumeStory> {
     const toutes = await this.lister(jeton, depot);
@@ -264,7 +314,7 @@ export class StoriesService {
     }
     const gh = this.github.client(jeton);
     try {
-      const labelType = cible.type === 'bug' ? LABEL_BUG : cible.type === 'libre' ? LABEL_LIBRE : LABEL_STORY;
+      const labelType = { bug: LABEL_BUG, libre: LABEL_LIBRE, conversation: LABEL_CONVERSATION, story: LABEL_STORY }[cible.type];
       await this.assurerLabel(jeton, depot, labelType);
       await this.assurerLabel(jeton, depot, STATUTS['en-cours']);
       await gh.issues.addLabels({

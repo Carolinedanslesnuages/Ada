@@ -6,6 +6,8 @@ import {
   nettoyerChoix,
   texteQuestions,
   consigneRealisation,
+  consigneConversation,
+  lireReponseConversation,
   decrireEvenement,
   lireDecision,
   lireResultat,
@@ -211,6 +213,26 @@ describe('Décision « découpage » d’ADA (#36)', () => {
 
   it('la consigne demande un découpage en stories quand la demande est trop grosse', () => {
     expect(consigneAnalyse(demande)).toContain('réponds par la décision « decoupage »');
+  });
+});
+
+describe('Conversation (« vrai prompt »)', () => {
+  it('la consigne fait agir tout de suite, sans plan, et interdit de pousser ou fusionner', () => {
+    const consigne = consigneConversation({ ...demande, type: 'conversation', contenu: null, contenuLibre: 'Mets le titre en bleu' }, 'conversation/1-titre');
+    expect(consigne).toContain('PHASE : CONVERSATION');
+    expect(consigne).toContain('fais-le TOUT DE SUITE, sans plan à valider');
+    expect(consigne).toContain('Ne pousse pas, ne fusionne jamais');
+    expect(consigne).toContain('Premier message du PO :\nMets le titre en bleu');
+    expect(consigne).toContain(MISE_EN_FORME);
+  });
+  it('lit la réponse JSON, ou à défaut le texte brut', () => {
+    expect(lireReponseConversation('{"reponse":"C’est fait."}')).toBe('C’est fait.');
+    expect(lireReponseConversation('C’est fait, sans JSON.')).toBe('C’est fait, sans JSON.');
+    expect(lireReponseConversation('{"autre":1}')).toBeNull();
+    expect(lireReponseConversation('')).toBeNull();
+  });
+  it('branche à part, préfixée « conversation/ »', () => {
+    expect(brancheDe({ numero: 9, titre: 'Conversation : mets le titre en bleu', type: 'conversation' })).toBe('conversation/9-mets-le-titre-en-bleu');
   });
 });
 

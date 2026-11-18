@@ -63,7 +63,7 @@ function basculer(): void {
       <path class="avatar-ada__etoile" d="M47 4 Q47.8 8.2 52 9 Q47.8 9.8 47 14 Q46.2 9.8 42 9 Q46.2 8.2 47 4 Z" />
     </svg>
     <span class="avatar-ada__texte">
-      ADA {{ phase === 'realisation' ? 'réalise' : 'analyse' }}…
+      ADA {{ phase === 'realisation' ? 'réalise' : phase === 'conversation' ? 'répond' : 'analyse' }}…
     </span>
     <span class="fr-sr-only">{{ immobile ? ' : relancer l’animation' : ' : arrêter l’animation' }}</span>
   </button>

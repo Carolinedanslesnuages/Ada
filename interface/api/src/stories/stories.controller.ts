@@ -62,6 +62,17 @@ export class StoriesController {
     return demande;
   }
 
+  /** Conversation (« vrai prompt ») : le premier message devient une issue ; ADA répond en agissant. */
+  @Post('conversation')
+  async ouvrirConversation(@Req() req: Request, @Param('depot') depot: string, @Body('texte') texte: unknown) {
+    this.agent.verifierDisponible();
+    await this.reprise.verifierRepriseTerminee(req.session.jeton!, depot);
+    const login = req.session.utilisateur!.login;
+    const conversation = await this.stories.ouvrirConversation(req.session.jeton!, depot, texte, login);
+    await this.agent.converser(req.session.jeton!, login, depot, conversation.numero);
+    return conversation;
+  }
+
   /** Lance la demande, puis l'assistant commence son analyse (questions ou plan). */
   @Post(':numero/lancer')
   async lancer(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
