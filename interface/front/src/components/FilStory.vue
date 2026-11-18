@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AvatarAda from '@/components/AvatarAda.vue'
 import PropositionDecoupage from '@/components/PropositionDecoupage.vue'
 import ReponseChoix from '@/components/ReponseChoix.vue'
 import TexteRiche from '@/components/TexteRiche.vue'
@@ -390,6 +391,7 @@ function envoyer(): void {
         </DsfrAccordion>
       </DsfrAccordionsGroup>
     </section>
+    <AvatarAda v-if="travaille" :phase="activite?.phase" />
   </article>
 </template>
 
