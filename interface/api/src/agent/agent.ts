@@ -356,6 +356,7 @@ export function consigneConversation(
   skills: string[] = [],
   controles: string[] = ADA_PAR_DEFAUT.controles,
   dsfr = true,
+  finaliser = false,
 ): string {
   return `${commun(dsfr)}${consigneSkills(skills, dsfr)}${referentielRgaa(indexRgaa)}
 
@@ -372,8 +373,8 @@ Règles :
 - Garde le projet sain : tests à jour pour ce que tu changes (accessibilité comprise), noms
   explicites, règles d'AGENTS.md. Toute commande s'exécute DANS LE CONTENEUR, par exemple :
   ${DANS_CONTENEUR} "cd /app/<dossier> && npx vitest run <fichier de test>"
-- Après un changement de code, lance les contrôles et corrige ce que tu as cassé :
-${controles.map((commande) => `  ${DANS_CONTENEUR} ${JSON.stringify(commande)}`).join('\n')}
+- Après un changement de code, lance SEULEMENT les tests liés à ce que tu viens de changer (pas
+  les contrôles complets : ils passent une fois, quand le PO dit « c'est bon »).
 - Enregistre chaque changement par un commit au format Conventional Commits (« feat: … »,
   « fix: … »). Ne pousse pas, ne fusionne jamais : l'atelier s'en charge quand le PO dit « c'est bon ».
 - Pour supprimer ou renommer un fichier : « git rm <fichier> » ou « git mv <ancien> <nouveau> ».
@@ -381,8 +382,42 @@ ${controles.map((commande) => `  ${DANS_CONTENEUR} ${JSON.stringify(commande)}`)
 - Dans ta réponse : ce que tu as fait, où le voir dans l'aperçu, et ce qu'il peut demander ensuite.
   Rappelle-lui, quand c'est utile, qu'il peut dire « c'est bon » pour proposer ces changements au projet.
 
-Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
-{"reponse":"<ton message au PO>"}`;
+${finaliser ? finalisationConversation(controles) : `Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
+{"reponse":"<ton message au PO>"}`}`;
+}
+
+/** « C'est bon » : contrôles complets une seule fois, puis résumé de tout ce qui a changé. */
+function finalisationConversation(controles: string[]): string {
+  return `LE PO A DIT « C'EST BON » : ses changements vont être proposés au projet (pull request).
+Lance maintenant les contrôles complets, une seule fois, en jugeant sur le code de retour, et corrige
+ce qui échoue (trois échecs sur le même problème : arrête-toi) :
+${controles.map((commande) => `  ${DANS_CONTENEUR} ${JSON.stringify(commande)}`).join('\n')}
+Commite tes corrections. Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
+{"reponse":"<résumé, pour le PO, de tout ce qui a changé dans cette conversation>","pret":true}
+ou {"reponse":"<ce qui reste en échec, simplement>","pret":false}`;
+}
+
+/**
+ * Tour suivant d'une conversation, dans la MÊME session de l'agent : il a déjà les règles et tout
+ * l'historique ; on ne lui envoie que le nouveau message (consigne courte, réponse plus rapide).
+ */
+export function consigneSuiteConversation(message: string, controles: string[] = ADA_PAR_DEFAUT.controles, finaliser = false): string {
+  return `Nouveau message du PO :
+${message}
+
+Rappel : mêmes règles qu'au début de la conversation (agis tout de suite, tests liés au changement
+seulement, un commit par changement, ne pousse pas, jamais .github/ ni charts/).
+
+${finaliser ? finalisationConversation(controles) : `Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
+{"reponse":"<ton message au PO>"}`}`;
+}
+
+/** Fin de conversation : la réponse, et si les contrôles complets passent (par défaut, oui). */
+export function lireFinConversation(texte: string): { reponse: string; pret: boolean } | null {
+  const reponse = lireReponseConversation(texte);
+  if (!reponse) return null;
+  const json = lireJson<{ pret?: unknown }>(texte, (valeur) => 'reponse' in valeur);
+  return { reponse, pret: json?.pret !== false };
 }
 
 /** Réponse d'ADA en conversation : son JSON, ou à défaut son texte brut (mieux qu'un blocage). */

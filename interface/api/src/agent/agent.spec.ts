@@ -7,6 +7,8 @@ import {
   texteQuestions,
   consigneRealisation,
   consigneConversation,
+  consigneSuiteConversation,
+  lireFinConversation,
   cheminsReserves,
   lireReponseConversation,
   decrireEvenement,
@@ -241,6 +243,28 @@ describe('Conversation (« vrai prompt »)', () => {
     expect(consigne).toContain('Ne pousse pas, ne fusionne jamais');
     expect(consigne).toContain('Premier message du PO :\nMets le titre en bleu');
     expect(consigne).toContain(MISE_EN_FORME);
+  });
+  it('par tour, seulement les tests liés ; les contrôles complets au « c’est bon »', () => {
+    const tour = consigneConversation({ ...demande, type: 'conversation' }, 'conversation/1-x', null, [], ['npm run lint'])
+    expect(tour).toContain('lance SEULEMENT les tests liés');
+    expect(tour).not.toContain('npm run lint');
+    const fin = consigneConversation({ ...demande, type: 'conversation' }, 'conversation/1-x', null, [], ['npm run lint'], true, true);
+    expect(fin).toContain('LE PO A DIT « C\'EST BON »');
+    expect(fin).toContain('npm run lint');
+    expect(fin).toContain('"pret":false');
+  });
+  it('tour suivant : consigne courte, le nouveau message et un rappel des règles', () => {
+    const suite = consigneSuiteConversation('Plutôt en rouge');
+    expect(suite).toContain('Nouveau message du PO :\nPlutôt en rouge');
+    expect(suite).toContain('ne pousse pas');
+    expect(suite).not.toContain('Accessibilité (RGAA');
+    expect(suite.length).toBeLessThan(800);
+  });
+  it('fin de conversation : prête sauf « pret » à faux', () => {
+    expect(lireFinConversation('{"reponse":"Fait.","pret":true}')).toEqual({ reponse: 'Fait.', pret: true });
+    expect(lireFinConversation('{"reponse":"Échec.","pret":false}')).toEqual({ reponse: 'Échec.', pret: false });
+    expect(lireFinConversation('{"reponse":"Fait."}')).toEqual({ reponse: 'Fait.', pret: true });
+    expect(lireFinConversation('')).toBeNull();
   });
   it('lit la réponse JSON, ou à défaut le texte brut', () => {
     expect(lireReponseConversation('{"reponse":"C’est fait."}')).toBe('C’est fait.');
