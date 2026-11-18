@@ -10,6 +10,10 @@ import { StoriesService } from '../stories/stories.service.js';
 import { numeroDepuisUrl, peutFusionner, type Verification } from './verification.js';
 import { lireControles, relancerControles } from './controles-github.js';
 import { lireIdentifiant } from '../projets/depot.js';
+import { brancheDe } from '../agent/agent.js';
+
+export const RAISON_BRANCHE_MODIFIEE =
+  'Des modifications ont été ajoutées à la branche en dehors d’ADA : ce n’est plus ce que vous avez vérifié dans l’aperçu. Un développeur doit les relire ; si elles sont voulues, la fusion se fait sur GitHub.';
 
 @Injectable()
 export class VerificationService {
@@ -32,8 +36,28 @@ export class VerificationService {
     return data.ahead_by;
   }
 
+  /**
+   * Numéro de la pull request de la demande. L'activité locale la mentionne, mais ce fichier peut
+   * manquer (dossier d'aperçus perdu, serveur remplacé) : GitHub reste la source de vérité, et la
+   * PR s'y retrouve par sa branche. Sans cela, la demande resterait « à vérifier » sans PR et
+   * bloquerait tout le projet.
+   */
+  private async numeroPullRequest(gh: ReturnType<GithubService['client']>, jeton: string, depot: string, numero: number, urlConnue: string | null): Promise<number | null> {
+    const connu = numeroDepuisUrl(urlConnue);
+    if (connu) return connu;
+    try {
+      const detail = await this.stories.detail(jeton, depot, numero);
+      const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
+      const { data } = await gh.pulls.list({ owner, repo, head: `${owner}:${brancheDe({ numero, titre: detail.titre, type: detail.type })}`, state: 'all', per_page: 5 });
+      return data[0]?.number ?? null;
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+  }
+
   async verifier(jeton: string, depot: string, numero: number): Promise<Verification> {
-    const numeroPr = numeroDepuisUrl((await this.agent.activite(depot, numero)).pullRequest);
+    const activite = await this.agent.activite(depot, numero);
+    const numeroPr = await this.numeroPullRequest(this.github.client(jeton), jeton, depot, numero, activite.pullRequest);
     if (!numeroPr) return { pullRequest: null, controles: [], fusionnable: false, raison: 'Aucune pull request pour cette demande' };
     const gh = this.github.client(jeton);
     const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
@@ -42,10 +66,13 @@ export class VerificationService {
       const etat = pr.merged ? 'fusionnee' : pr.state === 'closed' ? 'fermee' : 'ouverte';
       const { controlesRequis } = await this.projets.lireConfigDepot(gh, owner, repo, pr.base.ref);
       const controles = await lireControles(gh, owner, repo, pr.head.sha, controlesRequis);
+      // La branche doit être exactement ce qu'ADA a poussé et que le PO a vu dans l'aperçu : quelqu'un
+      // qui y ajoute un commit sur GitHub n'est pas passé par ADA, et sa CI verte ne dit rien de ce qu'il a écrit.
+      const horsAda = etat === 'ouverte' && activite.tete && pr.head.sha !== activite.tete;
       return {
         pullRequest: { numero: pr.number, url: pr.html_url, etat },
         controles,
-        ...peutFusionner(etat, pr.mergeable, controles, pr.title),
+        ...(horsAda ? { fusionnable: false, raison: RAISON_BRANCHE_MODIFIEE } : peutFusionner(etat, pr.mergeable, controles, pr.title)),
       };
     } catch (e) {
       traduireErreurGithub(e);
@@ -54,9 +81,9 @@ export class VerificationService {
 
   /** Relance les contrôles que GitHub n'a pas lancés (ou en échec), une fois la cause réglée. */
   async relancerControles(jeton: string, depot: string, numero: number): Promise<Verification> {
-    const numeroPr = numeroDepuisUrl((await this.agent.activite(depot, numero)).pullRequest);
-    if (!numeroPr) throw new ConflictException('Aucune pull request pour cette demande');
     const gh = this.github.client(jeton);
+    const numeroPr = await this.numeroPullRequest(gh, jeton, depot, numero, (await this.agent.activite(depot, numero)).pullRequest);
+    if (!numeroPr) throw new ConflictException('Aucune pull request pour cette demande');
     const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
     try {
       const { data: pr } = await gh.pulls.get({ owner, repo, pull_number: numeroPr });
@@ -84,6 +111,9 @@ export class VerificationService {
       // réellement fusionné, et le PO valide de nouveau quand ils sont verts.
       if ((await this.retard(gh, depot, pr.base.ref, pr.head.sha)) > 0) {
         await gh.pulls.updateBranch({ owner, repo, pull_number: pr.number, expected_head_sha: pr.head.sha });
+        // La mise à jour vient d'ADA : le nouveau bout de la branche est le sien, pas celui d'un tiers.
+        const { data: branche } = await gh.repos.getBranch({ owner, repo, branch: pr.head.ref }).catch(() => ({ data: null }));
+        await this.agent.noterTete(depot, numero, branche?.commit.sha ?? null);
         return {
           ...verification,
           fusionnable: false,
@@ -95,6 +125,8 @@ export class VerificationService {
         owner,
         repo,
         pull_number: pr.number,
+        // Le commit exact que les contrôles ont vérifié : un push arrivé entre-temps fait refuser la fusion.
+        sha: pr.head.sha,
         merge_method: 'squash',
         commit_title: `${pr.title} (#${pr.number})`,
         commit_message: `Closes #${numero}`,

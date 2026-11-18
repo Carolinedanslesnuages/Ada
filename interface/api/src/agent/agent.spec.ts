@@ -15,6 +15,7 @@ import {
   lireDecision,
   lireResultat,
   OUTILS_INTERDITS,
+  OPTIONS_ISOLEMENT,
   outilsAutorises,
   skillSure,
   MISE_EN_FORME,
@@ -95,7 +96,7 @@ describe('Consignes données à l’agent', () => {
   });
 
   it('interdit toujours de modifier les workflows GitHub et le chart de déploiement, et le dit dans la consigne', () => {
-    expect(OUTILS_INTERDITS).toEqual(['Edit(./.github/**)', 'Write(./.github/**)', 'Edit(./charts/**)', 'Write(./charts/**)']);
+    expect(OUTILS_INTERDITS).toEqual(expect.arrayContaining(['Edit(./.github/**)', 'Write(./.github/**)', 'Edit(./charts/**)', 'Write(./charts/**)']));
     expect(consigneRealisation(demande, 'story/1-x')).toContain('Ne modifie jamais les dossiers .github/ (CI, versions) et charts/ (déploiement)');
   });
 
@@ -350,5 +351,26 @@ describe('Consigne d’analyse : bref, décisions à cocher, découpage si la de
     for (const consigne of [consigneAnalyse(demande), consigneRealisation(demande, 'story/1-x'), consigneReprise({ stack: null, dsfr: false })]) {
       expect(consigne).toContain('Le PO te connaît sous le nom d\'ADA');
     }
+  });
+
+  describe('cloisonnement de l’agent', () => {
+    it('ne peut modifier ni ses propres réglages ni ceux de ses outils (.claude, .agents, .mcp.json)', () => {
+      expect(OUTILS_INTERDITS).toEqual(
+        expect.arrayContaining(['Edit(./.claude/**)', 'Write(./.claude/**)', 'Edit(./.agents/**)', 'Write(./.agents/**)', 'Edit(./.mcp.json)', 'Write(./.mcp.json)']),
+      );
+    });
+
+    it('ne lit que les réglages de l’utilisateur du serveur, jamais ceux du dépôt, et aucun serveur MCP du dépôt', () => {
+      expect(OPTIONS_ISOLEMENT).toEqual(['--setting-sources', 'user', '--strict-mcp-config']);
+    });
+
+    it('n’autorise git qu’en formes exactes : ni « git difftool », ni « git diff --no-index », ni « --output »', () => {
+      const autorises = outilsAutorises('realisation');
+      for (const motif of autorises.filter((o) => o.startsWith('Bash(git '))) expect(motif).not.toMatch(/^Bash\(git (status|diff|log)\*/);
+      expect(autorises).toEqual(expect.arrayContaining(['Bash(git diff)', 'Bash(git diff *)', 'Bash(git log *)', 'Bash(git status *)']));
+      expect(OUTILS_INTERDITS).toEqual(
+        expect.arrayContaining(['Bash(git diff --no-index*)', 'Bash(git diff*--output*)', 'Bash(git log*--output*)', 'Bash(git commit*--file*)', 'Bash(git commit* -F*)']),
+      );
+    });
   });
 });

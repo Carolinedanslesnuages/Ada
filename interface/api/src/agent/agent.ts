@@ -44,7 +44,9 @@ function decrireExistantes(existantes: StoryExistante[] = []): string {
       s.decoupee && 'demande découpée : elle ne livre rien elle-même, elle attend ses stories',
       s.parent && `issue du découpage de #${s.parent}`,
     ].filter(Boolean);
-    return `- #${s.numero} « ${s.titre} »${precisions.length ? ` (${precisions.join(' ; ')})` : ''}`;
+    // Le titre vient d'une issue que d'autres peuvent éditer : une seule ligne, courte, sans guillemets qui refermeraient la citation.
+    const titre = s.titre.replace(/\s+/g, ' ').replace(/[«»]/g, '"').trim().slice(0, 120);
+    return `- #${s.numero} « ${titre} »${precisions.length ? ` (${precisions.join(' ; ')})` : ''}`;
   });
   return `
 
@@ -90,15 +92,19 @@ export function outilsAutorises(phase: Phase, dossiersLisibles: string[] = []): 
     'Edit(./**)',
     'Write(./**)',
     `Bash(${DANS_CONTENEUR} *)`,
-    'Bash(git status*)',
-    'Bash(git diff*)',
+    // Formes exactes (sans « * » collé au mot) : « git diff* » accepterait aussi « git difftool ».
+    'Bash(git status)',
+    'Bash(git status *)',
+    'Bash(git diff)',
+    'Bash(git diff *)',
     'Bash(git add *)',
     // Supprimer ou renommer un fichier du projet (une page retirée, par exemple) : git refuse tout
     // chemin hors du dépôt ; .github/ et charts/ restent protégés par cheminsReserves avant l'envoi.
     'Bash(git rm *)',
     'Bash(git mv *)',
     'Bash(git commit *)',
-    'Bash(git log*)',
+    'Bash(git log)',
+    'Bash(git log *)',
   ];
 }
 
@@ -107,7 +113,35 @@ export function outilsAutorises(phase: Phase, dossiersLisibles: string[] = []): 
  * versions) qui contrôlent son propre travail. Une interdiction l'emporte sur une autorisation.
  */
 /** Réservés aux développeurs : la CI et les versions (.github), le déploiement (charts). */
-export const OUTILS_INTERDITS = ['Edit(./.github/**)', 'Write(./.github/**)', 'Edit(./charts/**)', 'Write(./charts/**)'];
+export const OUTILS_INTERDITS = [
+  'Edit(./.github/**)',
+  'Write(./.github/**)',
+  'Edit(./charts/**)',
+  'Write(./charts/**)',
+  // Réglages et outils de l'agent : jamais modifiables par lui (les skills d'ADA y sont reliées).
+  'Edit(./.claude/**)',
+  'Write(./.claude/**)',
+  'Edit(./.agents/**)',
+  'Write(./.agents/**)',
+  'Edit(./.mcp.json)',
+  'Write(./.mcp.json)',
+  // git peut lire ou écrire hors du projet par ces options : « diff --no-index » compare deux
+  // fichiers quelconques du poste, « --output » écrit où on veut, « commit -F » reprend un fichier
+  // quelconque comme message (qui part ensuite sur GitHub).
+  'Bash(git diff --no-index*)',
+  'Bash(git diff*--output*)',
+  'Bash(git log*--output*)',
+  'Bash(git commit*--file*)',
+  'Bash(git commit* -F*)',
+  'Bash(git commit*--template*)',
+];
+
+/**
+ * Isolement de l'agent : il ne lit que les réglages de l'utilisateur du serveur, jamais ceux du
+ * dépôt du PO (`.claude/settings.json` d'un projet repris : hooks, permissions élargies), et ne
+ * charge aucun serveur MCP venu du dépôt (`.mcp.json`).
+ */
+export const OPTIONS_ISOLEMENT = ['--setting-sources', 'user', '--strict-mcp-config'];
 
 /** Dossiers réservés aux développeurs (CI, versions, déploiement) : jamais modifiés par ADA. */
 const DOSSIERS_RESERVES = ['.github/', 'charts/'];

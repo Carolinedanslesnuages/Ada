@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { ApercuService } from '../apercu/apercu.service.js';
 import {
@@ -14,6 +14,7 @@ import {
   volumesPartages,
 } from '../apercu/apercu.js';
 import { CONFIG, type Config } from '../config.js';
+import { isolerGit } from '../apercu/git-isole.js';
 
 export interface Demo {
   etat: 'arrete' | 'demarrage' | 'pret' | 'erreur';
@@ -72,9 +73,12 @@ export class DemoService {
     if (!existsSync(join(depot, '.git'))) {
       await mkdir(this.dossier(projet), { recursive: true });
       const url = this.apercu.urlDepot(projet);
-      await this.apercu.executer('git', ['clone', '--quiet', '--branch', 'main', url, depot], { env });
+      const dossierGit = join(this.dossier(projet), 'git');
+      await rm(dossierGit, { recursive: true, force: true }); // reste d'un clone interrompu
+      await this.apercu.executer('git', ['clone', '--quiet', '--branch', 'main', '--separate-git-dir', dossierGit, url, depot], { env });
       return depot;
     }
+    await isolerGit(depot);
     // Copie réservée à la démo, jamais modifiée à la main : on l'aligne sur main (données ignorées par git conservées).
     await git('fetch', '--quiet', 'origin', 'main');
     await git('checkout', '--quiet', '-B', 'main', 'origin/main');

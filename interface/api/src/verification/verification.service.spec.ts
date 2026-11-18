@@ -18,23 +18,28 @@ const runs = (conclusion: string | null, status = 'completed') => ({
 
 describe('VerificationService', () => {
   const gh = {
-    pulls: { get: vi.fn(), merge: vi.fn(), updateBranch: vi.fn() },
-    repos: { compareCommits: vi.fn() },
+    pulls: { get: vi.fn(), list: vi.fn(), merge: vi.fn(), updateBranch: vi.fn() },
+    repos: { compareCommits: vi.fn(), getBranch: vi.fn() },
     checks: { listForRef: vi.fn() },
     issues: { update: vi.fn(), get: vi.fn() },
   };
-  const agent = { activite: vi.fn(async (): Promise<{ pullRequest: string | null }> => ({ pullRequest: 'https://github.com/proprio/poc/pull/3' })) };
-  const stories = { retirerStatut: vi.fn(), signalerLivraisonAuParent: vi.fn() };
+  const agent = {
+  activite: vi.fn(async (): Promise<{ pullRequest: string | null; tete?: string | null }> => ({ pullRequest: 'https://github.com/proprio/poc/pull/3' })),
+  noterTete: vi.fn(async () => undefined),
+};
+  const stories = { retirerStatut: vi.fn(), signalerLivraisonAuParent: vi.fn(), detail: vi.fn(async () => ({ titre: 'Page d’accueil', type: 'story' })) };
   const apercu = { revenirSurMain: vi.fn(), relancerApplication: vi.fn() };
   const demo = { mettreAJour: vi.fn() };
   let service: VerificationService;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    agent.activite.mockResolvedValue({ pullRequest: 'https://github.com/proprio/poc/pull/3' });
     gh.issues.get.mockResolvedValue({ data: { state: 'open' } });
     gh.repos.compareCommits.mockResolvedValue({ data: { ahead_by: 0 } });
+    gh.repos.getBranch.mockResolvedValue({ data: { commit: { sha: 'nouveau' } } });
     gh.pulls.get.mockResolvedValue({
-      data: { number: 3, html_url: 'https://github.com/proprio/poc/pull/3', merged: false, state: 'open', mergeable: true, title: 'feat: Page d’accueil', head: { sha: 'abc' }, base: { ref: 'main' } },
+      data: { number: 3, html_url: 'https://github.com/proprio/poc/pull/3', merged: false, state: 'open', mergeable: true, title: 'feat: Page d’accueil', head: { sha: 'abc', ref: 'story/1-page-d-accueil' }, base: { ref: 'main' } },
     });
     service = new VerificationService(
       config,
@@ -56,6 +61,22 @@ describe('VerificationService', () => {
     expect(v.fusionnable).toBe(true);
   });
 
+  it('retrouve la pull request sur GitHub par sa branche quand l’activité locale a disparu', async () => {
+    agent.activite.mockResolvedValueOnce({ pullRequest: null });
+    gh.pulls.list.mockResolvedValue({ data: [{ number: 3 }] });
+    gh.checks.listForRef.mockResolvedValue(runs('success'));
+    const v = await service.verifier('jeton', 'poc', 1);
+    expect(gh.pulls.list).toHaveBeenCalledWith(expect.objectContaining({ owner: 'proprio', repo: 'poc', head: 'proprio:story/1-page-d-accueil', state: 'all' }));
+    expect(v.pullRequest?.numero).toBe(3);
+    expect(v.fusionnable).toBe(true);
+  });
+
+  it('sans pull request ni localement ni sur GitHub : le dit', async () => {
+    agent.activite.mockResolvedValueOnce({ pullRequest: null });
+    gh.pulls.list.mockResolvedValue({ data: [] });
+    expect(await service.verifier('jeton', 'poc', 1)).toMatchObject({ pullRequest: null, fusionnable: false, raison: 'Aucune pull request pour cette demande' });
+  });
+
   it('refuse de fusionner tant que des contrôles tournent', async () => {
     gh.checks.listForRef.mockResolvedValue(runs(null, 'in_progress'));
     await expect(service.fusionner('jeton', 'poc', 1)).rejects.toThrow(ConflictException);
@@ -72,7 +93,7 @@ describe('VerificationService', () => {
     gh.checks.listForRef.mockResolvedValue(runs('success'));
     await service.fusionner('jeton', 'poc', 1);
     expect(gh.pulls.merge).toHaveBeenCalledWith(
-      expect.objectContaining({ pull_number: 3, merge_method: 'squash', commit_title: 'feat: Page d’accueil (#3)', commit_message: 'Closes #1' }),
+      expect.objectContaining({ pull_number: 3, sha: 'abc', merge_method: 'squash', commit_title: 'feat: Page d’accueil (#3)', commit_message: 'Closes #1' }),
     );
     expect(gh.issues.update).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 1, state: 'closed' }));
     expect(stories.retirerStatut).toHaveBeenCalledWith('jeton', 'poc', 1);
@@ -112,6 +133,33 @@ describe('VerificationService', () => {
     expect(gh.pulls.merge).not.toHaveBeenCalled();
     expect(resultat.fusionnable).toBe(false);
     expect(resultat.raison).toMatch(/mise à jour et les contrôles sont relancés/);
+    expect(agent.noterTete).toHaveBeenCalledWith('poc', 1, 'nouveau'); // la mise à jour vient d'ADA : le nouveau bout est le sien
+  });
+
+  describe('la branche est exactement ce qu’ADA a poussé', () => {
+    const pullRequest = 'https://github.com/proprio/poc/pull/3';
+
+    it('refuse de fusionner si un commit a été ajouté à la branche en dehors d’ADA, même avec des contrôles verts', async () => {
+      agent.activite.mockResolvedValue({ pullRequest, tete: 'sha-poussé-par-ada' });
+      gh.checks.listForRef.mockResolvedValue(runs('success'));
+      const verification = await service.verifier('jeton', 'poc', 1);
+      expect(verification.fusionnable).toBe(false);
+      expect(verification.raison).toMatch(/en dehors d’ADA/);
+      await expect(service.fusionner('jeton', 'poc', 1)).rejects.toThrow(/en dehors d’ADA/);
+      expect(gh.pulls.merge).not.toHaveBeenCalled();
+    });
+
+    it('autorise la fusion quand la branche est au commit poussé par ADA', async () => {
+      agent.activite.mockResolvedValue({ pullRequest, tete: 'abc' });
+      gh.checks.listForRef.mockResolvedValue(runs('success'));
+      expect((await service.verifier('jeton', 'poc', 1)).fusionnable).toBe(true);
+    });
+
+    it('ne compare rien quand ADA n’a pas noté de commit (demande d’avant ce changement)', async () => {
+      agent.activite.mockResolvedValue({ pullRequest, tete: null });
+      gh.checks.listForRef.mockResolvedValue(runs('success'));
+      expect((await service.verifier('jeton', 'poc', 1)).fusionnable).toBe(true);
+    });
   });
 
   it('considère la fusion faite même si l’aperçu ne peut pas être remis à jour', async () => {

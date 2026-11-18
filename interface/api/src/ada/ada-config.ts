@@ -23,6 +23,16 @@ export const TYPES_PROJET = [
 ] as const;
 export type TypeProjet = (typeof TYPES_PROJET)[number];
 
+/**
+ * `ada.json` vient du dépôt du PO, que l'agent (ou un dépôt repris) peut modifier : ses valeurs
+ * finissent dans `compose.yml` et dans des scripts shell. Les champs qui y entrent comme
+ * structure (image, dossiers) sont donc limités à une forme sûre : aucune espace ni retour à la
+ * ligne, aucun « .. », aucun chemin absolu.
+ */
+const IMAGE = /^[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)*(:[A-Za-z0-9][A-Za-z0-9._-]{0,127})?$/;
+const DOSSIER = /^(\.|(\.\/)?[A-Za-z0-9_][A-Za-z0-9._-]*(\/[A-Za-z0-9_][A-Za-z0-9._-]*)*)$/;
+const dossier = z.string().max(200).regex(DOSSIER, 'un dossier du projet (api, front, . …), sans « .. » ni chemin absolu');
+
 const schema = z.object({
   type: z.enum(TYPES_PROJET),
   /** Fichiers contenant les marqueurs __NOM_PROJET__, __BASELINE__… à remplacer à la création. */
@@ -39,16 +49,16 @@ const schema = z.object({
   /** Modèle déployable : dossier du chart Helm, ajouté au projet seulement si le PO le demande. */
   deploiement: z.object({ chart: z.string().min(1) }).nullable().default(null),
   apercu: z.object({
-    image: z.string().default('node:24-bookworm'),
+    image: z.string().max(200).regex(IMAGE, 'une image Docker (nom:version), sans espace ni retour à la ligne').default('node:24-bookworm'),
     /** Base de données de l'aperçu : PostgreSQL, ou aucune. */
     base: z.enum(['postgres']).nullable().default(null),
     /** Dossiers où lancer « npm install » (avec nouvelles tentatives), « . » pour la racine. */
-    npm: z.array(z.string()).default([]),
+    npm: z.array(dossier).default([]),
     /**
      * Dossiers contenant un requirements.txt (Python) : installés dans un environnement virtuel
      * (/opt/venv, conservé dans un volume), avec nouvelles tentatives.
      */
-    pip: z.array(z.string()).default([]),
+    pip: z.array(dossier).default([]),
     /** Commandes préalables (migrations, pip install…). */
     avant: z.array(z.string()).default([]),
     /** Commandes lancées en arrière-plan (ex. l'API). */

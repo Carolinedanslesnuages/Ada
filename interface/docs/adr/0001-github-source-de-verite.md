@@ -1,6 +1,6 @@
 # ADR-0001 — GitHub comme source de vérité des stories
 
-- **Statut** : Accepted
+- **Statut** : Accepted — remplacé en partie par l'[ADR-0011](0011-etat-des-demandes-dans-ada.md) (la conversation et le statut vivent dans ADA)
 - **Date** : 2026-11-16
 - **Décideurs** : équipe ADA
 - **Sujet** : où vivent les stories et leur statut

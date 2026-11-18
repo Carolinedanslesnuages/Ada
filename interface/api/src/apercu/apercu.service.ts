@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { execFile } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -16,6 +16,8 @@ import {
   type EtatApercu,
 } from './apercu.js';
 import { lireIdentifiant } from '../projets/depot.js';
+import { verrouVivant } from '../agent/verrou.js';
+import { environnementGitIsole, isolerGit } from './git-isole.js';
 
 export interface Apercu {
   etat: EtatApercu;
@@ -31,8 +33,15 @@ export type Executer = (
 ) => Promise<{ stdout: string }>;
 
 const execFileAsync = promisify(execFile);
-const executerParDefaut: Executer = (commande, args, options) =>
-  execFileAsync(commande, args, { ...options, maxBuffer: 10 * 1024 * 1024 });
+/**
+ * git lancé sur le dépôt d'un aperçu (`git -C <dépôt> …`) : son dossier git est désigné
+ * explicitement, hors du dossier monté dans le conteneur (voir git-isole.ts).
+ */
+export const executerParDefaut: Executer = (commande, args, options) => {
+  const depot = commande === 'git' && args[0] === '-C' ? args[1] : undefined;
+  const env = depot ? environnementGitIsole(options?.env ?? process.env, depot) : options?.env;
+  return execFileAsync(commande, args, { ...options, ...(env ? { env } : {}), maxBuffer: 10 * 1024 * 1024 });
+};
 
 /** Un aperçu sans usage depuis ce délai est mis en veille : le Mac ne fait plus tourner tous les projets. */
 export const DELAI_VEILLE_MS = 30 * 60 * 1000;
@@ -79,16 +88,15 @@ export class ApercuService implements OnModuleInit, OnModuleDestroy {
     this.utilisations.set(projet, Date.now());
   }
 
-  /** Un agent travaille dans ce projet (son verrou existe et son processus vit) : on n'y touche pas. */
+  /** Un agent travaille dans ce projet (son verrou existe, son processus vit et bat encore) : on n'y touche pas. */
   private agentActif(projet: string): boolean {
-    try {
-      const { pid } = JSON.parse(readFileSync(join(this.racine, projet, 'agent', 'verrou.json'), 'utf8')) as { pid?: number };
-      if (!pid) return false;
-      process.kill(pid, 0);
-      return true;
-    } catch {
-      return false;
-    }
+    return verrouVivant(join(this.racine, projet, 'agent', 'verrou.json')) !== null;
+  }
+
+  /** Projets où un agent travaille en ce moment : sert à plafonner le nombre d'agents sur la machine. */
+  async projetsAvecAgent(): Promise<string[]> {
+    const dossiers = await readdir(this.racine).catch(() => [] as string[]);
+    return dossiers.filter((projet) => this.agentActif(projet));
   }
 
   /**
@@ -201,6 +209,7 @@ export class ApercuService implements OnModuleInit, OnModuleDestroy {
     await mkdir(join(this.racine, projet), { recursive: true });
     const env = this.environnementGit(jeton);
     if (existsSync(join(depot, '.git'))) {
+      await isolerGit(depot);
       await this.executer('git', ['-C', depot, 'fetch', '--quiet', 'origin'], { env });
       const { stdout } = await this.executer('git', ['-C', depot, 'rev-parse', '--abbrev-ref', 'HEAD']);
       if (stdout.trim() === 'main') {
@@ -208,7 +217,10 @@ export class ApercuService implements OnModuleInit, OnModuleDestroy {
       }
     } else {
       const url = this.urlDepot(projet);
-      await this.executer('git', ['clone', '--quiet', url, depot], { env });
+      // Dossier git rangé à côté du dépôt, hors du dossier monté dans le conteneur (voir git-isole.ts).
+      const dossierGit = join(this.racine, projet, 'git');
+      await rm(dossierGit, { recursive: true, force: true }); // reste d'un clone interrompu
+      await this.executer('git', ['clone', '--quiet', '--separate-git-dir', dossierGit, url, depot], { env });
     }
     return depot;
   }

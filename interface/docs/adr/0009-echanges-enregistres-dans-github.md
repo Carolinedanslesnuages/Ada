@@ -1,6 +1,6 @@
 # ADR-0009 — Les échanges avec l'assistant sont enregistrés dans GitHub
 
-- **Statut** : Accepted
+- **Statut** : Accepted — remplacé en partie par l'[ADR-0011](0011-etat-des-demandes-dans-ada.md) (la conversation et le statut vivent dans ADA)
 - **Date** : 2026-11-16
 - **Décideurs** : responsable d'ADA
 - **Sujet** : où garder les prompts du mode libre, les questions de l'assistant, les réponses du
