@@ -2,19 +2,17 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import FilStory from '@/components/FilStory.vue'
 import FormulairePrompt from '@/components/FormulairePrompt.vue'
-import FormulaireConversation from '@/components/FormulaireConversation.vue'
+import AccueilProjet from '@/components/AccueilProjet.vue'
+import BarreLaterale from '@/components/BarreLaterale.vue'
 import FormulaireProjet from '@/components/FormulaireProjet.vue'
-import ListeStories from '@/components/ListeStories.vue'
 import AssignationDeveloppeur from '@/components/AssignationDeveloppeur.vue'
-import StoriesLivrees from '@/components/StoriesLivrees.vue'
 import PanneauApercu from '@/components/PanneauApercu.vue'
-import PanneauVersions from '@/components/PanneauVersions.vue'
 import ResultatProjet from '@/components/ResultatProjet.vue'
 import RepriseProjet from '@/components/RepriseProjet.vue'
 import RepriseEnAttente from '@/components/RepriseEnAttente.vue'
 import AnnulerReprise from '@/components/AnnulerReprise.vue'
 import type { ErreursProjet, NouveauProjet, ResultatCreation } from '@/lib/projet'
-import { lienNouvelleIssue, STATUTS_ACTIFS, type StoryProposee } from '@/lib/story'
+import { STATUTS_ACTIFS, type StoryProposee } from '@/lib/story'
 import { useProjetsStore } from '@/stores/projets'
 import { useStoriesStore } from '@/stores/stories'
 
@@ -103,13 +101,6 @@ async function repriseFusionnee(): Promise<void> {
   if (projets.idCourant) await stories.charger(projets.idCourant)
 }
 
-const options = computed(() =>
-  projets.liste.map((p) => ({
-    value: p.id,
-    text: [p.nom, p.compte === 'personnel' ? '(votre compte)' : '', p.reprise ? '— reprise à valider' : ''].filter(Boolean).join(' '),
-  })),
-)
-
 watch(
   () => projets.idCourant,
   (nom) => {
@@ -143,14 +134,12 @@ async function repriseAnnulee(): Promise<void> {
 /** Masquer le projet ouvert (ex. avant de partager son écran) : il reste dans le sélecteur. */
 function masquerProjet(): void {
   modePrompt.value = false
-  modeConversation.value = false
   stories.fermer()
   projets.fermer()
 }
 
 async function ouvrir(numero: number): Promise<void> {
   modePrompt.value = false
-  modeConversation.value = false
   if (projets.idCourant) await stories.ouvrir(projets.idCourant, numero)
 }
 
@@ -170,15 +159,32 @@ const autreEnCours = computed(() =>
 
 const actionEnCours = ref(false)
 
-/** Liste OU demande : une demande, une conversation ou un formulaire ouvert prend toute la colonne. */
-const vueDetail = computed(() => modePrompt.value || modeConversation.value || Boolean(stories.courante))
-
-async function retourListe(): Promise<void> {
+/** « Nouvelle conversation » : retour à l'accueil du projet, la zone de message prête à écrire. */
+async function accueil(): Promise<void> {
   modePrompt.value = false
-  modeConversation.value = false
   stories.fermer()
   await nextTick()
-  document.getElementById('titre-stories')?.focus()
+  document.getElementById('message-accueil')?.focus()
+}
+
+/** Aperçu en panneau, qu'on ouvre ou ferme ; le choix est gardé sur l'appareil. */
+const CLE_APERCU = 'ada:apercu-ferme'
+function lireApercuFerme(): boolean {
+  try {
+    return localStorage.getItem(CLE_APERCU) === 'oui'
+  } catch {
+    return false
+  }
+}
+const apercuOuvert = ref(!lireApercuFerme())
+function basculerApercu(): void {
+  apercuOuvert.value = !apercuOuvert.value
+  try {
+    if (apercuOuvert.value) localStorage.removeItem(CLE_APERCU)
+    else localStorage.setItem(CLE_APERCU, 'oui')
+  } catch {
+    // stockage indisponible : le choix vaut pour cette visite
+  }
 }
 
 /** Mode sauvage : formulaire « Prompter » à la place du détail d'une demande. */
@@ -188,27 +194,18 @@ const erreurPrompt = ref<string | null>(null)
 function ouvrirPrompt(): void {
   stories.fermer()
   erreurPrompt.value = null
-  modeConversation.value = false
   modePrompt.value = true
 }
 
-/** Conversation (« vrai prompt ») : formulaire du premier message à la place du détail. */
-const modeConversation = ref(false)
+/** Conversation (« vrai prompt ») : le message écrit à l'accueil l'ouvre directement. */
 const erreurConversation = ref<string | null>(null)
-
-function ouvrirConversation(): void {
-  stories.fermer()
-  erreurConversation.value = null
-  modePrompt.value = false
-  modeConversation.value = true
-}
 
 async function demarrerConversation(texte: string): Promise<void> {
   if (!projets.idCourant) return
   actionEnCours.value = true
+  erreurConversation.value = null
   try {
     erreurConversation.value = await stories.ouvrirConversation(projets.idCourant, texte)
-    if (!erreurConversation.value) modeConversation.value = false
   } finally {
     actionEnCours.value = false
   }
@@ -315,160 +312,89 @@ onUnmounted(() => {
     </div>
   </div>
 
-  <div v-else class="atelier">
-    <section class="atelier__panneau atelier__gauche" aria-label="Projet et stories">
-      <!-- Liste OU demande : une demande ouverte prend toute la colonne ; on revient à la liste d'un clic. -->
-      <div v-if="vueDetail" class="retour-liste">
-        <DsfrButton tertiary size="sm" icon="fr-icon-arrow-left-line" label="Toutes les demandes" @click="retourListe" />
-        <span v-if="projets.courant" class="fr-text--sm fr-mb-0">Projet : <strong>{{ projets.courant.nom }}</strong></span>
+  <div v-else class="atelier" :class="{ 'atelier--sans-apercu': !apercuOuvert }">
+    <BarreLaterale
+      class="atelier__colonne atelier__barre"
+      @accueil="accueil"
+      @choisir="choisirProjet"
+      @ouvrir="ouvrir"
+      @actualiser="actualiser"
+      @nouveau-projet="nouveauProjet"
+      @reprendre-projet="reprendreProjet"
+      @masquer-projet="masquerProjet"
+    />
+
+    <section class="atelier__colonne atelier__centre" aria-label="Demande en cours">
+      <div class="atelier__haut">
+        <DsfrButton
+          tertiary
+          no-outline
+          size="sm"
+          :icon="apercuOuvert ? 'fr-icon-layout-column-line' : 'fr-icon-eye-line'"
+          :label="apercuOuvert ? 'Masquer l’aperçu' : 'Afficher l’aperçu'"
+          :aria-expanded="apercuOuvert ? 'true' : 'false'"
+          aria-controls="panneau-apercu"
+          @click="basculerApercu"
+        />
       </div>
-      <template v-if="!vueDetail">
-      <DsfrSelect
-        :model-value="projets.idCourant ?? undefined"
-        label="Projet"
-        :options="options"
-        default-unselected-text="Choisissez un projet"
-        @update:model-value="choisirProjet"
-      />
-      <!-- Groupe de boutons DSFR : alignés et espacés de la même façon, retour à la ligne propre
-           quand le panneau est étroit. -->
-      <ul class="fr-btns-group fr-btns-group--inline fr-btns-group--sm fr-btns-group--icon-left actions-projet">
-        <li v-if="projets.idCourant">
-          <DsfrButton tertiary icon="fr-icon-eye-off-line" label="Masquer le projet" @click="masquerProjet" />
-        </li>
-        <li><DsfrButton tertiary icon="fr-icon-add-line" label="Nouveau projet" @click="nouveauProjet" /></li>
-        <li><DsfrButton tertiary icon="fr-icon-download-line" label="Reprendre un projet" @click="reprendreProjet" /></li>
-      </ul>
 
       <AnnulerReprise v-if="projets.courant && (projets.courant.reprise || projets.courant.repris)" :key="projets.courant.id" :projet="projets.courant" @fait="repriseAnnulee" />
-      </template>
-      <p v-if="!projets.idCourant" class="fr-text--sm">Choisissez un projet dans la liste pour l’ouvrir.</p>
-      <template v-else>
-      <template v-if="!vueDetail">
       <RepriseEnAttente v-if="projets.courant?.reprise" :projet="projets.courant.id" @fusionnee="repriseFusionnee" />
-      <PanneauVersions v-else-if="projets.idCourant" :projet="projets.idCourant" />
 
-      <div class="fr-grid-row fr-grid-row--middle fr-grid-row--gutters">
-        <h2 id="titre-stories" class="fr-h5 fr-col fr-mb-0" tabindex="-1">Stories</h2>
-        <div class="fr-col-auto">
-          <DsfrButton size="sm" tertiary icon="fr-icon-refresh-line" label="Actualiser" @click="actualiser" />
-        </div>
-      </div>
-
-      <ul v-if="projets.courant" class="fr-btns-group fr-btns-group--inline fr-btns-group--sm fr-btns-group--icon-left">
-        <li>
-          <a
-            class="fr-btn fr-btn--sm fr-icon-edit-line"
-            :href="lienNouvelleIssue(projets.courant.url, 'user-story.yml')"
-            target="_blank"
-            rel="noopener"
-          >
-            Écrire une story sur GitHub<span class="fr-sr-only"> (nouvelle fenêtre)</span>
-          </a>
-        </li>
-        <li>
-          <a
-            class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-error-warning-line"
-            :href="lienNouvelleIssue(projets.courant.url, 'bug.yml')"
-            target="_blank"
-            rel="noopener"
-          >
-            Signaler un problème sur GitHub<span class="fr-sr-only"> (nouvelle fenêtre)</span>
-          </a>
-        </li>
-        <li>
-          <DsfrButton
-            size="sm"
-            secondary
-            icon="fr-icon-discuss-line"
-            label="Discuter avec ADA"
-            :disabled="Boolean(stories.active)"
-            :title="stories.active ? 'Une demande est déjà en cours : une seule à la fois' : 'Parlez librement à ADA : elle agit tout de suite'"
-            @click="ouvrirConversation"
-          />
-        </li>
-        <li>
-          <DsfrButton
-            size="sm"
-            tertiary
-            icon="fr-icon-chat-3-line"
-            label="Prompter"
-            :disabled="Boolean(stories.active)"
-            :title="stories.active ? 'Une demande est déjà en cours : une seule à la fois' : 'Mode libre : un petit changement sans story'"
-            @click="ouvrirPrompt"
-          />
-        </li>
-      </ul>
-
-      <p v-if="stories.chargement">Chargement des stories…</p>
-      <DsfrAlert v-else-if="stories.erreur" type="error" small :description="stories.erreur" />
+      <p v-if="!projets.idCourant" class="atelier__vide">Choisissez un projet dans la barre de gauche.</p>
       <template v-else>
-        <p v-if="stories.aFaire.length === 0" class="fr-text--sm">
-          Aucune story pour l’instant. Écrivez-la sur GitHub, puis revenez ici : elle apparaîtra
-          dans la liste.
-        </p>
-        <ListeStories
-          v-else
+        <FormulairePrompt
+          v-if="modePrompt"
+          :envoi-en-cours="actionEnCours"
+          :erreur-serveur="erreurPrompt"
+          @soumettre="prompter"
+          @annuler="modePrompt = false"
+        />
+        <FilStory
+          v-else-if="stories.courante"
+          :story="stories.courante"
+          :autre-en-cours="autreEnCours"
+          :erreur-lancement="stories.erreurLancement"
+          :lancement-en-cours="lancementEnCours"
+          :activite="stories.activite"
+          :verification="stories.verification"
+          :action-en-cours="actionEnCours"
+          @lancer="lancer"
+          @valider="valider"
+          @relancer="relancer"
+          @fusionner="fusionner"
+          @relancer-controles="relancerControles"
+          @repondre="repondre"
+          @creer-decoupage="creerDecoupage"
+          @envoyer-message="envoyerMessage"
+          @terminer-conversation="terminerConversation"
+          @arreter-conversation="arreterConversation"
+          @ouvrir="ouvrir"
+        />
+        <AccueilProjet
+          v-else-if="projets.courant && !projets.courant.reprise"
+          :nom-projet="projets.courant.nom"
           :stories="stories.aFaire"
-          :numero-courant="stories.courante?.numero ?? null"
+          :active="stories.active"
+          :envoi-en-cours="actionEnCours"
+          :erreur-serveur="erreurConversation"
+          @conversation="demarrerConversation"
           @ouvrir="ouvrir"
+          @guidee="ouvrirPrompt"
         />
-        <StoriesLivrees
-          v-if="stories.livrees.length > 0 && projets.courant"
-          :stories="stories.livrees"
-          :url-depot="projets.courant.url"
-          :numero-courant="stories.courante?.numero ?? null"
-          @ouvrir="ouvrir"
+        <AssignationDeveloppeur
+          v-if="!modePrompt && stories.courante && projets.idCourant"
+          :projet="projets.idCourant"
+          :story="stories.courante"
         />
-      </template>
-      </template>
-
-      <FormulaireConversation
-        v-if="modeConversation"
-        :envoi-en-cours="actionEnCours"
-        :erreur-serveur="erreurConversation"
-        @soumettre="demarrerConversation"
-        @annuler="modeConversation = false"
-      />
-      <FormulairePrompt
-        v-else-if="modePrompt"
-        :envoi-en-cours="actionEnCours"
-        :erreur-serveur="erreurPrompt"
-        @soumettre="prompter"
-        @annuler="modePrompt = false"
-      />
-      <FilStory
-        v-else-if="stories.courante"
-        :story="stories.courante"
-        :autre-en-cours="autreEnCours"
-        :erreur-lancement="stories.erreurLancement"
-        :lancement-en-cours="lancementEnCours"
-        :activite="stories.activite"
-        :verification="stories.verification"
-        :action-en-cours="actionEnCours"
-        @lancer="lancer"
-        @valider="valider"
-        @relancer="relancer"
-        @fusionner="fusionner"
-        @relancer-controles="relancerControles"
-        @repondre="repondre"
-        @creer-decoupage="creerDecoupage"
-        @envoyer-message="envoyerMessage"
-        @terminer-conversation="terminerConversation"
-        @arreter-conversation="arreterConversation"
-        @ouvrir="ouvrir"
-      />
-      <AssignationDeveloppeur
-        v-if="!modePrompt && !modeConversation && stories.courante && projets.idCourant"
-        :projet="projets.idCourant"
-        :story="stories.courante"
-      />
-      <DsfrAlert v-if="stories.erreurAction" type="error" small :description="stories.erreurAction" />
+        <DsfrAlert v-if="stories.erreurAction" type="error" small :description="stories.erreurAction" />
       </template>
     </section>
 
     <PanneauApercu
-      class="atelier__apercu"
+      v-if="apercuOuvert"
+      id="panneau-apercu"
+      class="atelier__colonne atelier__apercu"
       :projet="projets.idCourant"
       :en-attente="projets.courant?.reprise ? 'L’aperçu démarrera une fois la reprise validée : ADA saura alors comment lancer le projet.' : null"
     />

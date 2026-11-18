@@ -1,65 +1,62 @@
-/* Mise en page « atelier » : conversation à gauche, aperçu à droite. */
+/* Mise en page « atelier », façon Claude : barre latérale, demande au centre, aperçu en panneau. */
 .atelier {
   display: grid;
-  /* Conversation : un tiers plus étroite qu’au départ (40 % → 27 %), l’aperçu gagne la place. */
-  grid-template-columns: minmax(20rem, 4fr) 11fr;
+  grid-template-columns: 17rem minmax(0, 1fr) minmax(0, 1.15fr);
   gap: 1.5rem;
-  min-height: calc(100vh - 14rem);
+}
+
+.atelier--sans-apercu {
+  grid-template-columns: 17rem minmax(0, 1fr);
 }
 
 @media (max-width: 62em) {
-  .atelier {
+  .atelier,
+  .atelier--sans-apercu {
     grid-template-columns: 1fr;
   }
 }
 
-.actions-projet {
-  margin-top: -1rem;
-}
-
-.atelier__panneau {
+.atelier__colonne {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   min-width: 0;
 }
 
-/* Retour à la liste, au-dessus d'une demande ouverte. */
-.retour-liste {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-}
-
-/* Grand écran : la colonne de gauche défile seule, à la hauteur de la fenêtre, comme l'aperçu :
-   la page ne s'allonge plus avec la conversation. */
+/* Grand écran : chaque colonne garde la hauteur de la fenêtre et défile seule ; la page ne
+   s'allonge plus avec la conversation. */
 @media (min-width: 62em) {
-  .atelier__gauche {
+  .atelier__colonne {
     position: sticky;
     top: 1rem;
     align-self: start;
     height: calc(100vh - 2rem);
     overflow-y: auto;
     /* De quoi garder visibles les contours de focus au bord de la zone qui défile. */
-    padding: 0.25rem 0.75rem 0 0.25rem;
+    padding: 0.25rem;
   }
-}
 
-/* Grand écran : l'aperçu reste à la hauteur de la fenêtre et suit le défilement de la conversation,
-   au lieu de s'étirer avec elle (une longue conversation ferait sinon une page immense). */
-@media (min-width: 62em) {
-  .atelier__apercu {
-    position: sticky;
-    top: 1rem;
-    align-self: start;
-    height: calc(100vh - 2rem);
+  .atelier__barre {
+    border-right: 1px solid var(--border-default-grey);
+    padding-right: 1rem;
   }
+
   /* Le cadre prend la place restante sous les boutons, sans déborder du panneau. */
   .atelier__apercu .apercu--cadre,
   .atelier__apercu .apercu {
     min-height: 0;
   }
+}
+
+.atelier__haut {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -0.5rem;
+}
+
+.atelier__vide {
+  margin: 20vh auto 0;
+  color: var(--text-mention-grey);
 }
 
 .liste-stories {

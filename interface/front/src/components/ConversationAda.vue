@@ -33,6 +33,14 @@ const erreur = ref('')
 const confirmerArret = ref(false)
 const date = (iso: string) => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 
+/** Entrée envoie, Maj+Entrée va à la ligne : comme dans les messageries. */
+function touche(evenement: KeyboardEvent): void {
+  if (evenement.key === 'Enter' && !evenement.shiftKey && !evenement.isComposing) {
+    evenement.preventDefault()
+    envoyer()
+  }
+}
+
 function envoyer(): void {
   const propre = texte.value.trim()
   if (!propre) {
@@ -50,7 +58,7 @@ function envoyer(): void {
 </script>
 
 <template>
-  <section class="fr-mb-3w" aria-labelledby="titre-conversation">
+  <section class="fr-mb-1w" aria-labelledby="titre-conversation">
     <h3 id="titre-conversation" class="fr-h6 fr-mb-1w">Conversation avec ADA</h3>
     <ol ref="liste" class="fil conversation">
       <li v-for="message in echanges" :key="message.id" :class="{ fil__assistant: message.assistant, conversation__po: !message.assistant }">
@@ -61,46 +69,44 @@ function envoyer(): void {
       </li>
     </ol>
 
-    <div v-if="attendReponse" class="fr-callout fr-mt-2w a-vous zone-message">
-      <form novalidate @submit.prevent="envoyer">
-        <DsfrInputGroup v-model="texte" label="Votre message à ADA" label-visible is-textarea :error-message="erreur" />
-        <p id="message-enregistrement" class="fr-text--sm fr-mb-2w">
-          <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
-          Votre message est enregistré sur GitHub, dans la conversation n° {{ story.numero }}, à votre nom.
-        </p>
-        <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
-          <li>
-            <DsfrButton type="submit" icon="fr-icon-send-plane-line" label="Envoyer" aria-describedby="message-enregistrement" :disabled="actionEnCours" />
-          </li>
-        </ul>
+    <div v-if="attendReponse" class="zone-message">
+      <form novalidate class="saisie" @submit.prevent="envoyer">
+        <label class="fr-sr-only" for="message-conversation">Votre message à ADA</label>
+        <textarea
+          id="message-conversation"
+          v-model="texte"
+          class="saisie__texte"
+          rows="2"
+          placeholder="Répondez à ADA, demandez un autre changement…"
+          :aria-describedby="erreur ? 'erreur-conversation message-enregistrement' : 'message-enregistrement'"
+          :aria-invalid="erreur ? 'true' : undefined"
+          @keydown="touche"
+        />
+        <div class="saisie__bas">
+          <p id="message-enregistrement" class="fr-text--xs fr-mb-0">Enregistré sur GitHub, à votre nom.</p>
+          <DsfrButton type="submit" icon="fr-icon-send-plane-fill" icon-only label="Envoyer" :disabled="actionEnCours" />
+        </div>
       </form>
+      <p v-if="erreur" id="erreur-conversation" class="fr-error-text fr-mt-1w" role="alert">{{ erreur }}</p>
 
-      <h4 class="fr-h6 fr-mt-2w fr-mb-1w">Vous avez terminé ?</h4>
-      <p id="terminer-explication" class="fr-text--sm fr-mb-2w">
-        « C’est bon » : ADA propose ses changements au projet. Ils passent les contrôles, puis vous
-        les vérifiez et les ajoutez, comme une story. Sans aucun changement, la conversation se ferme.
-      </p>
-      <ul v-if="!confirmerArret" class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
-        <li>
-          <DsfrButton
-            secondary
-            icon="fr-icon-check-line"
-            label="C’est bon : proposer ces changements"
-            aria-describedby="terminer-explication"
-            :disabled="actionEnCours"
-            @click="emit('terminer')"
-          />
-        </li>
-        <li><DsfrButton tertiary label="Arrêter la conversation" :disabled="actionEnCours" @click="confirmerArret = true" /></li>
-      </ul>
-      <div v-else role="group" aria-labelledby="arret-question">
-        <p id="arret-question" class="fr-text--sm fr-mb-2w">
-          <strong>Arrêter la conversation ?</strong> Rien de ce qu’ADA a fait ne sera ajouté au projet.
+      <div v-if="!confirmerArret" class="conclure">
+        <DsfrButton
+          size="sm"
+          secondary
+          icon="fr-icon-check-line"
+          label="C’est bon : proposer ces changements"
+          title="ADA propose ses changements au projet : ils passent les contrôles, puis vous les ajoutez"
+          :disabled="actionEnCours"
+          @click="emit('terminer')"
+        />
+        <DsfrButton size="sm" tertiary no-outline label="Arrêter la conversation" :disabled="actionEnCours" @click="confirmerArret = true" />
+      </div>
+      <div v-else class="conclure" role="group" aria-labelledby="arret-question">
+        <p id="arret-question" class="fr-text--sm fr-mb-0">
+          <strong>Arrêter ?</strong> Rien de ce qu’ADA a fait ne sera ajouté au projet.
         </p>
-        <ul class="fr-btns-group fr-btns-group--inline-md">
-          <li><DsfrButton label="Oui, arrêter" :disabled="actionEnCours" @click="emit('arreter')" /></li>
-          <li><DsfrButton secondary label="Non, continuer" @click="confirmerArret = false" /></li>
-        </ul>
+        <DsfrButton size="sm" label="Oui, arrêter" :disabled="actionEnCours" @click="emit('arreter')" />
+        <DsfrButton size="sm" secondary label="Non, continuer" @click="confirmerArret = false" />
       </div>
     </div>
   </section>
@@ -116,6 +122,43 @@ function envoyer(): void {
   position: sticky;
   bottom: 0;
   z-index: 1;
-  box-shadow: 0 -4px 8px rgb(0 0 18 / 8%);
+  padding: 0.75rem 0 0.5rem;
+  background: var(--background-default-grey);
+}
+
+.saisie {
+  border: 1px solid var(--border-default-grey);
+  border-radius: 1rem;
+  padding: 0.5rem 0.5rem 0.375rem 0.875rem;
+  background: var(--background-default-grey);
+  box-shadow: 0 2px 8px rgb(0 0 18 / 8%);
+}
+
+.saisie:focus-within {
+  outline: 2px solid #0a76f6;
+  outline-offset: 2px;
+}
+
+.saisie__texte {
+  width: 100%;
+  border: 0;
+  resize: vertical;
+  background: transparent;
+  font: inherit;
+  outline: none;
+}
+
+.saisie__bas,
+.conclure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.conclure {
+  justify-content: flex-start;
+  margin-top: 0.5rem;
 }
 </style>
