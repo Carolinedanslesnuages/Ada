@@ -59,6 +59,15 @@ const blocage = computed(() => {
 })
 
 const messages = computed(() => props.story.messages.map((m) => ({ id: m.id, le: m.le, ...presenterMessage(m) })))
+
+/** Commentaires écrits directement sur GitHub : ADA ne les lit pas, le PO doit répondre ici. */
+const avisCommentairesIgnores = computed(() => {
+  const nombre = props.story.commentairesIgnores ?? 0
+  if (!nombre) return null
+  return nombre === 1
+    ? 'Un commentaire a été écrit directement sur GitHub. ADA ne le lit pas : si vous voulez qu’elle en tienne compte, recopiez-le ici.'
+    : `${nombre} commentaires ont été écrits directement sur GitHub. ADA ne les lit pas : si vous voulez qu’elle en tienne compte, recopiez-les ici.`
+})
 const travaille = computed(() => props.activite?.enCours === true)
 
 /** Empreinte carbone estimée de la demande : relue à l'ouverture, et quand ADA a fini un travail. */
@@ -161,6 +170,7 @@ function envoyer(): void {
         Voir sur GitHub<span class="fr-sr-only"> (nouvelle fenêtre)</span>
       </a>
     </p>
+    <DsfrAlert v-if="avisCommentairesIgnores" type="info" small class="fr-mb-2w" :description="avisCommentairesIgnores" />
 
     <!-- 1. Le dernier message de l'assistant, en entier, d'abord : c'est lui qui explique ce qu'on attend du PO. -->
     <ConversationAda

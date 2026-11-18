@@ -75,10 +75,10 @@ export class StoriesController {
 
   /** Lance la demande, puis l'assistant commence son analyse (questions ou plan). */
   @Post(':numero/lancer')
-  async lancer(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
+  async lancer(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number, @Body('empreinte') empreinte: unknown) {
     await this.agent.verifierLancable(req.session.jeton!, depot);
     await this.reprise.verifierRepriseTerminee(req.session.jeton!, depot);
-    const lancee = await this.stories.lancer(req.session.jeton!, depot, numero, req.session.utilisateur!.login);
+    const lancee = await this.stories.lancer(req.session.jeton!, depot, numero, req.session.utilisateur!.login, empreinte);
     await this.agent.analyser(req.session.jeton!, depot, numero, req.session.utilisateur!.login);
     return lancee;
   }
