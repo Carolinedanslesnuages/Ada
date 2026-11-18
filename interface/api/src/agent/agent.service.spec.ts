@@ -46,7 +46,7 @@ const projets = {
 describe('AgentService', () => {
   let racine: string;
   let stories: Record<string, ReturnType<typeof vi.fn>>;
-  let apercu: { relancerApplication: ReturnType<typeof vi.fn>; lireConfig: ReturnType<typeof vi.fn>; cheminDepot: ReturnType<typeof vi.fn>; preparerDepot: ReturnType<typeof vi.fn>; executer: ReturnType<typeof vi.fn>; environnementGit: ReturnType<typeof vi.fn> };
+  let apercu: { noterUtilisation: ReturnType<typeof vi.fn>; estEnVeille: ReturnType<typeof vi.fn>; demarrer: ReturnType<typeof vi.fn>; relancerApplication: ReturnType<typeof vi.fn>; lireConfig: ReturnType<typeof vi.fn>; cheminDepot: ReturnType<typeof vi.fn>; preparerDepot: ReturnType<typeof vi.fn>; executer: ReturnType<typeof vi.fn>; environnementGit: ReturnType<typeof vi.fn> };
   let gh: { pulls: { create: ReturnType<typeof vi.fn> }; repos: { get: ReturnType<typeof vi.fn> } };
   let service: AgentService;
   let lancer: ReturnType<typeof vi.fn<LancerAgent>>;
@@ -84,6 +84,9 @@ describe('AgentService', () => {
       repondre: vi.fn(async () => ({})),
     };
     apercu = {
+      noterUtilisation: vi.fn(),
+      estEnVeille: vi.fn(() => false),
+      demarrer: vi.fn(async () => ({ etat: 'demarrage', url: null, journal: null })),
       relancerApplication: vi.fn(async () => {}),
       lireConfig: vi.fn(async () => (await import('../ada/ada-config.js')).ADA_PAR_DEFAUT),
       cheminDepot: vi.fn((projet: string) => join(racine, projet, 'depot')),
@@ -131,6 +134,15 @@ describe('AgentService', () => {
     await expect(service.conseillerStack('salle')).rejects.toThrow(/une phrase au moins/);
     sortie = [resultat('{"modele":"django","raison":"x"}')];
     await expect(service.conseillerStack('les agents réservent une salle de réunion')).rejects.toThrow(/choisissez-la vous-même/);
+  });
+
+  it('réveille l’aperçu mis en veille avant que l’agent y travaille', async () => {
+    apercu.estEnVeille = vi.fn(() => true);
+    sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
+    await service.analyser(JETON, 'poc', 1);
+    await service.derniereTache;
+    expect(apercu.demarrer).toHaveBeenCalledWith(JETON, 'poc');
+    expect(apercu.noterUtilisation).toHaveBeenCalledWith('poc');
   });
 
   it('refuse de lancer un agent sous l’ancien nom d’un projet renommé sur GitHub', async () => {

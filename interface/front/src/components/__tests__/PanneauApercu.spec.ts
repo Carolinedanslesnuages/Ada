@@ -64,6 +64,29 @@ describe('Panneau d’aperçu', () => {
     wrapper.unmount()
   })
 
+  it('donne signe de vie tant qu’il est affiché, et se relance s’il a été mis en veille', async () => {
+    vi.useFakeTimers()
+    try {
+      envoyer.mockResolvedValue({ etat: 'pret', url: 'http://localhost:5300', journal: null })
+      lire.mockResolvedValue({ etat: 'arrete', url: null, journal: null })
+      const lecturesApercu = () => lire.mock.calls.filter(([chemin]) => chemin === '/projets/poc/apercu').length
+      const demarrages = () => envoyer.mock.calls.filter(([chemin]) => chemin === '/projets/poc/apercu').length
+      const wrapper = mount(PanneauApercu, { props: { projet: 'poc', signeDeVieMs: 60_000 }, global: { plugins: [VueDsfr] } })
+      await flushPromises()
+      expect(demarrages()).toBe(1)
+      expect(lecturesApercu()).toBe(0)
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(lecturesApercu()).toBe(1)
+      expect(demarrages()).toBe(2)
+      wrapper.unmount()
+      const appels = lecturesApercu()
+      await vi.advanceTimersByTimeAsync(180_000)
+      expect(lecturesApercu()).toBe(appels)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('invite à choisir un projet quand aucun n’est sélectionné', () => {
     const wrapper = monter(null)
     expect(wrapper.text()).toContain('Choisissez un projet')
