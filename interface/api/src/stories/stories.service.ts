@@ -84,6 +84,8 @@ type Issue = {
   state: string;
   created_at: string;
   closed_at?: string | null;
+  /** « not_planned » : fermée sans être réalisée (doublon, abandon) — ce n'est pas une livraison. */
+  state_reason?: string | null;
   html_url: string;
   body?: string | null;
   pull_request?: unknown;
@@ -125,7 +127,8 @@ export class StoriesService {
 
   /**
    * Stories et problèmes écrits dans GitHub, du plus récent au plus ancien : issues portant le
-   * label, ou rédigées avec le formulaire même si le label manquait dans le dépôt.
+   * label, ou rédigées avec le formulaire même si le label manquait dans le dépôt. Une demande
+   * fermée sans être réalisée (doublon, abandon) n'apparaît pas : elle n'a pas été livrée.
    */
   async lister(jeton: string, depot: string): Promise<ResumeStory[]> {
     const gh = this.github.client(jeton);
@@ -136,7 +139,7 @@ export class StoriesService {
         per_page: 100,
       })) as Issue[];
       return issues
-        .filter((i) => !i.pull_request && typeDepuis(nomsLabels(i.labels), i.body ?? '') !== null)
+        .filter((i) => !i.pull_request && i.state_reason !== 'not_planned' && typeDepuis(nomsLabels(i.labels), i.body ?? '') !== null)
         .sort((a, b) => b.number - a.number)
         .map(resumer);
     } catch (e) {
