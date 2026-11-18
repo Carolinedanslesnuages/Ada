@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { describe, it, expect, vi } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
 import VueDsfr from '@gouvminint/vue-dsfr'
 import FilStory from '../FilStory.vue'
+import { api } from '@/services/api'
 import type { DetailStory } from '@/lib/story'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
 
@@ -35,7 +36,11 @@ const monter = () =>
 
 describe('Fil d’une story', () => {
   const monterAvec = (props: Record<string, unknown>) =>
-    mount(FilStory, { props: { story, ...props }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+    mount(FilStory, {
+      props: { story, ...props },
+      global: { plugins: [VueDsfr], stubs: { RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } } },
+      attachTo: document.body,
+    })
   const bouton = (wrapper: ReturnType<typeof monterAvec>, texte: string) =>
     wrapper.findAll('button').find((b) => b.text().includes(texte))
 
@@ -229,6 +234,19 @@ describe('Fil d’une story', () => {
     expect(wrapper.emitted('envoyerMessage')).toEqual([['plutôt en rouge']])
     await bouton(wrapper, 'C’est bon : proposer ces changements')!.trigger('click')
     expect(wrapper.emitted('terminerConversation')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('montre l’empreinte carbone estimée de la demande, avec son équivalent', async () => {
+    const lecture = vi.spyOn(api, 'lire').mockResolvedValue({
+      empreinte: { energieWh: { min: 12, max: 29 }, co2g: { min: 4.8, max: 11 }, tokensSortie: 1000, tokensEntree: 0 },
+      equivalents: { streamingHeureG: 64 },
+    })
+    const wrapper = monterAvec({ projet: 'gladys', story: { ...story, statut: 'en-cours' } })
+    await flushPromises()
+    expect(lecture).toHaveBeenCalledWith(`/projets/gladys/stories/${story.numero}/empreinte`)
+    expect(wrapper.find('[data-testid="empreinte-demande"]').text()).toContain('4,8 à 11 g CO2e, soit 4,5 à 10 min de streaming vidéo')
+    lecture.mockRestore()
     wrapper.unmount()
   })
 

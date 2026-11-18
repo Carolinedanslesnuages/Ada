@@ -4,6 +4,7 @@ import VueDsfr from '@gouvminint/vue-dsfr'
 import IndicateursView from '../IndicateursView.vue'
 import { api, ErreurApi } from '@/services/api'
 import { duree, type Indicateurs } from '@/lib/indicateurs'
+import type { EmpreinteAda } from '@/lib/empreinte'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
 
 vi.mock('@/services/api', async (original) => ({
@@ -23,6 +24,17 @@ const INDICATEURS: Indicateurs = {
   ],
 }
 
+const EMPREINTE: EmpreinteAda = {
+  total: { energieWh: { min: 120, max: 290 }, co2g: { min: 48, max: 115 }, tokensSortie: 10000, tokensEntree: 500000 },
+  parProjet: [
+    { projet: 'gladys', empreinte: { energieWh: { min: 100, max: 240 }, co2g: { min: 40, max: 95 }, tokensSortie: 8000, tokensEntree: 400000 } },
+    { projet: 'secret-santa', empreinte: { energieWh: { min: 20, max: 50 }, co2g: { min: 8, max: 20 }, tokensSortie: 2000, tokensEntree: 100000 } },
+  ],
+  depuis: '2026-11-18T10:00:00Z',
+  equivalents: { streamingHeureG: 64, voitureKmG: 142.25 },
+  hypotheses: { electriciteGCo2ParKwh: 384, modeles: { opus: { totalMilliards: 2000, actifsMilliards: { min: 200, max: 600 }, source: 'EcoLogits, estimation pour Claude 3 Opus' } } },
+}
+
 const monter = async () => {
   const wrapper = mount(IndicateursView, { global: { plugins: [VueDsfr] }, attachTo: document.body })
   await flushPromises()
@@ -36,7 +48,7 @@ describe('Page « Indicateurs »', () => {
   })
 
   it('compte tous les projets passés par ADA, y compris archivés, retirés et supprimés', async () => {
-    lire.mockResolvedValue(INDICATEURS)
+    lire.mockImplementation(async (chemin: string) => (chemin === '/indicateurs/empreinte' ? EMPREINTE : INDICATEURS))
     const wrapper = await monter()
     const texte = wrapper.text()
     expect(texte).toContain('Ce que sont devenus les projets')
@@ -50,7 +62,7 @@ describe('Page « Indicateurs »', () => {
   })
 
   it('montre projets, stories livrées et temps moyen, sur l’ensemble', async () => {
-    lire.mockResolvedValue(INDICATEURS)
+    lire.mockImplementation(async (chemin: string) => (chemin === '/indicateurs/empreinte' ? EMPREINTE : INDICATEURS))
     const wrapper = await monter()
     expect(lire).toHaveBeenCalledWith('/indicateurs')
     const cartes = wrapper.findAll('.chiffres li').map((carte) => carte.findAll('p').map((ligne) => ligne.text()))
@@ -64,7 +76,7 @@ describe('Page « Indicateurs »', () => {
   })
 
   it('détaille par projet, dans un tableau titré', async () => {
-    lire.mockResolvedValue(INDICATEURS)
+    lire.mockImplementation(async (chemin: string) => (chemin === '/indicateurs/empreinte' ? EMPREINTE : INDICATEURS))
     const wrapper = await monter()
     const tableau = wrapper.findAll('table').find((element) => element.find('caption').text().includes('Indicateurs par projet'))!
     expect(tableau.exists()).toBe(true)
@@ -94,7 +106,7 @@ describe('Page « Indicateurs »', () => {
   })
 
   it('aucune violation d’accessibilité automatique', async () => {
-    lire.mockResolvedValue(INDICATEURS)
+    lire.mockImplementation(async (chemin: string) => (chemin === '/indicateurs/empreinte' ? EMPREINTE : INDICATEURS))
     const wrapper = await monter()
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
@@ -112,4 +124,29 @@ describe('Mise en forme des indicateurs', () => {
     expect(duree(minutes)).toBe(texte)
   })
 
+
+  it('empreinte carbone : fourchette, équivalents ADEME, détail par projet, méthode et limites', async () => {
+    lire.mockImplementation(async (chemin: string) => (chemin === '/indicateurs/empreinte' ? EMPREINTE : INDICATEURS))
+    const wrapper = await monter()
+    const section = wrapper.find('section[aria-labelledby="titre-empreinte"]')
+    expect(section.text()).toContain('48 à 115 g CO2e')
+    expect(section.text()).toContain('0,75 à 1,8 h de streaming vidéo')
+    expect(section.text()).toContain('en voiture thermique')
+    expect(section.text()).toContain('gladys')
+    expect(section.text()).toContain('EcoLogits')
+    expect(section.text()).toContain('Anthropic ne publie ni la taille de ses modèles')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('empreinte indisponible : le reste de la page s’affiche quand même', async () => {
+    lire.mockImplementation(async (chemin: string) => {
+      if (chemin === '/indicateurs/empreinte') throw new Error('absent')
+      return INDICATEURS
+    })
+    const wrapper = await monter()
+    expect(wrapper.find('section[aria-labelledby="titre-empreinte"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Stories livrées')
+    wrapper.unmount()
+  })
 })

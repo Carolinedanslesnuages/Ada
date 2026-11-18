@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BadRequestException, ConflictException } from '@nestjs/common';
@@ -13,6 +13,8 @@ import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
 import { AgentService, type LancerAgent } from './agent.service.js';
 
 const JETON = 'jeton-du-po';
+/** Journal d'empreinte des tests : jamais celui d'ADA. */
+const REGISTRE_ESSAI = mkdtempSync(join(tmpdir(), 'registre-'));
 const config = (agent = '/bin/agent') =>
   lireConfig({
     GITHUB_PROPRIETAIRE: 'proprio',
@@ -20,6 +22,7 @@ const config = (agent = '/bin/agent') =>
     GITHUB_CLIENT_SECRET: 's',
     SESSION_SECRET: 'x'.repeat(32),
     AGENT_COMMANDE: agent,
+    DOSSIER_REGISTRE: REGISTRE_ESSAI,
   });
 
 const resultat = (texte: string) => JSON.stringify({ type: 'result', subtype: 'success', result: texte });
@@ -143,6 +146,20 @@ describe('AgentService', () => {
     await service.derniereTache;
     expect(apercu.demarrer).toHaveBeenCalledWith(JETON, 'poc');
     expect(apercu.noterUtilisation).toHaveBeenCalledWith('poc');
+  });
+
+  it('note l’empreinte de chaque exécution (tokens par modèle, jamais de contenu), lisible par demande', async () => {
+    sortie = [JSON.stringify({ type: 'result', subtype: 'success', result: '{"decision":"plan","texte":"Plan."}', modelUsage: { 'claude-opus-5-5': { inputTokens: 10, cacheReadInputTokens: 5000, outputTokens: 1200 } } })];
+    await service.analyser(JETON, 'poc-empreinte', 1);
+    await service.derniereTache;
+    const contenu = readFileSync(join(REGISTRE_ESSAI, 'empreinte.jsonl'), 'utf8');
+    expect(contenu).toContain('"projet":"poc-empreinte"');
+    expect(contenu).not.toContain('Plan.');
+    const demande = await service.empreinteDemande('poc-empreinte', 1);
+    expect(demande!.empreinte).toMatchObject({ tokensSortie: 1200, tokensEntree: 5010 });
+    expect(demande!.empreinte.co2g.max).toBeGreaterThan(demande!.empreinte.co2g.min);
+    expect(demande!.equivalents.streamingHeureG).toBe(64);
+    expect(await service.empreinteDemande('poc-empreinte', 2)).toBeNull();
   });
 
   it('refuse de lancer un agent sous l’ancien nom d’un projet renommé sur GitHub', async () => {

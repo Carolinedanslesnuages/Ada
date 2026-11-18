@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { PREFIXE_CONVERSATION, PREFIXE_LIBRE, texteDecoupage, verifierMessage } from '../stories/story.js';
 import { ApercuService } from '../apercu/apercu.service.js';
+import { EQUIVALENTS, lireUsages, type UsageModele } from '../empreinte/empreinte.js';
+import { lireEmpreintes, noterEmpreinte, sommer } from '../empreinte/journal-empreinte.js';
 import { CONFIG, type Config } from '../config.js';
 import { GithubService } from '../github/github.service.js';
 import { DEBUT_LANCEMENT, MARQUEUR_ASSISTANT, StoriesService } from '../stories/stories.service.js';
@@ -251,6 +253,12 @@ export class AgentService {
   }
 
   /** « En cours » seulement si un agent tourne vraiment (pas un reste d'exécution interrompue). */
+  /** Empreinte estimée d'une demande (toutes ses exécutions de l'agent). */
+  async empreinteDemande(depot: string, numero: number) {
+    const entrees = (await lireEmpreintes(this.config.DOSSIER_REGISTRE)).filter((entree) => entree.projet === depot && entree.numero === numero);
+    return entrees.length ? { empreinte: sommer(entrees), equivalents: EQUIVALENTS } : null;
+  }
+
   async activite(depot: string, numero: number): Promise<Activite> {
     const activite = await this.lireActivite(depot, numero);
     const verrou = await this.verrouActif(depot);
@@ -396,6 +404,7 @@ export class AgentService {
     session: { id: string; reprendre: boolean } | null = null,
   ): Promise<string> {
     let resultat = '';
+    let usages: UsageModele[] = [];
     const args = [
       '-p',
       consigne,
@@ -414,13 +423,19 @@ export class AgentService {
     const code = await this.lancerAgent(args, cwd, (ligne) => {
       for (const texte of decrireEvenement(ligne)) notes.push(this.noter(depot, numero, texte));
       try {
-        const evt = JSON.parse(ligne) as { type?: string; result?: string };
+        const evt = JSON.parse(ligne) as { type?: string; result?: string; modelUsage?: unknown };
         if (evt.type === 'result' && typeof evt.result === 'string') resultat = evt.result;
+        if (evt.type === 'result') usages = lireUsages(evt.modelUsage);
       } catch {
         /* ligne non JSON : ignorée */
       }
     });
     await Promise.all(notes);
+    // Empreinte carbone : tokens par modèle seulement, jamais de contenu ; une erreur d'écriture
+    // ne doit pas faire échouer le travail du PO.
+    await noterEmpreinte(this.config.DOSSIER_REGISTRE, { le: new Date().toISOString(), projet: depot, numero, phase, usages }).catch((e: unknown) =>
+      this.log.warn(`Empreinte de ${depot}#${numero} non notée : ${(e as Error).message}`),
+    );
     if (code !== 0 && !resultat) throw new Error(`L’agent s’est arrêté (code ${code})`);
     return resultat;
   }

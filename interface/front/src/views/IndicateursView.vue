@@ -2,11 +2,19 @@
 import { computed, onMounted, ref } from 'vue'
 import { api } from '@/services/api'
 import { duree, type Indicateurs } from '@/lib/indicateurs'
+import EmpreinteCarbone from '@/components/EmpreinteCarbone.vue'
+import type { EmpreinteAda } from '@/lib/empreinte'
 
 const indicateurs = ref<Indicateurs | null>(null)
+const empreinte = ref<EmpreinteAda | null>(null)
 const erreur = ref<string | null>(null)
 
 onMounted(async () => {
+  // L'empreinte se lit sur l'appareil (journal d'ADA) : rapide, et indépendante de GitHub.
+  api
+    .lire<EmpreinteAda>('/indicateurs/empreinte')
+    .then((valeur) => (empreinte.value = valeur))
+    .catch(() => (empreinte.value = null))
   try {
     indicateurs.value = await api.lire<Indicateurs>('/indicateurs')
   } catch (e) {
@@ -105,6 +113,8 @@ const lignes = computed(() =>
       <DsfrTable v-if="lignes.length" class="tableau-pleine-largeur" title="Indicateurs par projet" no-caption :headers="entetes" :rows="lignes" />
       <p v-else>Aucun projet actif pour l’instant.</p>
     </template>
+
+    <EmpreinteCarbone v-if="empreinte" :empreinte="empreinte" />
   </div>
 </template>
 
