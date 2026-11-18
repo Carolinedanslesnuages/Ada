@@ -10,6 +10,7 @@ export type Statut =
   | 'besoin-dev'
   | 'decoupage'
   | 'parent'
+  | 'attente'
   | 'livree'
 
 export const STATUTS_ACTIFS: Statut[] = [
@@ -33,6 +34,7 @@ export const LIBELLES_STATUT: Record<
   'besoin-dev': { libelle: 'Besoin d’un développeur', type: 'error' },
   decoupage: { libelle: 'Découpage à valider', type: 'warning' },
   parent: { libelle: 'Découpée', type: 'info' },
+  attente: { libelle: 'En attente', type: 'info' },
   livree: { libelle: 'Livrée', type: 'success' },
 }
 
@@ -57,11 +59,16 @@ export interface ResumeStory {
  * Ordre conseillé des demandes à lancer : d'abord celles qui sont prêtes ; parmi elles, les
  * problèmes signalés (ils gênent l'usage) ; puis les stories d'un même découpage restent
  * ensemble, dans l'ordre proposé par ADA (dépendances) ; le reste, de la plus ancienne à la plus récente.
+ * Les demandes en attente (rien à construire pour l'instant) passent toujours en dernier.
  */
+/** Demande qui peut être lancée : jamais lancée, ou mise en attente par ADA (relance). */
+export const aLancerOuRelancer = (story: Pick<ResumeStory, 'statut'>) => story.statut === 'nouvelle' || story.statut === 'attente'
+
 export function ordonnerALancer(stories: ResumeStory[]): ResumeStory[] {
   const origine = (story: ResumeStory) => story.parent ?? story.numero
   return [...stories].sort(
     (a, b) =>
+      Number(a.statut === 'attente') - Number(b.statut === 'attente') ||
       Number(b.prete) - Number(a.prete) ||
       Number(b.type === 'bug') - Number(a.type === 'bug') ||
       origine(a) - origine(b) ||

@@ -479,6 +479,12 @@ export class AgentService {
         await this.noter(depot, numero, 'Attend que vous choisissiez les stories à créer');
         return;
       }
+      if (decision.decision === 'attente') {
+        await this.stories.commenterAssistant(jeton, depot, numero, 'Demande mise en attente', decision.texte);
+        await this.stories.changerStatut(jeton, depot, numero, 'attente');
+        await this.noter(depot, numero, 'En attente : à relancer quand ce qu’elle attend sera livré');
+        return;
+      }
       const questions = decision.decision === 'questions';
       await this.stories.commenterAssistant(jeton, depot, numero, questions ? 'Questions d’ADA' : 'Plan proposé', texteQuestions(decision));
       await this.stories.changerStatut(jeton, depot, numero, questions ? 'questions' : 'plan-a-valider');

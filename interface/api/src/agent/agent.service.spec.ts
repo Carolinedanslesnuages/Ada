@@ -301,6 +301,14 @@ describe('AgentService', () => {
     expect(statut).toBe('questions');
   });
 
+  it('met en attente une demande qui n’a rien à construire pour l’instant, au lieu d’un plan vide', async () => {
+    sortie = [resultat('{"decision":"attente","texte":"Elle attend le service d’envoi (#40)."}')];
+    await service.analyser(JETON, 'poc', 1);
+    await service.derniereTache;
+    expect(stories.commenterAssistant).toHaveBeenCalledWith(JETON, 'poc', 1, 'Demande mise en attente', 'Elle attend le service d’envoi (#40).');
+    expect(statut).toBe('attente');
+  });
+
   it('demande un développeur si la réponse de l’agent est inexploitable', async () => {
     sortie = [resultat('Je ne sais pas')];
     await service.analyser(JETON, 'poc', 1);

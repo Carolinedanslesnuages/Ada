@@ -62,6 +62,18 @@ describe('Liste des stories', () => {
     wrapper.unmount()
   })
 
+  it('range une demande en attente à la fin des stories à lancer, jamais conseillée', async () => {
+    const liste: ResumeStory[] = [story(2, 'attente', 'Mode essai'), story(5, 'nouvelle', 'Envoyer')]
+    const wrapper = mount(ListeStories, { props: { stories: liste }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+    expect(wrapper.find('.prochaine-story').text()).toContain('#5')
+    expect(wrapper.find('ul[aria-label="Stories en cours"]').exists()).toBe(false)
+    await wrapper.find('button[aria-controls="stories-a-lancer"]').trigger('click')
+    const lignes = wrapper.findAll('ol.liste-stories > li')
+    expect(lignes.map((element) => Number(/#(\d+)/.exec(element.text())![1]))).toEqual([5, 2])
+    expect(lignes[1]!.text()).toContain('En attente')
+    wrapper.unmount()
+  })
+
   it('conseille la prochaine story et range celles à lancer dans l’ordre conseillé', async () => {
     const aOrdonner: ResumeStory[] = [
       story(9, 'nouvelle', 'Récente, sans découpage'),

@@ -5,6 +5,7 @@ import TexteRiche from '@/components/TexteRiche.vue'
 import { computed, ref } from 'vue'
 import {
   LIBELLES_CONTROLE,
+  aLancerOuRelancer,
   LIBELLES_STATUT,
   presenterMessage,
   lireChoix,
@@ -40,7 +41,7 @@ const emit = defineEmits<{
 
 /** Pourquoi la demande ne peut pas être lancée, ou null si elle peut l'être. */
 const blocage = computed(() => {
-  if (props.story.statut !== 'nouvelle') return null
+  if (!aLancerOuRelancer(props.story)) return null
   if (!props.story.prete) return `À corriger sur GitHub avant de la lancer : ${props.story.raison}.`
   if (props.autreEnCours)
     return `La demande #${props.autreEnCours.numero} « ${props.autreEnCours.titre} » est en cours : une seule à la fois.`
@@ -62,7 +63,7 @@ const historique = computed(() => messages.value.filter((message) => message.id 
 /** Une action est attendue du PO (sinon pas d'encart « À vous de jouer »). */
 const actionAttendue = computed(
   () =>
-    ['nouvelle', 'en-verification', 'plan-a-valider', 'questions', 'decoupage', 'besoin-dev'].includes(props.story.statut) ||
+    ['nouvelle', 'attente', 'en-verification', 'plan-a-valider', 'questions', 'decoupage', 'besoin-dev'].includes(props.story.statut) ||
     (props.story.statut === 'en-cours' && Boolean(props.activite)),
 )
 
@@ -160,12 +161,15 @@ function envoyer(): void {
         {{ story.statut === 'en-verification' ? 'À vous de vérifier' : 'À vous de jouer' }}
       </h3>
 
-      <template v-if="story.statut === 'nouvelle'">
+      <template v-if="aLancerOuRelancer(story)">
+        <p v-if="story.statut === 'attente'" class="fr-text--sm">
+          ADA a mis cette demande en attente : rien à construire pour l’instant. Relancez-la quand ce qu’elle attend sera livré.
+        </p>
         <DsfrAlert v-if="blocage" type="warning" small :description="blocage" />
         <template v-else>
           <DsfrButton
             icon="fr-icon-play-line"
-            :label="lancementEnCours ? 'Lancement…' : story.type === 'bug' ? 'Lancer la correction' : 'Lancer cette story'"
+            :label="lancementEnCours ? 'Lancement…' : story.type === 'bug' ? 'Lancer la correction' : story.statut === 'attente' ? 'Relancer cette story' : 'Lancer cette story'"
             aria-describedby="lancement-enregistrement"
             :disabled="lancementEnCours"
             @click="emit('lancer')"

@@ -51,6 +51,7 @@ describe('StoriesService', () => {
       create: vi.fn(),
       update: vi.fn(),
       setLabels: vi.fn(),
+      removeLabel: vi.fn(),
       listAssignees: vi.fn(),
       addAssignees: vi.fn(),
       removeAssignees: vi.fn(),
@@ -118,6 +119,19 @@ describe('StoriesService', () => {
       expect.objectContaining({ issue_number: 2, body: '▶️ Lancée depuis ADA par po1.' }),
     );
     expect(lancee.statut).toBe('en-cours');
+  });
+
+  it('relance une demande mise en attente : elle repasse « en cours », sans le label d’attente', async () => {
+    depot([issue(2, { labels: [{ name: 'user-story' }, { name: 'story:en-attente' }] })]);
+    const relancee = await service.lancer('jeton', 'poc', 2, 'po1');
+    expect(gh.issues.addLabels).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 2, labels: ['user-story', 'story:en-cours'] }));
+    expect(gh.issues.removeLabel).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 2, name: 'story:en-attente' }));
+    expect(relancee.statut).toBe('en-cours');
+  });
+
+  it('une demande en attente n’empêche pas d’en lancer une autre', async () => {
+    depot([issue(1, { labels: [{ name: 'user-story' }, { name: 'story:en-attente' }] }), issue(2)]);
+    await expect(service.lancer('jeton', 'poc', 2, 'po1')).resolves.toMatchObject({ statut: 'en-cours' });
   });
 
   it('refuse d’en lancer une deuxième tant qu’une autre est en cours', async () => {
