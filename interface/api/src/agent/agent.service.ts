@@ -433,7 +433,7 @@ export class AgentService {
     await Promise.all(notes);
     // Empreinte carbone : tokens par modèle seulement, jamais de contenu ; une erreur d'écriture
     // ne doit pas faire échouer le travail du PO.
-    await noterEmpreinte(this.config.DOSSIER_REGISTRE, { le: new Date().toISOString(), projet: depot, numero, phase, usages }).catch((e: unknown) =>
+    await noterEmpreinte(this.config.DOSSIER_REGISTRE, { le: new Date().toISOString(), projet: depot, numero, phase, session: session?.id ?? null, usages }).catch((e: unknown) =>
       this.log.warn(`Empreinte de ${depot}#${numero} non notée : ${(e as Error).message}`),
     );
     if (code !== 0 && !resultat) throw new Error(`L’agent s’est arrêté (code ${code})`);
