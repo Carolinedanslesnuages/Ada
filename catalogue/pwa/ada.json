@@ -11,7 +11,7 @@
     "vite.config.ts",
     "src/services/stockage.ts",
     "src/router/index.ts",
-    "src/views/RelevesView.vue"
+    "src/views/RelevesView.vue", "src/stores/__tests__/releves.spec.ts"
   ],
   "controlesRequis": [
     "Anti-fuite (gitleaks)",
