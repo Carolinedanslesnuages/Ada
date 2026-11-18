@@ -293,7 +293,13 @@ export class AgentService {
     const stories = await this.stories.lister(jeton, depot);
     return stories
       .filter((story) => story.numero !== numero)
-      .map((story) => ({ numero: story.numero, titre: story.titre, livree: story.fermeeLe !== null }));
+      .map((story) => ({
+        numero: story.numero,
+        titre: story.titre,
+        livree: story.fermeeLe !== null,
+        parent: story.parent,
+        decoupee: story.statut === 'parent',
+      }));
   }
 
   /** Reconstitue la demande et les échanges depuis l'issue. */
@@ -314,6 +320,7 @@ export class AgentService {
       contenu: detail.contenu,
       contenuBug: detail.contenuBug,
       contenuLibre: detail.contenuLibre,
+      parent: detail.parent,
       echanges,
     };
   }

@@ -234,6 +234,20 @@ describe('Consigne d’analyse : pas de doublon avec les stories déjà écrites
     expect(consigne).toContain('si cette demande refait une story existante, ne planifie rien');
     expect(consigne).toContain('"doublonDe"');
   });
+  it('dit quelle demande est découpée et d’où vient chaque story : jamais attendre son parent', () => {
+    const consigne = consigneAnalyse({
+      ...demande,
+      parent: 30,
+      existantes: [
+        { numero: 30, titre: 'Service d’envoi', livree: false, decoupee: true },
+        { numero: 41, titre: 'Bouton', livree: false, parent: 30 },
+      ],
+    });
+    expect(consigne).toContain('Elle vient du découpage de la demande #30');
+    expect(consigne).toContain('- #30 « Service d’envoi » (demande découpée : elle ne livre rien elle-même, elle attend ses stories)');
+    expect(consigne).toContain('- #41 « Bouton » (issue du découpage de #30)');
+    expect(consigne).toContain("N'attends JAMAIS une demande découpée");
+  });
   it('sans autre story, pas de liste', () => {
     expect(consigneAnalyse(demande)).not.toContain('DÉJÀ écrits dans ce projet');
   });

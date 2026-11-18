@@ -20,6 +20,8 @@ export interface Demande {
   echanges: { auteur: 'assistant' | 'po'; texte: string }[];
   /** Analyse : les autres stories du projet, pour ne jamais en proposer une deuxième fois. */
   existantes?: StoryExistante[];
+  /** Demande découpée dont celle-ci est issue : elle se termine quand ses stories sont livrées. */
+  parent?: number | null;
 }
 
 /** Une story ou un problème déjà écrit dans le projet (ouvert, ou livré). */
@@ -27,12 +29,23 @@ export interface StoryExistante {
   numero: number;
   titre: string;
   livree: boolean;
+  /** Demande découpée dont elle est issue, s'il y en a une. */
+  parent?: number | null;
+  /** Vrai : demande découpée, qui ne livre rien elle-même (elle attend ses stories). */
+  decoupee?: boolean;
 }
 
 /** Au plus 80 stories (les plus récentes) : de quoi repérer un doublon sans noyer la consigne. */
 function decrireExistantes(existantes: StoryExistante[] = []): string {
   if (!existantes.length) return '';
-  const lignes = existantes.slice(0, 80).map((s) => `- #${s.numero} « ${s.titre} »${s.livree ? ' (livrée)' : ''}`);
+  const lignes = existantes.slice(0, 80).map((s) => {
+    const precisions = [
+      s.livree && 'livrée',
+      s.decoupee && 'demande découpée : elle ne livre rien elle-même, elle attend ses stories',
+      s.parent && `issue du découpage de #${s.parent}`,
+    ].filter(Boolean);
+    return `- #${s.numero} « ${s.titre} »${precisions.length ? ` (${precisions.join(' ; ')})` : ''}`;
+  });
   return `
 
 Stories et problèmes DÉJÀ écrits dans ce projet (hors cette demande) :
@@ -113,6 +126,11 @@ export function brancheDe(demande: Pick<Demande, 'numero' | 'titre' | 'type'>): 
 
 function decrireDemande(d: Demande): string {
   const lignes = [`Demande #${d.numero} — « ${d.titre} »`];
+  if (d.parent) {
+    lignes.push(
+      `Elle vient du découpage de la demande #${d.parent} : #${d.parent} ne se termine que quand toutes ses stories, dont celle-ci, sont livrées.`,
+    );
+  }
   if (d.type === 'story' && d.contenu) {
     lignes.push(
       `En tant que : ${d.contenu.role}`,
@@ -253,6 +271,9 @@ Ta tâche :
    construit rien : un plan validé doit livrer quelque chose. Réponds par la décision « attente » :
    dis ce qu'elle attend (#numéro si c'est une story), et reporte dans ton texte les critères
    réécrits s'il y en a, pour ne pas les perdre. ADA la garde ouverte ; le PO la relancera.
+   N'attends JAMAIS une demande découpée, encore moins la demande parent de celle-ci : elle
+   attend ses stories, donc celle-ci — ce serait une impasse. Vérifie d'abord dans le code du
+   projet ce qui existe déjà, puis seulement dis qu'une pièce manque.
 
 Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
 {"decision":"questions","texte":"<tes questions>","choix":[{"question":"<question 1>","choix":["<option>","<option>"],"plusieurs":false}]}
