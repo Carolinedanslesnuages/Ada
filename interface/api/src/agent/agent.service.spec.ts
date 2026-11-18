@@ -340,6 +340,39 @@ describe('AgentService', () => {
     expect(lancer.mock.calls[0]![0][1]).toContain('**12.7** Lien d’évitement présent ?');
   });
 
+  it('équipe de ses skills un projet dont le dossier git est rangé hors du dépôt (.git réduit à un fichier), sans rien laisser à commiter', async () => {
+    const { execFileSync } = await import('node:child_process');
+    const { mkdirSync, writeFileSync, readFileSync, existsSync, statSync } = await import('node:fs');
+    const { isolerGit } = await import('../apercu/git-isole.js');
+    const { executerParDefaut } = await import('../apercu/apercu.service.js');
+    const catalogue = join(racine, 'catalogue');
+    mkdirSync(join(catalogue, 'dsfr-skill'), { recursive: true });
+    writeFileSync(join(catalogue, 'dsfr-skill', 'SKILL.md'), '---\nname: dsfr-skill\n---\n');
+    // Un vrai dépôt d'aperçu, migré : <projet>/git est le dossier git, <projet>/depot/.git un simple fichier.
+    const depot = join(racine, 'gladys', 'depot');
+    mkdirSync(depot, { recursive: true });
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' };
+    execFileSync('git', ['-C', depot, 'init', '-q', '-b', 'main'], { env });
+    writeFileSync(join(depot, 'a.txt'), 'a');
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-C', depot, 'add', '-A'], { env });
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-C', depot, 'commit', '-qm', 'init'], { env });
+    await isolerGit(depot);
+    expect(statSync(join(depot, '.git')).isFile()).toBe(true);
+    const equipe = new AgentService(
+      lireConfig({ GITHUB_PROPRIETAIRE: 'proprio', GITHUB_CLIENT_ID: 'Iv', GITHUB_CLIENT_SECRET: 's', SESSION_SECRET: 'x'.repeat(32), AGENT_COMMANDE: '/bin/agent', AGENT_SKILLS: join(catalogue, 'dsfr-skill') }),
+      {} as GithubService,
+      stories as unknown as StoriesService,
+      apercu as unknown as ApercuService,
+      projets as unknown as ProjetsService,
+    );
+    expect((await equipe.equiperSkills(depot)).noms).toEqual(['dsfr-skill']);
+    expect(existsSync(join(depot, '.claude', 'skills', 'dsfr-skill'))).toBe(true);
+    // Les exclusions vont dans le vrai dossier git, et git ne voit pas les skills reliées.
+    expect(readFileSync(join(racine, 'gladys', 'git', 'info', 'exclude'), 'utf8')).toContain('/.claude/skills/');
+    const { stdout } = await executerParDefaut('git', ['-C', depot, 'status', '--porcelain'], { env });
+    expect(stdout).toBe('');
+  });
+
   it('équipe le projet des skills configurées, sans rien laisser à commiter', async () => {
     const { mkdirSync, writeFileSync, readFileSync, lstatSync, readlinkSync, realpathSync, existsSync } = await import('node:fs');
     const catalogue = join(racine, 'catalogue');
