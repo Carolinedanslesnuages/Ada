@@ -496,6 +496,21 @@ describe('AgentService', () => {
     expect(statut).toBe('plan-a-valider');
   });
 
+  it('n’envoie rien si un fichier réservé aux développeurs a changé (quel que soit l’outil)', async () => {
+    apercu.executer = vi.fn(async (_c: string, args: string[]) => ({
+      stdout: args.includes('rev-list') ? '1\n' : args.includes('diff') ? 'src/App.vue\n.github/workflows/ci.yml\n' : args.includes('rev-parse') ? 'main\n' : '',
+    }));
+    statut = 'plan-a-valider';
+    sortie = [resultat('{"resultat":"ok","resume":"Fait."}')];
+    await service.validerPlan(JETON, 'po1', 'poc', 1);
+    await service.derniereTache;
+    const appels = apercu.executer.mock.calls.map((appel) => (appel[1] as string[]).join(' '));
+    expect(appels.some((appel) => appel.includes('push'))).toBe(false);
+    expect(gh.pulls.create).not.toHaveBeenCalled();
+    expect(statut).toBe('besoin-dev');
+    expect(stories.commenterAssistant).toHaveBeenCalledWith(JETON, 'poc', 1, 'Besoin d’aide', expect.stringContaining('.github/workflows/ci.yml'));
+  });
+
   it('reprend la réalisation (sans nouvelle analyse) si le plan avait déjà été validé', async () => {
     statut = 'plan-a-valider';
     service.lancerAgent = async () => {

@@ -13,6 +13,7 @@ import {
   brancheDe,
   consigneAnalyse,
   consigneConversation,
+  cheminsReserves,
   lireReponseConversation,
   consigneRealisation,
   decrireEvenement,
@@ -602,6 +603,7 @@ export class AgentService {
         await this.bloquer(jeton, depot, numero, 'ADA n’a enregistré aucune modification.');
         return;
       }
+      if (await this.toucheDossiersReserves(jeton, depot, numero, cwd, branche)) return;
       await this.noter(depot, numero, 'Envoie la branche sur GitHub');
       await this.apercu.executer('git', ['-C', cwd, 'push', '--quiet', '-u', 'origin', branche], { env: this.apercu.environnementGit(jeton) });
       const pr = await this.ouvrirPullRequest(jeton, depot, cwd, branche, demande, resultat.resume);
@@ -642,6 +644,7 @@ export class AgentService {
     // Des commits pas encore sur GitHub : on pousse la branche (jamais main) et l'aperçu les montre.
     const { stdout: nouveaux } = await this.apercu.executer('git', ['-C', cwd, 'rev-list', '--count', branche, '--not', '--remotes=origin']);
     if (Number(nouveaux.trim()) > 0) {
+      if (await this.toucheDossiersReserves(jeton, depot, numero, cwd, branche)) return;
       await this.noter(depot, numero, 'Envoie la branche sur GitHub');
       await this.apercu.executer('git', ['-C', cwd, 'push', '--quiet', '-u', 'origin', branche], { env: this.apercu.environnementGit(jeton) });
       await this.noter(depot, numero, 'Relance l’aperçu');
@@ -683,6 +686,7 @@ export class AgentService {
       await this.stories.fermerSansSuite(jeton, depot, numero, `💬 Conversation terminée par ${login}, sans changement à proposer au projet.`);
       return { pullRequest: null };
     }
+    if (await this.toucheDossiersReserves(jeton, depot, numero, cwd, branche)) return { pullRequest: null };
     // Par sûreté (exécution interrompue avant l'envoi) : la branche doit être sur GitHub pour la PR.
     await this.apercu.executer('git', ['-C', cwd, 'push', '--quiet', '-u', 'origin', branche], { env: this.apercu.environnementGit(jeton) });
     const resume = `Changements faits avec ADA pendant la conversation #${numero}, demandés par ${login}.`;
@@ -779,6 +783,23 @@ export class AgentService {
       body: `${resume}\n\nCloses #${demande.numero}\n\n${fiche}`.trim(),
     });
     return data.html_url;
+  }
+
+  /**
+   * Garde-fou avant tout envoi : aucun fichier de .github/ ni de charts/ ne doit changer, quel que
+   * soit l'outil utilisé (les interdits de l'agent ne couvrent que l'édition directe).
+   */
+  private async toucheDossiersReserves(jeton: string, depot: string, numero: number, cwd: string, branche: string): Promise<boolean> {
+    const { stdout } = await this.apercu.executer('git', ['-C', cwd, 'diff', '--name-only', `origin/main...${branche}`]);
+    const reserves = cheminsReserves(stdout.split('\n').filter(Boolean));
+    if (!reserves.length) return false;
+    await this.bloquer(
+      jeton,
+      depot,
+      numero,
+      `J'ai modifié des fichiers réservés aux développeurs (${reserves.join(', ')}). Je n'envoie rien : un développeur doit vérifier.`,
+    );
+    return true;
   }
 
   private async bloquer(jeton: string, depot: string, numero: number, raison: string): Promise<void> {
