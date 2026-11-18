@@ -100,6 +100,15 @@ describe('StoriesService', () => {
     ]);
   });
 
+  it('n’affiche pas une demande fermée sans être réalisée (doublon, abandon) : ce n’est pas une livraison', async () => {
+    depot([issue(1, { state: 'closed', state_reason: 'not_planned' }), issue(2, { state: 'closed', state_reason: 'completed' }), issue(3)]);
+    const liste = await service.lister('jeton', 'poc');
+    expect(liste.map((s) => [s.numero, s.statut])).toEqual([
+      [3, 'nouvelle'],
+      [2, 'livree'],
+    ]);
+  });
+
   it('montre une story écrite avec le formulaire même si le label manquait dans le dépôt', async () => {
     depot([issue(1, { labels: [] }), issue(2, { labels: [], body: 'Question libre' })]);
     const liste = await service.lister('jeton', 'poc');
