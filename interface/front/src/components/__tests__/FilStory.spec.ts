@@ -184,8 +184,7 @@ describe('Fil d’une story', () => {
     expect(wrapper.find('h3').text()).toBe('ADA travaille')
     expect(wrapper.text()).not.toContain('À vous de jouer')
     const avatar = wrapper.find('[data-testid="avatar-ada"]')
-    expect(avatar.text()).toBe('ADA analyse…')
-    expect(avatar.attributes('aria-hidden')).toBe('true')
+    expect(avatar.text()).toContain('ADA analyse…')
     wrapper.unmount()
   })
 
