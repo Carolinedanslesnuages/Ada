@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BadRequestException } from '@nestjs/common';
 import { lireConfig } from '../config.js';
-import { ApercuService, type Executer } from './apercu.service.js';
+import { ApercuService, DELAI_VEILLE_MS, type Executer } from './apercu.service.js';
 
 const JETON = 'jeton-secret-du-po';
 
@@ -118,8 +118,15 @@ describe('ApercuService', () => {
       expect(executer).toHaveBeenCalledWith('docker', ['compose', '-f', 'compose.yml', 'restart', 'app'], { cwd: join(racine, 'poc') });
     });
 
-    it('ne fait rien sans arrière-plan (maquette, extension : le rechargement à chaud suffit)', async () => {
+    it('redémarre aussi une application sans arrière-plan : le rechargement à chaud de Vite garde parfois d’anciens modules', async () => {
       ecrireProjet(JSON.stringify({ type: 'maquette', controlesRequis: ['x'], controles: ['y'], apercu: { principal: 'npx vite' } }));
+      await service.relancerApplication('poc');
+      expect(executer).toHaveBeenCalledWith('docker', ['compose', '-f', 'compose.yml', 'restart', 'app'], { cwd: join(racine, 'poc') });
+    });
+
+    it('ne réveille pas un aperçu en veille pour le relancer', async () => {
+      ecrireProjet(null);
+      writeFileSync(join(racine, 'poc', 'en-veille'), '');
       await service.relancerApplication('poc');
       expect(executer).not.toHaveBeenCalled();
     });
@@ -127,6 +134,44 @@ describe('ApercuService', () => {
     it('ne fait rien si l’aperçu n’a jamais été démarré', async () => {
       await service.relancerApplication('poc');
       expect(executer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('mise en veille des aperçus inutilisés', () => {
+    const apercuDemarre = (projet: string) => {
+      mkdirSync(join(racine, projet), { recursive: true });
+      writeFileSync(join(racine, projet, 'compose.yml'), 'services: {}');
+    };
+    const arrets = () => executer.mock.calls.filter(([, a]) => a.includes('stop')).map(([, , o]) => o?.cwd);
+
+    it('arrête un aperçu inutilisé depuis le délai, garde ceux qui servent', async () => {
+      apercuDemarre('ancien');
+      apercuDemarre('recent');
+      const maintenant = Date.now() + DELAI_VEILLE_MS + 1000;
+      service.noterUtilisation('recent');
+      (service as unknown as { utilisations: Map<string, number> }).utilisations.set('recent', maintenant - 60_000);
+      expect(await service.mettreEnVeille(maintenant)).toEqual(['ancien']);
+      expect(arrets()).toEqual([join(racine, 'ancien')]);
+      expect(service.estEnVeille('ancien')).toBe(true);
+      // Déjà en veille : rien à refaire.
+      expect(await service.mettreEnVeille(maintenant + 1000)).toEqual([]);
+    });
+
+    it('n’arrête jamais l’aperçu d’un projet où un agent travaille', async () => {
+      apercuDemarre('occupe');
+      mkdirSync(join(racine, 'occupe', 'agent'), { recursive: true });
+      writeFileSync(join(racine, 'occupe', 'agent', 'verrou.json'), JSON.stringify({ pid: process.pid, numero: 3, phase: 'realisation' }));
+      expect(await service.mettreEnVeille(Date.now() + DELAI_VEILLE_MS * 2)).toEqual([]);
+      expect(arrets()).toEqual([]);
+    });
+
+    it('un aperçu en veille se dit « arrêté » (pas en panne), puis redémarre à la demande', async () => {
+      apercuDemarre('poc-portail');
+      await service.mettreEnVeille(Date.now() + DELAI_VEILLE_MS * 2);
+      expect((await service.etat('poc-portail')).etat).toBe('arrete');
+      const apercu = await service.demarrer(JETON, 'poc-portail');
+      expect(apercu.etat).toBe('pret');
+      expect(service.estEnVeille('poc-portail')).toBe(false);
     });
   });
 });

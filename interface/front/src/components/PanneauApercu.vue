@@ -13,7 +13,7 @@ interface Apercu {
  * `enAttente` : l'aperçu ne peut pas encore démarrer (reprise à valider) ; le texte l'explique.
  * `reductible` : affiché en grand, avec un bouton pour revenir à la conversation.
  */
-const props = defineProps<{ projet: string | null; intervalleMs?: number; enAttente?: string | null; reductible?: boolean }>()
+const props = defineProps<{ projet: string | null; intervalleMs?: number; signeDeVieMs?: number; enAttente?: string | null; reductible?: boolean }>()
 const emit = defineEmits<{ reduire: []; adresse: [url: string | null] }>()
 
 const apercu = ref<Apercu | null>(null)
@@ -26,6 +26,26 @@ const chemin = (projet: string) => `/projets/${encodeURIComponent(projet)}/aperc
 function arreterSuivi(): void {
   if (minuteur) clearTimeout(minuteur)
   minuteur = null
+  if (minuteurVie) clearInterval(minuteurVie)
+  minuteurVie = null
+}
+
+/*
+ * Signe de vie : tant que l'aperçu est affiché, ADA le sait (il n'est pas mis en veille). S'il a
+ * été mis en veille entre-temps (onglet resté ouvert la nuit), on le relance de soi-même.
+ */
+let minuteurVie: ReturnType<typeof setInterval> | null = null
+function garderEnVie(projet: string): void {
+  if (minuteurVie) clearInterval(minuteurVie)
+  minuteurVie = setInterval(async () => {
+    if (props.projet !== projet) return
+    try {
+      const etat = await api.lire<Apercu>(chemin(projet))
+      if (etat.etat === 'arrete') void demarrer(projet)
+    } catch {
+      // réseau momentané : on réessaiera au prochain signe de vie
+    }
+  }, props.signeDeVieMs ?? 60_000)
 }
 
 /** Interroge l'état jusqu'à ce que l'application réponde (ou échoue). */
@@ -48,6 +68,7 @@ async function demarrer(projet: string): Promise<void> {
   try {
     apercu.value = await api.envoyer<Apercu>(chemin(projet), {})
     if (apercu.value.etat === 'demarrage') suivre(projet)
+    garderEnVie(projet)
   } catch (e) {
     apercu.value = null
     erreur.value = (e as Error).message

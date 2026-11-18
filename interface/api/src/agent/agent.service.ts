@@ -437,6 +437,9 @@ export class AgentService {
     this.verifierDisponible();
     await this.verifierNomActuel(tache.jeton, tache.depot);
     await this.acquerirVerrou(tache.depot, { pid: process.pid, numero: tache.numero, phase: tache.phase });
+    // L'agent lance ses commandes dans le conteneur de l'aperçu : s'il dormait, on le réveille.
+    this.apercu.noterUtilisation(tache.depot);
+    if (this.apercu.estEnVeille(tache.depot)) await this.apercu.demarrer(tache.jeton, tache.depot);
     await this.enregistrer(tache.depot, tache.numero, {
       phase: tache.phase,
       enCours: true,
