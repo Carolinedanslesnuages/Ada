@@ -183,6 +183,9 @@ describe('Fil d’une story', () => {
     const wrapper = monterAvec({ story: { ...story, statut: 'en-cours' }, activite: { enCours: true, phase: 'analyse', debut: null, journal: [], erreur: null, pullRequest: null } })
     expect(wrapper.find('h3').text()).toBe('ADA travaille')
     expect(wrapper.text()).not.toContain('À vous de jouer')
+    const avatar = wrapper.find('[data-testid="avatar-ada"]')
+    expect(avatar.text()).toBe('ADA analyse…')
+    expect(avatar.attributes('aria-hidden')).toBe('true')
     wrapper.unmount()
   })
 
@@ -213,6 +216,7 @@ describe('Fil d’une story', () => {
       activite: { phase: null, enCours: false, debut: null, journal: [], erreur: null, pullRequest: null },
     })
     expect(wrapper.text()).toContain('ADA ne travaille pas sur cette demande en ce moment')
+    expect(wrapper.find('[data-testid="avatar-ada"]').exists()).toBe(false)
     await bouton(wrapper, 'Relancer ADA')!.trigger('click')
     expect(wrapper.emitted('relancer')).toHaveLength(1)
     wrapper.unmount()
