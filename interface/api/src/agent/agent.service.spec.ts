@@ -444,17 +444,76 @@ describe('AgentService', () => {
       await expect(service.reprendreConversation(JETON, 'po1', 'poc', 1, '  ')).rejects.toThrow(/Écrivez votre message/);
     });
 
-    it('« c’est bon » : ouvre la PR de la branche, puis la demande passe à vérifier', async () => {
+    it('garde le fil : le message suivant reprend la session de l’agent, avec une consigne courte', async () => {
+      sortie = [resultat('{"reponse":"Titre en bleu."}')];
+      await service.converser(JETON, 'po1', 'poc', 1);
+      await service.derniereTache;
+      const premier = lancer.mock.calls[0]![0];
+      const session = premier[premier.indexOf('--session-id') + 1]!;
+      expect(session).toMatch(/^[0-9a-f-]{36}$/);
+      expect(premier).not.toContain('--no-session-persistence');
+      expect(premier[1]).toContain('PHASE : CONVERSATION');
+      expect(premier[1]).toContain('lance SEULEMENT les tests liés');
+
+      stories.detail = vi.fn(async () => ({ ...conversation(), messages: [...conversation().messages, { id: 3, auteur: 'po', texte: 'Plutôt en rouge', le: '' }] }));
+      sortie = [resultat('{"reponse":"Titre en rouge."}')];
+      await service.converser(JETON, 'po1', 'poc', 1);
+      await service.derniereTache;
+      const second = lancer.mock.calls[1]![0];
+      expect(second.slice(second.indexOf('--resume'), second.indexOf('--resume') + 2)).toEqual(['--resume', session]);
+      expect(second[1]).toContain('Nouveau message du PO :\nPlutôt en rouge');
+      expect(second[1]).not.toContain('PHASE : CONVERSATION');
+      expect(stories.commenterAssistant).toHaveBeenLastCalledWith(JETON, 'poc', 1, 'ADA', 'Titre en rouge.');
+    });
+
+    it('session introuvable : repart de la consigne complète, dans une nouvelle session', async () => {
+      sortie = [resultat('{"reponse":"Un."}')];
+      await service.converser(JETON, 'po1', 'poc', 1);
+      await service.derniereTache;
+      stories.detail = vi.fn(async () => ({ ...conversation(), messages: [...conversation().messages, { id: 3, auteur: 'po', texte: 'Encore', le: '' }] }));
+      let appel = 0;
+      lancer.mockImplementation(async (_args, _cwd, surLigne) => {
+        appel++;
+        if (appel === 1) return 1; // la reprise échoue
+        surLigne(resultat('{"reponse":"Deux."}'));
+        return 0;
+      });
+      await service.converser(JETON, 'po1', 'poc', 1);
+      await service.derniereTache;
+      const repli = lancer.mock.calls.at(-1)![0];
+      expect(repli).toContain('--session-id');
+      expect(repli[1]).toContain('PHASE : CONVERSATION');
+      expect(stories.commenterAssistant).toHaveBeenLastCalledWith(JETON, 'poc', 1, 'ADA', 'Deux.');
+    });
+
+    it('« c’est bon » : ADA lance les contrôles complets, puis la PR s’ouvre et la demande passe à vérifier', async () => {
       statut = 'echange';
-      expect(await service.terminerConversation(JETON, 'po1', 'poc', 1)).toEqual({ pullRequest: 'https://github.com/proprio/poc/pull/2' });
+      sortie = [resultat('{"reponse":"Le titre est bleu et plus grand.","pret":true}')];
+      await service.terminerConversation(JETON, 'po1', 'poc', 1);
+      await service.derniereTache;
+      expect(stories.repondre).toHaveBeenCalledWith(JETON, 'poc', 1, expect.stringContaining('C’est bon'));
+      expect(lancer.mock.calls[0]![0][1]).toContain('LE PO A DIT « C\'EST BON »');
       expect(gh.pulls.create).toHaveBeenCalledWith(expect.objectContaining({ head: 'conversation/1-mets-le-titre-en-bleu', base: 'main', title: 'feat: mets le titre en bleu' }));
+      expect(stories.commenterAssistant).toHaveBeenCalledWith(JETON, 'poc', 1, 'Changements proposés au projet', expect.stringContaining('Le titre est bleu et plus grand.'));
       expect(statut).toBe('en-verification');
+    });
+
+    it('« c’est bon » mais un contrôle reste en échec : pas de PR, ADA le dit, la conversation continue', async () => {
+      statut = 'echange';
+      sortie = [resultat('{"reponse":"Le test de la page d’accueil échoue encore.","pret":false}')];
+      await service.terminerConversation(JETON, 'po1', 'poc', 1);
+      await service.derniereTache;
+      expect(gh.pulls.create).not.toHaveBeenCalled();
+      expect(stories.commenterAssistant).toHaveBeenCalledWith(JETON, 'poc', 1, 'Pas encore prêt', expect.stringContaining('échoue encore'));
+      expect(statut).toBe('echange');
     });
 
     it('« c’est bon » sans aucun changement : la conversation se ferme, sans PR', async () => {
       statut = 'echange';
       commits = '0';
-      expect(await service.terminerConversation(JETON, 'po1', 'poc', 1)).toEqual({ pullRequest: null });
+      sortie = [resultat('{"reponse":"Rien à changer.","pret":true}')];
+      await service.terminerConversation(JETON, 'po1', 'poc', 1);
+      await service.derniereTache;
       expect(gh.pulls.create).not.toHaveBeenCalled();
       expect(stories.fermerSansSuite).toHaveBeenCalledWith(JETON, 'poc', 1, expect.stringContaining('sans changement'));
     });
