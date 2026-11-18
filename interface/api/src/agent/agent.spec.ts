@@ -214,6 +214,26 @@ describe('Décision « découpage » d’ADA (#36)', () => {
   });
 });
 
+describe('Consigne d’analyse : pas de doublon avec les stories déjà écrites', () => {
+  it('liste les autres stories du projet et interdit de les proposer à nouveau', () => {
+    const consigne = consigneAnalyse({ ...demande, existantes: [{ numero: 31, titre: 'Envoyer les e-mails depuis le site', livree: false }, { numero: 5, titre: 'Prévisualiser', livree: true }] });
+    expect(consigne).toContain('- #31 « Envoyer les e-mails depuis le site »');
+    expect(consigne).toContain('- #5 « Prévisualiser » (livrée)');
+    expect(consigne).toContain('ne propose JAMAIS une story déjà écrite');
+    expect(consigne).toContain('si cette demande refait une story existante, ne planifie rien');
+    expect(consigne).toContain('"doublonDe"');
+  });
+  it('sans autre story, pas de liste', () => {
+    expect(consigneAnalyse(demande)).not.toContain('DÉJÀ écrits dans ce projet');
+  });
+  it('garde le numéro de la story recoupée, ignore une valeur invalide', () => {
+    const story = { titre: 'Emprunter', role: 'agent', besoin: 'emprunter', benefice: 'éviter Excel', criteres: ['Bouton'] };
+    const decision = lireDecision(JSON.stringify({ decision: 'decoupage', texte: 'Trop gros.', stories: [{ ...story, doublonDe: 31 }, { ...story, doublonDe: 'x' }] }));
+    expect(decision?.stories?.[0]?.doublonDe).toBe(31);
+    expect(decision?.stories?.[1]).not.toHaveProperty('doublonDe');
+  });
+});
+
 describe('Consigne d’analyse : bref, décisions à cocher, découpage si la demande est floue', () => {
   it('demande d’être bref, impose les choix pour toute décision, et découpe une demande floue', () => {
     const consigne = consigneAnalyse(demande);

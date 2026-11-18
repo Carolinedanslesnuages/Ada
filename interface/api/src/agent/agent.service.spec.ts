@@ -76,6 +76,7 @@ describe('AgentService', () => {
     commits = '1';
     stories = {
       detail: vi.fn(async () => detail()),
+      lister: vi.fn(async () => [{ numero: 31, titre: 'Envoyer les e-mails', type: 'story', fermeeLe: null }, { numero: 1, titre: 'Moi-même', type: 'story', fermeeLe: null }]),
       commenterAssistant: vi.fn(async () => undefined),
       changerStatut: vi.fn(async (_j: string, _d: string, _n: number, s: string) => {
         statut = s;
@@ -139,6 +140,8 @@ describe('AgentService', () => {
     expect(args.join(' ')).not.toContain(JETON);
     expect(args[1]).toContain('[Assistant] 🤖 **Plan proposé**');
     expect(args[1]).not.toContain('Discussion avant lancement');
+    expect(args[1]).toContain('- #31 « Envoyer les e-mails »');
+    expect(args[1]).not.toContain('Moi-même');
     expect(stories.commenterAssistant).toHaveBeenCalledWith(JETON, 'poc', 1, 'Plan proposé', 'Je vais créer la page.');
     expect(statut).toBe('plan-a-valider');
     const activite = await service.activite('poc', 1);

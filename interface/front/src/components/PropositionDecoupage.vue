@@ -5,7 +5,8 @@ import { CRITERES_MAX, type StoryProposee } from '@/lib/story'
 /**
  * Découpage proposé par l'assistant (#36) : chaque story est préremplie et repliée (seul son titre
  * se lit d'un coup d'œil). Le PO coche celles à publier, corrige s'il le souhaite, puis valide :
- * ADA les publie sur GitHub à son nom.
+ * ADA les publie sur GitHub à son nom. Une story qui recoupe une story déjà écrite arrive décochée,
+ * avec un avertissement : un PO pressé ne publie pas un doublon sans le voir.
  */
 const props = defineProps<{ stories: StoryProposee[]; designation: string; actionEnCours?: boolean }>()
 const emit = defineEmits<{ creer: [stories: StoryProposee[]]; autreDecoupage: [] }>()
@@ -13,7 +14,8 @@ const emit = defineEmits<{ creer: [stories: StoryProposee[]]; autreDecoupage: []
 /** Champs modifiables, préremplis ; les critères s'écrivent un par ligne. */
 const brouillons = reactive(
   props.stories.map((story) => ({
-    publier: true,
+    publier: !story.doublonDe,
+    doublonDe: story.doublonDe ?? null,
     titre: story.titre,
     role: story.role,
     besoin: story.besoin,
@@ -22,6 +24,7 @@ const brouillons = reactive(
   })),
 )
 const ouverte = ref(-1)
+const doublons = brouillons.filter((brouillon) => brouillon.doublonDe).length
 const erreurs = ref<string[]>([])
 const nombre = computed(() => brouillons.filter((brouillon) => brouillon.publier).length)
 const libelleBouton = computed(() => (nombre.value > 1 ? `Publier les ${nombre.value} stories sur GitHub` : 'Publier la story sur GitHub'))
@@ -72,13 +75,28 @@ function publier(): void {
   <form novalidate class="fr-mt-2w" aria-labelledby="titre-decoupage" @submit.prevent="publier">
     <h4 id="titre-decoupage" class="fr-h6 fr-mb-1w">Stories proposées</h4>
     <p class="fr-text--sm">Cochez celles à publier. Ouvrez une story pour la relire ou la corriger.</p>
+    <DsfrAlert
+      v-if="doublons"
+      type="warning"
+      small
+      class="fr-mb-2w"
+      :description="doublons > 1 ? `${doublons} stories ressemblent à des stories déjà écrites : je ne les ai pas cochées.` : 'Une story ressemble à une story déjà écrite : je ne l’ai pas cochée.'"
+    />
 
     <ul class="fr-p-0 decoupage">
       <li v-for="(brouillon, rang) in brouillons" :key="rang" class="fr-mb-2w">
         <div class="fr-checkbox-group">
-          <input :id="`story-proposee-${rang}`" v-model="brouillon.publier" type="checkbox" />
+          <input
+            :id="`story-proposee-${rang}`"
+            v-model="brouillon.publier"
+            type="checkbox"
+            :aria-describedby="brouillon.doublonDe ? `story-proposee-${rang}-doublon` : undefined"
+          />
           <label class="fr-label" :for="`story-proposee-${rang}`">Publier « {{ brouillon.titre || 'sans titre' }} »</label>
         </div>
+        <p v-if="brouillon.doublonDe" :id="`story-proposee-${rang}-doublon`" class="fr-message fr-message--warning fr-mt-1v">
+          Ressemble à la story n° {{ brouillon.doublonDe }}, déjà dans le projet. Cochez-la seulement si ce n’est pas la même chose.
+        </p>
         <p v-if="erreurs[rang]" class="fr-error-text fr-mt-1v" role="alert">Story {{ rang + 1 }} : {{ erreurs[rang] }}</p>
         <DsfrAccordionsGroup v-model="ouverte">
           <DsfrAccordion :id="`story-proposee-${rang}-detail`" :title="`Relire ou modifier la story ${rang + 1}`">

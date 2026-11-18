@@ -21,6 +21,21 @@ describe('Proposition de découpage', () => {
     document.body.innerHTML = ''
   })
 
+  it('une story qui recoupe une story existante arrive décochée, avec un avertissement', async () => {
+    const stories = [STORIES[0]!, { ...STORIES[1]!, doublonDe: 31 }, STORIES[2]!]
+    const wrapper = mount(PropositionDecoupage, { props: { stories, designation: 'la demande n° 4' }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+    const cases = wrapper.findAll('input[type="checkbox"]')
+    expect(cases.map((caseACocher) => (caseACocher.element as HTMLInputElement).checked)).toEqual([true, false, true])
+    expect(wrapper.text()).toContain('Une story ressemble à une story déjà écrite : je ne l’ai pas cochée.')
+    expect(wrapper.find('#story-proposee-1-doublon').text()).toContain('Ressemble à la story n° 31, déjà dans le projet')
+    expect(cases[1]!.attributes('aria-describedby')).toBe('story-proposee-1-doublon')
+    expect(wrapper.find('button[type="submit"]').text()).toBe('Publier les 2 stories sur GitHub')
+    expect(await violationsAccessibilite(wrapper.element)).toEqual([])
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('creer')).toEqual([[[STORIES[0], STORIES[2]]]])
+    wrapper.unmount()
+  })
+
   it('court à lire : seuls les titres, cochés ; le détail est replié', () => {
     const wrapper = monter()
     const cases = wrapper.findAll('input[type="checkbox"]')

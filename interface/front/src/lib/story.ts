@@ -166,6 +166,8 @@ export interface StoryProposee {
   besoin: string
   benefice: string
   criteres: string[]
+  /** Story déjà dans le projet que celle-ci recoupe (signalée par ADA) : décochée par défaut. */
+  doublonDe?: number
 }
 
 const DONNEES_DECOUPAGE = /<!-- ada:decoupage (\S+) -->/
