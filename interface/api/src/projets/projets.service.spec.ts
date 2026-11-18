@@ -369,4 +369,70 @@ describe('ProjetsService', () => {
     expect(fichiersPousses(distant)).toEqual(['Dockerfile', 'ada.json', 'charts/app/Chart.yaml', 'charts/app/templates/deployment.yaml']);
     expect(lirePousse(distant, 'charts/app/Chart.yaml')).toBe('name: l-annuaire');
   });
+
+  describe('protection de la branche principale, vérifiée à l’ouverture d’un projet', () => {
+    const CONTROLES = ['Anti-fuite (gitleaks)', 'Application mobile (lint, types, tests dont accessibilité, compilation)'];
+    const adaJson = Buffer.from(JSON.stringify({ type: 'mobile', controlesRequis: CONTROLES, controles: ['npm test'], apercu: { principal: 'npx vite' } })).toString('base64');
+    /** GitHub simulé : règles en vigueur sur main, réponse à la création de la règle. */
+    function github(options: { regles?: unknown[]; prive?: boolean; topics?: string[]; refus?: { status: number; message: string } } = {}) {
+      gh.repos.get.mockResolvedValue({ data: { default_branch: 'main', private: options.prive ?? false, topics: options.topics ?? ['ada'] } });
+      gh.repos.getContent.mockResolvedValue({ data: { content: adaJson } });
+      gh.request.mockImplementation(async (route: string) => {
+        if (route === 'GET /repos/{owner}/{repo}/rules/branches/{branch}') return { data: options.regles ?? [] };
+        if (route === 'GET /repos/{owner}/{repo}/rulesets') return { data: [] };
+        if (route === 'POST /repos/{owner}/{repo}/rulesets') {
+          if (options.refus) throw Object.assign(new Error(options.refus.message), { status: options.refus.status, request: { method: 'POST', url: route } });
+          return { data: { id: 1 } };
+        }
+        return { data: [] };
+      });
+    }
+    const poses = () => gh.request.mock.calls.filter(([route]) => route === 'POST /repos/{owner}/{repo}/rulesets');
+
+    it('pose la règle qui manque (PR et contrôles d’ada.json obligatoires), une seule fois', async () => {
+      github();
+      expect(await service.assurerProtection('jeton', 'gladys')).toMatchObject({ etat: 'posee', raison: null });
+      expect(poses()).toHaveLength(1);
+      const corps = poses()[0]![1] as { rules: { type: string; parameters?: { required_status_checks?: { context: string }[] } }[] };
+      expect(corps.rules.map((regle) => regle.type)).toEqual(['deletion', 'non_fast_forward', 'pull_request', 'required_status_checks']);
+      expect(corps.rules[3]!.parameters!.required_status_checks!.map((controle) => controle.context)).toEqual(CONTROLES);
+      await service.assurerProtection('jeton', 'gladys'); // rouvert aussitôt : on ne redemande pas GitHub
+      expect(poses()).toHaveLength(1);
+    });
+
+    it('ne pose rien quand une règle exige déjà une PR sur main', async () => {
+      github({ regles: [{ type: 'pull_request' }, { type: 'deletion' }] });
+      expect((await service.assurerProtection('jeton', 'gladys')).etat).toBe('protegee');
+      expect(poses()).toHaveLength(0);
+    });
+
+    it('ne touche pas aux règles d’un projet repris (elles restent celles de son équipe)', async () => {
+      github({ topics: ['ada', 'ada-reprise'] });
+      expect((await service.assurerProtection('jeton', 'secret-santa')).etat).toBe('non-geree');
+      expect(poses()).toHaveLength(0);
+    });
+
+    it('dépôt privé sur un compte gratuit : le dit clairement au PO, et ne réessaie pas à chaque ouverture', async () => {
+      github({ prive: true, refus: { status: 403, message: 'Upgrade to GitHub Pro or make this repository public to enable this feature.' } });
+      expect(await service.assurerProtection('jeton', 'signalements')).toMatchObject({
+        etat: 'impossible',
+        raison: 'GitHub ne permet pas de protéger un dépôt privé sur un compte personnel gratuit.',
+        lien: 'https://github.com/proprio/signalements/rules',
+      });
+      await service.assurerProtection('jeton', 'signalements');
+      expect(poses()).toHaveLength(1);
+    });
+
+    it('autre refus : donne le motif exact de GitHub (pour pouvoir le corriger)', async () => {
+      github({ refus: { status: 422, message: 'Invalid rule \'pull_request\': unknown parameter' } });
+      expect((await service.assurerProtection('jeton', 'gladys')).raison).toBe("GitHub a refusé la règle (422) : Invalid rule 'pull_request': unknown parameter.");
+    });
+
+    it('lit les contrôles que la règle de GitHub exige ; aucun : null', async () => {
+      github({ regles: [{ type: 'pull_request' }, { type: 'required_status_checks', parameters: { required_status_checks: CONTROLES.map((context) => ({ context })) } }] });
+      expect(await service.controlesExiges(gh as never, 'proprio', 'gladys', 'main')).toEqual(CONTROLES);
+      github({ regles: [{ type: 'pull_request' }] });
+      expect(await service.controlesExiges(gh as never, 'proprio', 'gladys', 'main')).toBeNull();
+    });
+  });
 });

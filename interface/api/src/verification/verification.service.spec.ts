@@ -30,10 +30,13 @@ describe('VerificationService', () => {
   const stories = { retirerStatut: vi.fn(), signalerLivraisonAuParent: vi.fn(), detail: vi.fn(async () => ({ titre: 'Page d’accueil', type: 'story' })) };
   const apercu = { revenirSurMain: vi.fn(), relancerApplication: vi.fn() };
   const demo = { mettreAJour: vi.fn() };
+  const projets = { lireConfigDepot: vi.fn(async () => ADA_PAR_DEFAUT), controlesExiges: vi.fn(async (): Promise<string[] | null> => null) };
   let service: VerificationService;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    projets.controlesExiges.mockResolvedValue(null);
+    projets.lireConfigDepot.mockResolvedValue(ADA_PAR_DEFAUT);
     agent.activite.mockResolvedValue({ pullRequest: 'https://github.com/proprio/poc/pull/3' });
     gh.issues.get.mockResolvedValue({ data: { state: 'open' } });
     gh.repos.compareCommits.mockResolvedValue({ data: { ahead_by: 0 } });
@@ -47,7 +50,7 @@ describe('VerificationService', () => {
       agent as unknown as AgentService,
       stories as unknown as StoriesService,
       apercu as unknown as ApercuService,
-      { lireConfigDepot: async () => ADA_PAR_DEFAUT } as unknown as ProjetsService,
+      projets as unknown as ProjetsService,
       demo as unknown as DemoService,
     );
   });
@@ -134,6 +137,22 @@ describe('VerificationService', () => {
     expect(resultat.fusionnable).toBe(false);
     expect(resultat.raison).toMatch(/mise à jour et les contrôles sont relancés/);
     expect(agent.noterTete).toHaveBeenCalledWith('poc', 1, 'nouveau'); // la mise à jour vient d'ADA : le nouveau bout est le sien
+  });
+
+  it('exige les contrôles de la règle de protection de GitHub, même si ada.json en annonce moins', async () => {
+    // ada.json (modifiable par d'autres) ne demanderait plus que l'anti-fuite ; la règle de GitHub exige les trois.
+    projets.lireConfigDepot.mockResolvedValue({ ...ADA_PAR_DEFAUT, controlesRequis: ['Anti-fuite (gitleaks)'] });
+    projets.controlesExiges.mockResolvedValue(NOMS);
+    gh.checks.listForRef.mockResolvedValue({ data: { check_runs: [{ name: 'Anti-fuite (gitleaks)', status: 'completed', conclusion: 'success', html_url: null }] } });
+    const verification = await service.verifier('jeton', 'poc', 1);
+    expect(verification.controles.map((controle) => controle.nom)).toEqual(NOMS);
+    expect(verification.fusionnable).toBe(false);
+  });
+
+  it('sans règle de protection, revient aux contrôles d’ada.json', async () => {
+    projets.controlesExiges.mockResolvedValue(null);
+    gh.checks.listForRef.mockResolvedValue(runs('success'));
+    expect((await service.verifier('jeton', 'poc', 1)).controles.map((controle) => controle.nom)).toEqual(ADA_PAR_DEFAUT.controlesRequis);
   });
 
   describe('la branche est exactement ce qu’ADA a poussé', () => {

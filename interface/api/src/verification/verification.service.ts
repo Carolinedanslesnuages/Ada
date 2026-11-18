@@ -64,7 +64,8 @@ export class VerificationService {
     try {
       const { data: pr } = await gh.pulls.get({ owner, repo, pull_number: numeroPr });
       const etat = pr.merged ? 'fusionnee' : pr.state === 'closed' ? 'fermee' : 'ouverte';
-      const { controlesRequis } = await this.projets.lireConfigDepot(gh, owner, repo, pr.base.ref);
+      // Les contrôles que GitHub exige vraiment (règle de protection) ; à défaut, ceux d'ada.json.
+      const controlesRequis = (await this.projets.controlesExiges(gh, owner, repo, pr.base.ref)) ?? (await this.projets.lireConfigDepot(gh, owner, repo, pr.base.ref)).controlesRequis;
       const controles = await lireControles(gh, owner, repo, pr.head.sha, controlesRequis);
       // La branche doit être exactement ce qu'ADA a poussé et que le PO a vu dans l'aperçu : quelqu'un
       // qui y ajoute un commit sur GitHub n'est pas passé par ADA, et sa CI verte ne dit rien de ce qu'il a écrit.
