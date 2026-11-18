@@ -173,6 +173,27 @@ describe('AgentService', () => {
     expect(lancer).toHaveBeenCalledTimes(1);
   });
 
+  it('utilise le modèle choisi dans la configuration (AGENT_MODELE), sinon celui du compte', async () => {
+    sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
+    await service.analyser(JETON, 'poc', 1);
+    await service.derniereTache;
+    expect(lancer.mock.calls[0]![0]).not.toContain('--model');
+    const avecSonnet = new AgentService(
+      lireConfig({ GITHUB_PROPRIETAIRE: 'proprio', GITHUB_CLIENT_ID: 'Iv', GITHUB_CLIENT_SECRET: 's', SESSION_SECRET: 'x'.repeat(32), AGENT_COMMANDE: '/bin/agent', AGENT_MODELE: 'sonnet', DOSSIER_REGISTRE: REGISTRE_ESSAI }),
+      { client: () => gh } as unknown as GithubService,
+      stories as unknown as StoriesService,
+      apercu as unknown as ApercuService,
+      projets as unknown as ProjetsService,
+    );
+    avecSonnet.lancerAgent = lancer;
+    statut = 'en-cours';
+    sortie = [resultat('{"decision":"plan","texte":"Plan."}')];
+    await avecSonnet.analyser(JETON, 'poc', 1);
+    await avecSonnet.derniereTache;
+    const args = lancer.mock.calls[1]![0];
+    expect(args.slice(args.indexOf('--model'), args.indexOf('--model') + 2)).toEqual(['--model', 'sonnet']);
+  });
+
   it('analyse en lecture seule et publie le plan, qui attend la validation du PO', async () => {
     sortie = [action('Read', { file_path: '/x/AGENTS.md' }), resultat('{"decision":"plan","texte":"Je vais créer la page."}')];
     await service.analyser(JETON, 'poc', 1);
