@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import BoutonDicter from '@/components/BoutonDicter.vue'
 import { PROMPT_MAX, PROMPT_MIN } from '@/lib/story'
 
 const props = defineProps<{ envoiEnCours?: boolean; erreurServeur?: string | null }>()
@@ -8,6 +9,11 @@ const emit = defineEmits<{ soumettre: [texte: string]; annuler: [] }>()
 const texte = ref('')
 const erreurLocale = ref('')
 const erreur = computed(() => erreurLocale.value || props.erreurServeur || '')
+
+/** Dictée : chaque phrase reconnue s'ajoute à la suite du texte. */
+function ajouterDictee(phrase: string): void {
+  texte.value = texte.value.trim() ? `${texte.value.trimEnd()} ${phrase}` : phrase
+}
 
 function envoyer(): void {
   const propre = texte.value.trim()
@@ -39,6 +45,7 @@ function envoyer(): void {
       </p>
     </div>
     <DsfrInputGroup
+      id="texte-prompt"
       v-model="texte"
       label="Votre demande"
       :hint="`Une ou quelques phrases (${PROMPT_MAX} caractères au maximum)`"
@@ -46,6 +53,7 @@ function envoyer(): void {
       is-textarea
       :error-message="erreur"
     />
+    <BoutonDicter champ="texte-prompt" class="fr-mb-2w" @texte="ajouterDictee" />
     <p class="fr-text--sm fr-mb-2w" id="prompt-enregistrement">
       <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
       <strong>En envoyant, votre texte est enregistré tel quel sur GitHub, comme une demande

@@ -177,7 +177,7 @@ describe('Écran de l’atelier', () => {
   it('relit les demandes quand on clique sur « Actualiser »', async () => {
     const wrapper = await monter()
     lire.mockClear()
-    await bouton(wrapper, 'Actualiser les demandes')!.trigger('click')
+    await bouton(wrapper, 'Actualiser')!.trigger('click')
     await flushPromises()
     expect(lire).toHaveBeenCalledWith('/projets/poc-portail/stories')
     wrapper.unmount()
