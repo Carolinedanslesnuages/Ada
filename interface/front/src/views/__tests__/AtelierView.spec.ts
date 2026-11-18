@@ -103,6 +103,21 @@ describe('Écran de l’atelier', () => {
     wrapper.unmount()
   })
 
+  it('liste OU demande : « Discuter avec ADA » prend toute la colonne ; « Toutes les demandes » ramène la liste', async () => {
+    const wrapper = await monter()
+    await wrapper.findAll('button').find((b) => b.text().includes('Discuter avec ADA'))!.trigger('click')
+    expect(wrapper.find('h2.fr-h4').text()).toBe('Discuter avec ADA')
+    expect(wrapper.find('#titre-stories').exists()).toBe(false)
+    expect(wrapper.find('select').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Projet : poc-portail')
+    await wrapper.findAll('button').find((b) => b.text().includes('Toutes les demandes'))!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('#titre-stories').exists()).toBe(true)
+    expect(document.activeElement?.id).toBe('titre-stories')
+    expect(wrapper.text()).not.toContain('Discuter avec ADA »')
+    wrapper.unmount()
+  })
+
   it('désactive « Prompter » quand une demande est déjà en cours', async () => {
     lire.mockImplementation(async (chemin: string) =>
       chemin === '/projets/poc-portail/stories' ? [{ ...story, statut: 'en-cours' }] : reponses[chemin],
