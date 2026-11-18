@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EQUIVALENTS, G_CO2_PAR_KWH, empreinte, lireUsages } from './empreinte.js';
-import { lireEmpreintes, noterEmpreinte, sommer } from './journal-empreinte.js';
+import { lireEmpreintes, noterEmpreinte, sommer, usagesDuTour, type EntreeEmpreinte } from './journal-empreinte.js';
 
 describe('Empreinte carbone (méthode EcoLogits, équivalents ADEME)', () => {
   it('lit les tokens par modèle dans le rapport de Claude (lecture = entrée + cache)', () => {
@@ -48,5 +48,18 @@ describe('Empreinte carbone (méthode EcoLogits, équivalents ADEME)', () => {
     expect(entrees).toHaveLength(2);
     expect(sommer(entrees).tokensSortie).toBe(400);
     expect(await lireEmpreintes(join(dossier, 'absent'))).toEqual([]);
+  });
+
+  it('session reprise : Claude rapporte le total de la session ; on ne compte que la différence de chaque tour', () => {
+    const tour = (le: string, sortie: number, entree: number, session: string | null = 'S1'): EntreeEmpreinte => ({
+      le, projet: 'gladys', numero: 30, phase: 'conversation', session, usages: [{ modele: 'claude-opus-5-5', tokensEntree: entree, tokensSortie: sortie }],
+    });
+    const entrees = [tour('1', 173, 24029), tour('2', 177, 59971), tour('3', 500, 1000, null)];
+    expect(usagesDuTour(entrees).map((usages) => usages[0]!.tokensSortie)).toEqual([173, 4, 500]);
+    expect(sommer(entrees).tokensSortie).toBe(677);
+    // Un modèle absent du tour précédent compte en entier ; jamais de négatif.
+    const autre = usagesDuTour([tour('1', 100, 10), { ...tour('2', 50, 5), usages: [{ modele: 'claude-haiku-5-5', tokensEntree: 5, tokensSortie: 50 }] }])
+    expect(autre[1]![0]).toEqual({ modele: 'claude-haiku-5-5', tokensEntree: 5, tokensSortie: 50 });
+    expect(usagesDuTour([tour('1', 100, 10), tour('2', 80, 5)])[1]![0]!.tokensSortie).toBe(0);
   });
 });

@@ -155,6 +155,7 @@ describe('AgentService', () => {
     const contenu = readFileSync(join(REGISTRE_ESSAI, 'empreinte.jsonl'), 'utf8');
     expect(contenu).toContain('"projet":"poc-empreinte"');
     expect(contenu).not.toContain('Plan.');
+    expect(contenu).toContain('"session":null');
     const demande = await service.empreinteDemande('poc-empreinte', 1);
     expect(demande!.empreinte).toMatchObject({ tokensSortie: 1200, tokensEntree: 5010 });
     expect(demande!.empreinte.co2g.max).toBeGreaterThan(demande!.empreinte.co2g.min);
