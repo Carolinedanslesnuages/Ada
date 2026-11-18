@@ -94,9 +94,10 @@ const statut = (e: unknown) => (e as { status?: number }).status;
 /**
  * Protection de la branche principale d'un projet. « protegee » : une règle l'exige déjà (PR et
  * contrôles) ; « posee » : ADA vient de la poser ; « impossible » : GitHub refuse (raison dite au
- * PO) ; « non-geree » : projet repris, dont les règles restent celles de son équipe.
+ * PO) ; « a-proposer » : projet repris sans règle, ADA demande au PO s'il veut la protéger (cela
+ * change la façon de travailler de son équipe) ; « refusee » : le PO a répondu non.
  */
-export type EtatProtection = 'protegee' | 'posee' | 'impossible' | 'non-geree';
+export type EtatProtection = 'protegee' | 'posee' | 'impossible' | 'a-proposer' | 'refusee';
 export interface Protection {
   etat: EtatProtection;
   raison: string | null;
@@ -538,11 +539,30 @@ export class ProjetsService {
   /** Dernier constat par projet : à chaque ouverture, on ne redemande pas GitHub (un refus est gardé plus longtemps). */
   private readonly protections = new Map<string, { protection: Protection; expire: number }>();
 
+  private memoriserProtection(cle: string, protection: Protection): Protection {
+    this.protections.set(cle, { protection, expire: Date.now() + (protection.etat === 'impossible' ? 60 : 10) * 60_000 });
+    return protection;
+  }
+
+  /** Choix du PO pour un projet repris (« ne pas protéger »), gardé par ADA hors de GitHub. */
+  private fichierChoixProtection(depot: string): string {
+    lireIdentifiant(depot, this.proprietaire); // identifiant bien formé : jamais un chemin
+    return join(resolve(this.config.DOSSIER_APERCUS), depot.toLowerCase(), 'protection.json');
+  }
+
+  private async protectionRefusee(depot: string): Promise<boolean> {
+    try {
+      return (JSON.parse(await readFile(this.fichierChoixProtection(depot), 'utf8')) as { refusee?: boolean }).refusee === true;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * À l'ouverture d'un projet : la branche principale doit être protégée (PR et contrôles verts
-   * obligatoires). Si aucune règle ne l'exige, ADA pose la sienne, avec les contrôles de `ada.json`.
-   * Une protection qui avait échoué à la création (dépôt alors privé sur un compte gratuit, par
-   * exemple) est ainsi retentée. Un projet repris garde les règles de son équipe.
+   * obligatoires). Projet créé par ADA : si aucune règle ne l'exige, ADA pose la sienne, avec les
+   * contrôles de `ada.json` (une protection qui avait échoué à la création est ainsi retentée).
+   * Projet repris : ADA ne pose rien d'elle-même ; elle propose, et le PO décide.
    */
   async assurerProtection(jeton: string, depot: string): Promise<Protection> {
     const { owner, repo } = lireIdentifiant(depot, this.proprietaire);
@@ -551,25 +571,51 @@ export class ProjetsService {
     if (connue && connue.expire > Date.now()) return connue.protection;
     const gh = this.github.client(jeton);
     const lien = `https://github.com/${owner}/${repo}/rules`;
-    let protection: Protection;
     try {
       const { data: depotGithub } = await gh.repos.get({ owner, repo });
       const branche = depotGithub.default_branch ?? 'main';
       const regles = await this.reglesBranche(gh, owner, repo, branche);
+      if ((regles ?? []).some((regle) => regle.type === 'pull_request')) return this.memoriserProtection(cle, { etat: 'protegee', raison: null, lien });
       if ((depotGithub.topics ?? []).includes(TOPIC_REPRISE)) {
-        protection = { etat: 'non-geree', raison: null, lien };
-      } else if ((regles ?? []).some((regle) => regle.type === 'pull_request')) {
-        protection = { etat: 'protegee', raison: null, lien };
-      } else {
-        const { controlesRequis } = await this.lireConfigDepot(gh, owner, repo, branche);
-        const resultat = await this.poserRegleMain(gh, owner, repo, controlesRequis);
-        protection = resultat.ok ? { etat: 'posee', raison: null, lien } : { etat: 'impossible', raison: raisonRefusProtection(resultat, depotGithub.private), lien };
+        return this.memoriserProtection(cle, { etat: (await this.protectionRefusee(depot)) ? 'refusee' : 'a-proposer', raison: null, lien });
       }
+      return this.memoriserProtection(cle, await this.poser(gh, owner, repo, branche, depotGithub.private, lien));
     } catch (e) {
       traduireErreurGithub(e);
     }
-    this.protections.set(cle, { protection, expire: Date.now() + (protection.etat === 'impossible' ? 60 : 10) * 60_000 });
-    return protection;
+  }
+
+  private async poser(gh: Octokit, owner: string, repo: string, branche: string, prive: boolean, lien: string): Promise<Protection> {
+    const { controlesRequis } = await this.lireConfigDepot(gh, owner, repo, branche);
+    const resultat = await this.poserRegleMain(gh, owner, repo, controlesRequis);
+    return resultat.ok ? { etat: 'posee', raison: null, lien } : { etat: 'impossible', raison: raisonRefusProtection(resultat, prive), lien };
+  }
+
+  /** Le PO accepte qu'ADA protège la branche principale (projet repris) : ADA pose la règle, à son nom. */
+  async protegerSurDemande(jeton: string, depot: string, login: string): Promise<Protection> {
+    const { owner, repo } = lireIdentifiant(depot, this.proprietaire);
+    const gh = this.github.client(jeton);
+    const lien = `https://github.com/${owner}/${repo}/rules`;
+    try {
+      const { data: depotGithub } = await gh.repos.get({ owner, repo });
+      const protection = await this.poser(gh, owner, repo, depotGithub.default_branch ?? 'main', depotGithub.private, lien);
+      if (protection.etat === 'posee') {
+        await rm(this.fichierChoixProtection(depot), { force: true });
+        this.journal.log(`Branche principale de ${owner}/${repo} protégée à la demande de ${login}`);
+      }
+      return this.memoriserProtection(`${owner}/${repo}`.toLowerCase(), protection);
+    } catch (e) {
+      traduireErreurGithub(e);
+    }
+  }
+
+  /** Le PO ne veut pas protéger la branche (projet repris) : ADA le retient et ne redemande pas. */
+  async refuserProtection(depot: string, login: string): Promise<Protection> {
+    const { owner, repo } = lireIdentifiant(depot, this.proprietaire);
+    const fichier = this.fichierChoixProtection(depot);
+    await mkdir(dirname(fichier), { recursive: true });
+    await writeFile(fichier, JSON.stringify({ refusee: true, par: login, le: new Date().toISOString() }));
+    return this.memoriserProtection(`${owner}/${repo}`.toLowerCase(), { etat: 'refusee', raison: null, lien: `https://github.com/${owner}/${repo}/rules` });
   }
 }
 

@@ -19,7 +19,9 @@ const variables = {
   GITHUB_CLIENT_SECRET: 's',
   SESSION_SECRET: 'x'.repeat(32),
 };
-const config = lireConfig({ ...variables, CATALOGUE: dossierCatalogue });
+/** Dossier des aperçus des tests : jamais celui d'ADA (le choix de protection d'un PO y est écrit). */
+const dossierApercus = mkdtempSync(join(tmpdir(), 'apercus-projets-'));
+const config = lireConfig({ ...variables, CATALOGUE: dossierCatalogue, DOSSIER_APERCUS: dossierApercus });
 
 const depot = (name: string, topics: string[], updated_at = '2026-11-16T10:00:00Z', owner = 'proprio') => ({
   name,
@@ -406,10 +408,47 @@ describe('ProjetsService', () => {
       expect(poses()).toHaveLength(0);
     });
 
-    it('ne touche pas aux règles d’un projet repris (elles restent celles de son équipe)', async () => {
+    it('projet repris sans règle : ADA propose de protéger la branche, sans rien poser d’elle-même', async () => {
       github({ topics: ['ada', 'ada-reprise'] });
-      expect((await service.assurerProtection('jeton', 'secret-santa')).etat).toBe('non-geree');
+      expect((await service.assurerProtection('jeton', 'secret-santa')).etat).toBe('a-proposer');
       expect(poses()).toHaveLength(0);
+    });
+
+    it('projet repris déjà protégé par une règle de son équipe : rien à proposer', async () => {
+      github({ topics: ['ada', 'ada-reprise'], regles: [{ type: 'pull_request' }] });
+      expect((await service.assurerProtection('jeton', 'secret-santa')).etat).toBe('protegee');
+      expect(poses()).toHaveLength(0);
+    });
+
+    it('le PO accepte : ADA pose la règle, avec les contrôles d’ada.json', async () => {
+      github({ topics: ['ada', 'ada-reprise'] });
+      expect((await service.assurerProtection('jeton', 'secret-santa')).etat).toBe('a-proposer');
+      expect(await service.protegerSurDemande('jeton', 'secret-santa', 'po1')).toMatchObject({ etat: 'posee' });
+      expect(poses()).toHaveLength(1);
+      const corps = poses()[0]![1] as { rules: { type: string; parameters?: { required_status_checks?: { context: string }[] } }[] };
+      expect(corps.rules.find((regle) => regle.type === 'required_status_checks')!.parameters!.required_status_checks!.map((controle) => controle.context)).toEqual(CONTROLES);
+      expect((await service.assurerProtection('jeton', 'secret-santa')).etat).toBe('posee'); // l'écran se met à jour aussitôt
+    });
+
+    it('le PO refuse : ADA le retient (même après un redémarrage) et ne redemande plus', async () => {
+      github({ topics: ['ada', 'ada-reprise'] });
+      expect(await service.refuserProtection('secret-santa', 'po1')).toMatchObject({ etat: 'refusee' });
+      const apresRedemarrage = new ProjetsService(config, { client: () => gh } as unknown as GithubService, apercu);
+      expect((await apresRedemarrage.assurerProtection('jeton', 'secret-santa')).etat).toBe('refusee');
+      expect(poses()).toHaveLength(0);
+    });
+
+    it('le PO revient sur son refus et accepte : la règle est posée et le refus oublié', async () => {
+      github({ topics: ['ada', 'ada-reprise'] });
+      await service.refuserProtection('secret-santa', 'po1');
+      expect((await service.protegerSurDemande('jeton', 'secret-santa', 'po1')).etat).toBe('posee');
+      github({ topics: ['ada', 'ada-reprise'] }); // la règle n'est pas encore visible : le refus ne doit plus revenir
+      expect((await new ProjetsService(config, { client: () => gh } as unknown as GithubService, apercu).assurerProtection('jeton', 'secret-santa')).etat).toBe('a-proposer');
+    });
+
+    it('le PO accepte mais GitHub refuse : la raison est donnée, le choix reste ouvert', async () => {
+      github({ topics: ['ada', 'ada-reprise'], prive: true, refus: { status: 403, message: 'Upgrade to GitHub Pro' } });
+      expect(await service.protegerSurDemande('jeton', 'secret-santa', 'po1')).toMatchObject({ etat: 'impossible', raison: expect.stringContaining('dépôt privé') });
     });
 
     it('dépôt privé sur un compte gratuit : le dit clairement au PO, et ne réessaie pas à chaque ouverture', async () => {

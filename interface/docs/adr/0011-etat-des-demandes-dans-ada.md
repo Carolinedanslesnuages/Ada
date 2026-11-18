@@ -60,6 +60,8 @@ création l'avait tentée, avait échoué (signalements était alors privé, sur
 rien ne la retentait. Désormais, à l'ouverture d'un projet, ADA vérifie les règles en vigueur sur
 `main` et pose la sienne si aucune n'exige de PR (`ProjetsService.assurerProtection`) ; un refus de
 GitHub est expliqué au PO et son motif exact journalisé. Un projet repris garde les règles de son
-équipe. Les contrôles exigés avant fusion se lisent dans cette règle de GitHub, plus dans `ada.json`
-(qui ne sert qu'à défaut de règle).
+équipe : ADA ne pose rien d'elle-même, elle propose de protéger la branche et le PO décide (protéger
+change la façon de travailler de toute l'équipe du dépôt) ; un refus est retenu par ADA, et le PO
+peut revenir sur son choix. Les contrôles exigés avant fusion se lisent dans cette règle de GitHub,
+plus dans `ada.json` (qui ne sert qu'à défaut de règle).
 
