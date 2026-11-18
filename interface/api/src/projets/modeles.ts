@@ -70,6 +70,7 @@ export function catalogue(): Omit<Modele, 'disponible' | 'deployable'>[] {
 export const LABELS_ATELIER = [
   { name: 'user-story', color: '000091', description: 'Story écrite par le PO' },
   { name: 'mode-libre', color: '6a6af4', description: 'Demande libre du PO (mode sauvage, hors story)' },
+  { name: 'mode-conversation', color: '6a6af4', description: 'Conversation libre du PO avec ADA' },
   { name: 'bug', color: 'ce0500', description: 'Problème signalé par le PO' },
   { name: 'story:en-cours', color: '0063cb', description: 'Lancée depuis ADA' },
   { name: 'story:questions', color: 'b34000', description: 'ADA attend des réponses du PO' },
@@ -78,5 +79,6 @@ export const LABELS_ATELIER = [
   { name: 'story:besoin-dev', color: 'ce0500', description: 'Bloquée : un développeur doit intervenir' },
   { name: 'story:decoupage-a-valider', color: 'b34000', description: 'Le PO choisit les stories du découpage proposé' },
   { name: 'story:parent', color: '6a6af4', description: 'Demande découpée en stories' },
+  { name: 'story:conversation', color: 'b34000', description: 'ADA a répondu : au PO d’écrire' },
   { name: 'story:en-attente', color: '929292', description: 'Rien à construire pour l’instant : à relancer plus tard' },
 ];

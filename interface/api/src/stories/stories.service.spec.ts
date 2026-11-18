@@ -143,6 +143,26 @@ describe('StoriesService', () => {
     await expect(service.lancer('jeton', 'poc', 2, 'po1')).resolves.toMatchObject({ statut: 'en-cours' });
   });
 
+  it('conversation : le premier message devient une issue « mode-conversation », lancée', async () => {
+    depot([issue(1, { state: 'closed' })]);
+    gh.issues.getLabel.mockResolvedValue({});
+    gh.issues.create.mockResolvedValue({ data: issue(7, { title: 'Conversation : mets le titre en bleu', labels: [{ name: 'mode-conversation' }, { name: 'story:en-cours' }], body: '### Conversation avec ADA\n\nMets le titre en bleu\n\n<!-- ada:conversation -->' }) });
+    const conversation = await service.ouvrirConversation('jeton', 'poc', 'Mets le titre en bleu', 'po1');
+    expect(gh.issues.create).toHaveBeenCalledWith(expect.objectContaining({ title: 'Conversation : Mets le titre en bleu', labels: ['mode-conversation', 'story:en-cours'] }));
+    expect(conversation).toMatchObject({ numero: 7, type: 'conversation', statut: 'en-cours', prete: true });
+  });
+
+  it('conversation : refusée si une autre demande est en cours, ou si le message est vide', async () => {
+    depot([issue(1, { labels: [{ name: 'user-story' }, { name: 'story:en-cours' }] })]);
+    await expect(service.ouvrirConversation('jeton', 'poc', 'Mets le titre en bleu', 'po1')).rejects.toThrow(/une seule demande à la fois/);
+    await expect(service.ouvrirConversation('jeton', 'poc', 'bleu', 'po1')).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('une conversation qui attend le PO occupe le projet', async () => {
+    depot([issue(1, { labels: [{ name: 'mode-conversation' }, { name: 'story:conversation' }] }), issue(2)]);
+    await expect(service.lancer('jeton', 'poc', 2, 'po1')).rejects.toThrow(/#1 .* est en cours/);
+  });
+
   it('refuse d’en lancer une deuxième tant qu’une autre est en cours', async () => {
     depot([issue(1, { labels: [{ name: 'user-story' }, { name: 'story:questions' }] }), issue(2)]);
     await expect(service.lancer('jeton', 'poc', 2, 'po1')).rejects.toThrow(/#1 .* est en cours : une seule demande à la fois/);

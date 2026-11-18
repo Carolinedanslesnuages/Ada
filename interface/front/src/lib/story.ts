@@ -11,6 +11,7 @@ export type Statut =
   | 'decoupage'
   | 'parent'
   | 'attente'
+  | 'echange'
   | 'livree'
 
 export const STATUTS_ACTIFS: Statut[] = [
@@ -20,6 +21,7 @@ export const STATUTS_ACTIFS: Statut[] = [
   'en-verification',
   'besoin-dev',
   'decoupage',
+  'echange',
 ]
 
 export const LIBELLES_STATUT: Record<
@@ -35,10 +37,16 @@ export const LIBELLES_STATUT: Record<
   decoupage: { libelle: 'Découpage à valider', type: 'warning' },
   parent: { libelle: 'Découpée', type: 'info' },
   attente: { libelle: 'En attente', type: 'info' },
+  echange: { libelle: 'À vous', type: 'warning' },
   livree: { libelle: 'Livrée', type: 'success' },
 }
 
-export type TypeDemande = 'story' | 'bug' | 'libre'
+export type TypeDemande = 'story' | 'bug' | 'libre' | 'conversation'
+
+/** Conversation (« vrai prompt ») : la taille d'un message, de « oui » à un long cahier des charges. */
+export const MESSAGE_MAX = 8000
+/** Commentaire de lancement, posé par ADA : pas un message de la conversation. */
+export const MARQUEUR_LANCEMENT = '▶️ Lancée depuis ADA'
 
 export interface ResumeStory {
   numero: number
@@ -121,7 +129,7 @@ export function lienNouvelleIssue(urlDepot: string, modele: 'user-story.yml' | '
 
 /** Ce que fait l'assistant sur une demande (journal lisible par le PO). */
 export interface Activite {
-  phase: 'analyse' | 'realisation' | null
+  phase: 'analyse' | 'realisation' | 'reprise' | 'conversation' | null
   enCours: boolean
   debut: string | null
   journal: { le: string; texte: string }[]

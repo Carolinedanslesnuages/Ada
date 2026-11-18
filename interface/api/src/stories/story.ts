@@ -12,6 +12,16 @@ export const LABEL_BUG = 'bug';
 /** Demande libre (« mode sauvage ») : un prompt du PO, hors story, enregistré comme issue. */
 export const LABEL_LIBRE = 'mode-libre';
 const MARQUEUR_LIBRE = '<!-- ada:mode-libre -->';
+/**
+ * Conversation (« vrai prompt ») : le PO parle librement à ADA, qui agit tout de suite sur une
+ * branche à part ; rien n'arrive sur le projet avant que le PO dise « c'est bon » (PR).
+ */
+export const LABEL_CONVERSATION = 'mode-conversation';
+const MARQUEUR_CONVERSATION = '<!-- ada:conversation -->';
+const SECTION_CONVERSATION = 'conversation avec ada';
+export const PREFIXE_CONVERSATION = 'Conversation : ';
+/** Un message de conversation : de « oui » à un long cahier des charges. */
+export const MESSAGE_MAX = 8000;
 /** Commentaire qui marque le lancement d'une demande par ADA. */
 export const MARQUEUR_LANCEMENT = '▶️ Lancée depuis ADA';
 
@@ -30,13 +40,15 @@ export const STATUTS = {
   parent: 'story:parent',
   /** Rien à construire pour l'instant (elle attend une autre story) : gardée ouverte, à relancer plus tard. */
   attente: 'story:en-attente',
+  /** Conversation : ADA a répondu, c'est au PO d'écrire (ou de dire « c'est bon »). */
+  echange: 'story:conversation',
 } as const;
 
 export type Statut = 'nouvelle' | keyof typeof STATUTS | 'livree';
-export type TypeDemande = 'story' | 'bug' | 'libre';
+export type TypeDemande = 'story' | 'bug' | 'libre' | 'conversation';
 
 /** Statuts qui occupent le projet : tant qu'une demande y est, on n'en lance pas d'autre. */
-export const STATUTS_ACTIFS: Statut[] = ['en-cours', 'questions', 'plan-a-valider', 'en-verification', 'besoin-dev', 'decoupage'];
+export const STATUTS_ACTIFS: Statut[] = ['en-cours', 'questions', 'plan-a-valider', 'en-verification', 'besoin-dev', 'decoupage', 'echange'];
 
 export interface ContenuStory {
   role: string;
@@ -84,6 +96,29 @@ export function lireStory(corps: string): ContenuStory | null {
 /** Corps de l'issue créée pour un prompt : lisible sur GitHub, relisible par ADA. */
 export function formaterPrompt(texte: string): string {
   return ['### Demande libre (mode sauvage, hors story)', '', texte.trim(), '', MARQUEUR_LIBRE].join('\n');
+}
+
+/** Corps de l'issue d'une conversation : le premier message du PO. */
+export function formaterConversation(texte: string): string {
+  return ['### Conversation avec ADA', '', texte.trim(), '', MARQUEUR_CONVERSATION].join('\n');
+}
+
+export function lireConversation(corps: string): string | null {
+  if (!corps.includes(MARQUEUR_CONVERSATION)) return null;
+  return sectionsFormulaire(corps).get(SECTION_CONVERSATION)?.replace(MARQUEUR_CONVERSATION, '').trim() ?? null;
+}
+
+export function titreConversation(texte: string): string {
+  return `${PREFIXE_CONVERSATION}${resumerPrompt(texte)}`;
+}
+
+/** Message de conversation : le premier dit de quoi on parle (une phrase) ; les suivants, même « oui ». */
+export function verifierMessage(texte: unknown, premier: boolean): { ok: true; texte: string } | { ok: false; erreur: string } {
+  const propre = typeof texte === 'string' ? texte.trim() : '';
+  if (premier && propre.length < PROMPT_MIN) return { ok: false, erreur: 'Dites à ADA ce que vous voulez faire, en une phrase au moins' };
+  if (!propre) return { ok: false, erreur: 'Écrivez votre message à ADA' };
+  if (propre.length > MESSAGE_MAX) return { ok: false, erreur: `${MESSAGE_MAX} caractères au maximum par message : envoyez la suite dans un autre message` };
+  return { ok: true, texte: propre };
 }
 
 export function lirePrompt(corps: string): string | null {
@@ -158,6 +193,7 @@ export function verifierPrete(
   bug: ContenuBug | null,
   prompt: string | null = null,
 ): { prete: true } | { prete: false; raison: string } {
+  if (type === 'conversation') return { prete: true };
   if (type === 'libre') {
     const r = verifierPrompt(prompt);
     return r.ok ? { prete: true } : { prete: false, raison: r.erreur };
@@ -183,6 +219,7 @@ export function statutDepuis(etat: 'open' | 'closed', labels: string[]): Statut 
  * ne pose son label que si celui-ci existe déjà dans le dépôt). null : ni l'un ni l'autre.
  */
 export function typeDepuis(labels: string[], corps = ''): TypeDemande | null {
+  if (labels.includes(LABEL_CONVERSATION) || corps.includes(MARQUEUR_CONVERSATION)) return 'conversation';
   if (labels.includes(LABEL_LIBRE) || corps.includes(MARQUEUR_LIBRE)) return 'libre';
   if (labels.includes(LABEL_BUG)) return 'bug';
   if (labels.includes(LABEL_STORY)) return 'story';

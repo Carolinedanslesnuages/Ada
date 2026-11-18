@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AvatarAda from '@/components/AvatarAda.vue'
+import ConversationAda from '@/components/ConversationAda.vue'
 import PropositionDecoupage from '@/components/PropositionDecoupage.vue'
 import ReponseChoix from '@/components/ReponseChoix.vue'
 import TexteRiche from '@/components/TexteRiche.vue'
@@ -37,6 +38,9 @@ const emit = defineEmits<{
   relancerControles: []
   repondre: [texte: string]
   creerDecoupage: [stories: StoryProposee[]]
+  envoyerMessage: [texte: string]
+  terminerConversation: []
+  arreterConversation: []
   ouvrir: [numero: number]
 }>()
 
@@ -51,6 +55,10 @@ const blocage = computed(() => {
 
 const messages = computed(() => props.story.messages.map((m) => ({ id: m.id, le: m.le, ...presenterMessage(m) })))
 const travaille = computed(() => props.activite?.enCours === true)
+/** Conversation en cours (avant « c'est bon ») : tout le fil s'affiche, comme une discussion. */
+const enConversation = computed(
+  () => props.story.type === 'conversation' && ['en-cours', 'echange', 'besoin-dev'].includes(props.story.statut),
+)
 const dernieresActions = computed(() => (props.activite?.journal ?? []).slice(-8).reverse())
 
 /** Champ de texte : réponse aux questions, ou modification demandée sur le plan. */
@@ -93,7 +101,7 @@ const storiesParent = computed(() => lireStoriesParent(props.story.texteBrut ?? 
 
 /** « de la story n° 12 », « du signalement n° 4 »… : où la réponse est enregistrée sur GitHub. */
 const designation = computed(() => {
-  const nature = props.story.type === 'bug' ? 'du signalement' : props.story.type === 'libre' ? 'de la demande' : 'de la story'
+  const nature = { bug: 'du signalement', libre: 'de la demande', conversation: 'de la conversation', story: 'de la story' }[props.story.type]
   return `${nature} n° ${props.story.numero}`
 })
 
@@ -127,7 +135,16 @@ function envoyer(): void {
     </p>
 
     <!-- 1. Le dernier message de l'assistant, en entier, d'abord : c'est lui qui explique ce qu'on attend du PO. -->
-    <section v-if="dernierMessage" class="fr-mb-3w" aria-labelledby="titre-dernier-message">
+    <ConversationAda
+      v-if="enConversation"
+      :story="story"
+      :attend-reponse="story.statut === 'echange' && !travaille"
+      :action-en-cours="actionEnCours"
+      @envoyer="(message) => emit('envoyerMessage', message)"
+      @terminer="emit('terminerConversation')"
+      @arreter="emit('arreterConversation')"
+    />
+    <section v-else-if="dernierMessage" class="fr-mb-3w" aria-labelledby="titre-dernier-message">
       <h3 id="titre-dernier-message" class="fr-h6 fr-mb-1w">Dernier message d’ADA</h3>
       <div class="fil__assistant dernier-message">
         <p class="fr-text--xs fr-mb-1v"><strong>{{ dernierMessage.auteur }}</strong> — {{ date(dernierMessage.le) }}</p>
@@ -142,9 +159,12 @@ function envoyer(): void {
         <p class="fr-mb-1w">
           <span class="fr-icon-refresh-line fr-icon--sm activite__icone" aria-hidden="true" />
           <strong>
-            ADA {{ activite?.phase === 'realisation' ? 'réalise la demande' : 'analyse la demande' }}…
+            ADA {{ activite?.phase === 'realisation' ? 'réalise la demande' : activite?.phase === 'conversation' ? 'travaille sur votre message' : 'analyse la demande' }}…
           </strong>
-          <span v-if="activite?.phase === 'realisation'" class="fr-text--sm">
+          <span v-if="activite?.phase === 'conversation'" class="fr-text--sm">
+            L’aperçu montrera ses changements dès qu’elle aura répondu.
+          </span>
+          <span v-else-if="activite?.phase === 'realisation'" class="fr-text--sm">
             L’aperçu montre son travail en cours : ce n’est pas encore terminé. Vous serez prévenu
             ici quand ce sera prêt à vérifier.
           </span>
@@ -363,7 +383,7 @@ function envoyer(): void {
         </a>
       </p>
       <DsfrAccordionsGroup v-model="replisOuverts" class="fr-mb-2w">
-        <DsfrAccordion v-if="historique.length" id="historique" :title="`Voir l’historique (${historique.length} échange${historique.length > 1 ? 's' : ''})`">
+        <DsfrAccordion v-if="historique.length && story.type !== 'conversation'" id="historique" :title="`Voir l’historique (${historique.length} échange${historique.length > 1 ? 's' : ''})`">
           <ol class="fil">
             <li v-for="message in historique" :key="message.id" :class="{ 'fil__assistant': message.assistant }">
               <p class="fr-text--xs fr-mb-1v">

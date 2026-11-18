@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import FilStory from '@/components/FilStory.vue'
 import FormulairePrompt from '@/components/FormulairePrompt.vue'
+import FormulaireConversation from '@/components/FormulaireConversation.vue'
 import FormulaireProjet from '@/components/FormulaireProjet.vue'
 import ListeStories from '@/components/ListeStories.vue'
 import AssignationDeveloppeur from '@/components/AssignationDeveloppeur.vue'
@@ -142,12 +143,14 @@ async function repriseAnnulee(): Promise<void> {
 /** Masquer le projet ouvert (ex. avant de partager son écran) : il reste dans le sélecteur. */
 function masquerProjet(): void {
   modePrompt.value = false
+  modeConversation.value = false
   stories.fermer()
   projets.fermer()
 }
 
 async function ouvrir(numero: number): Promise<void> {
   modePrompt.value = false
+  modeConversation.value = false
   if (projets.idCourant) await stories.ouvrir(projets.idCourant, numero)
 }
 
@@ -174,7 +177,30 @@ const erreurPrompt = ref<string | null>(null)
 function ouvrirPrompt(): void {
   stories.fermer()
   erreurPrompt.value = null
+  modeConversation.value = false
   modePrompt.value = true
+}
+
+/** Conversation (« vrai prompt ») : formulaire du premier message à la place du détail. */
+const modeConversation = ref(false)
+const erreurConversation = ref<string | null>(null)
+
+function ouvrirConversation(): void {
+  stories.fermer()
+  erreurConversation.value = null
+  modePrompt.value = false
+  modeConversation.value = true
+}
+
+async function demarrerConversation(texte: string): Promise<void> {
+  if (!projets.idCourant) return
+  actionEnCours.value = true
+  try {
+    erreurConversation.value = await stories.ouvrirConversation(projets.idCourant, texte)
+    if (!erreurConversation.value) modeConversation.value = false
+  } finally {
+    actionEnCours.value = false
+  }
 }
 
 async function prompter(texte: string): Promise<void> {
@@ -204,6 +230,12 @@ const fusionner = () => agir((p, n) => stories.fusionner(p, n))
 const relancerControles = () => agir((p, n) => stories.relancerControles(p, n))
 const repondre = (texte: string) => agir((p, n) => stories.repondre(p, n, texte))
 const creerDecoupage = (proposees: StoryProposee[]) => agir((p, n) => stories.creerDecoupage(p, n, proposees))
+const envoyerMessage = (texte: string) => agir((p, n) => stories.envoyerMessage(p, n, texte))
+const terminerConversation = () => agir((p, n) => stories.terminerConversation(p, n))
+async function arreterConversation(): Promise<void> {
+  await agir((p, n) => stories.arreterConversation(p, n))
+  if (!stories.erreurAction) stories.fermer()
+}
 
 /** Suivi automatique tant que la demande ouverte est active ou que l'assistant travaille. */
 let minuteurSuivi: ReturnType<typeof setInterval> | null = null
@@ -328,6 +360,17 @@ onUnmounted(() => {
         <li>
           <DsfrButton
             size="sm"
+            secondary
+            icon="fr-icon-discuss-line"
+            label="Discuter avec ADA"
+            :disabled="Boolean(stories.active)"
+            :title="stories.active ? 'Une demande est déjà en cours : une seule à la fois' : 'Parlez librement à ADA : elle agit tout de suite'"
+            @click="ouvrirConversation"
+          />
+        </li>
+        <li>
+          <DsfrButton
+            size="sm"
             tertiary
             icon="fr-icon-chat-3-line"
             label="Prompter"
@@ -360,8 +403,15 @@ onUnmounted(() => {
         />
       </template>
 
+      <FormulaireConversation
+        v-if="modeConversation"
+        :envoi-en-cours="actionEnCours"
+        :erreur-serveur="erreurConversation"
+        @soumettre="demarrerConversation"
+        @annuler="modeConversation = false"
+      />
       <FormulairePrompt
-        v-if="modePrompt"
+        v-else-if="modePrompt"
         :envoi-en-cours="actionEnCours"
         :erreur-serveur="erreurPrompt"
         @soumettre="prompter"
@@ -383,10 +433,13 @@ onUnmounted(() => {
         @relancer-controles="relancerControles"
         @repondre="repondre"
         @creer-decoupage="creerDecoupage"
+        @envoyer-message="envoyerMessage"
+        @terminer-conversation="terminerConversation"
+        @arreter-conversation="arreterConversation"
         @ouvrir="ouvrir"
       />
       <AssignationDeveloppeur
-        v-if="!modePrompt && stories.courante && projets.idCourant"
+        v-if="!modePrompt && !modeConversation && stories.courante && projets.idCourant"
         :projet="projets.idCourant"
         :story="stories.courante"
       />
