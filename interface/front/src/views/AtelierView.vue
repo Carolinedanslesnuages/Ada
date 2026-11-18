@@ -167,25 +167,30 @@ async function accueil(): Promise<void> {
   document.getElementById('message-accueil')?.focus()
 }
 
-/** Aperçu en panneau, qu'on ouvre ou ferme ; le choix est gardé sur l'appareil. */
-const CLE_APERCU = 'ada:apercu-ferme'
-function lireApercuFerme(): boolean {
-  try {
-    return localStorage.getItem(CLE_APERCU) === 'oui'
-  } catch {
-    return false
-  }
+/**
+ * Aperçu : la conversation garde toute la place ; on regarde l'application en grand (ou dans un
+ * onglet), puis on revient au chat. Il se prépare en arrière-plan pour être prêt à l'ouverture.
+ */
+const apercuEnGrand = ref(false)
+const adresseApercu = ref<string | null>(null)
+
+async function voirApercu(): Promise<void> {
+  apercuEnGrand.value = true
+  await nextTick()
+  document.getElementById('titre-apercu')?.focus()
 }
-const apercuOuvert = ref(!lireApercuFerme())
-function basculerApercu(): void {
-  apercuOuvert.value = !apercuOuvert.value
-  try {
-    if (apercuOuvert.value) localStorage.removeItem(CLE_APERCU)
-    else localStorage.setItem(CLE_APERCU, 'oui')
-  } catch {
-    // stockage indisponible : le choix vaut pour cette visite
-  }
+
+async function reduireApercu(): Promise<void> {
+  apercuEnGrand.value = false
+  await nextTick()
+  document.getElementById('voir-apercu')?.focus()
 }
+
+function toucheGlobale(evenement: KeyboardEvent): void {
+  if (evenement.key === 'Escape' && apercuEnGrand.value) void reduireApercu()
+}
+onMounted(() => window.addEventListener('keydown', toucheGlobale))
+onUnmounted(() => window.removeEventListener('keydown', toucheGlobale))
 
 /** Mode sauvage : formulaire « Prompter » à la place du détail d'une demande. */
 const modePrompt = ref(false)
@@ -312,7 +317,7 @@ onUnmounted(() => {
     </div>
   </div>
 
-  <div v-else class="atelier" :class="{ 'atelier--sans-apercu': !apercuOuvert }">
+  <div v-else class="atelier" :class="{ 'atelier--apercu-en-grand': apercuEnGrand }">
     <BarreLaterale
       class="atelier__colonne atelier__barre"
       @accueil="accueil"
@@ -324,18 +329,22 @@ onUnmounted(() => {
       @masquer-projet="masquerProjet"
     />
 
-    <section class="atelier__colonne atelier__centre" aria-label="Demande en cours">
-      <div class="atelier__haut">
+    <section v-show="!apercuEnGrand" class="atelier__colonne atelier__centre" aria-label="Demande en cours">
+      <div v-if="projets.idCourant && !projets.courant?.reprise" class="atelier__haut">
         <DsfrButton
+          id="voir-apercu"
           tertiary
           no-outline
           size="sm"
-          :icon="apercuOuvert ? 'fr-icon-layout-column-line' : 'fr-icon-eye-line'"
-          :label="apercuOuvert ? 'Masquer l’aperçu' : 'Afficher l’aperçu'"
-          :aria-expanded="apercuOuvert ? 'true' : 'false'"
+          icon="fr-icon-fullscreen-line"
+          label="Voir l’aperçu en grand"
           aria-controls="panneau-apercu"
-          @click="basculerApercu"
+          aria-expanded="false"
+          @click="voirApercu"
         />
+        <a v-if="adresseApercu" class="fr-link fr-link--sm" :href="adresseApercu" target="_blank" rel="noopener">
+          Ouvrir dans un onglet<span class="fr-sr-only"> (nouvelle fenêtre)</span>
+        </a>
       </div>
 
       <AnnulerReprise v-if="projets.courant && (projets.courant.reprise || projets.courant.repris)" :key="projets.courant.id" :projet="projets.courant" @fait="repriseAnnulee" />
@@ -392,9 +401,12 @@ onUnmounted(() => {
     </section>
 
     <PanneauApercu
-      v-if="apercuOuvert"
+      v-show="apercuEnGrand"
       id="panneau-apercu"
       class="atelier__colonne atelier__apercu"
+      reductible
+      @reduire="reduireApercu"
+      @adresse="(url) => (adresseApercu = url)"
       :projet="projets.idCourant"
       :en-attente="projets.courant?.reprise ? 'L’aperçu démarrera une fois la reprise validée : ADA saura alors comment lancer le projet.' : null"
     />
