@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import BoutonDicter from '@/components/BoutonDicter.vue'
 import { MESSAGE_MAX, aLancerOuRelancer, ordonnerALancer, type ResumeStory } from '@/lib/story'
 
 /**
@@ -34,6 +35,11 @@ function envoyer(): void {
   }
   erreurLocale.value = ''
   emit('conversation', propre)
+}
+
+/** Dictée : chaque phrase reconnue s'ajoute à la suite du message. */
+function ajouterDictee(phrase: string): void {
+  texte.value = texte.value.trim() ? `${texte.value.trimEnd()} ${phrase}` : phrase
 }
 
 /** Entrée envoie, Maj+Entrée va à la ligne : comme dans les messageries. */
@@ -72,7 +78,10 @@ function touche(evenement: KeyboardEvent): void {
         <p id="aide-accueil" class="fr-text--xs fr-mb-0">
           ADA agit tout de suite sur une copie à part. Rien n’arrive sur le projet avant votre « c’est bon ».
         </p>
-        <DsfrButton type="submit" icon="fr-icon-send-plane-fill" icon-only :label="envoiEnCours ? 'Envoi…' : 'Envoyer à ADA'" :disabled="envoiEnCours" />
+        <span class="saisie__actions">
+          <BoutonDicter champ="message-accueil" @texte="ajouterDictee" />
+          <DsfrButton type="submit" icon="fr-icon-send-plane-fill" :label="envoiEnCours ? 'Envoi…' : 'Envoyer'" :disabled="envoiEnCours" />
+        </span>
       </div>
       <p v-if="erreur" id="erreur-accueil" class="fr-error-text fr-mt-1w" role="alert">{{ erreur }}</p>
     </form>
@@ -136,6 +145,13 @@ function touche(evenement: KeyboardEvent): void {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.saisie__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .suggestions {

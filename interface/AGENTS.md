@@ -45,6 +45,9 @@ l'aperçu du produit tourne à droite dès la création du projet.
 - **Accessibilité (RGAA)** : mêmes bases que pour les projets (section « Accessibilité » de
   `catalogue/vue-nest-dsfr/AGENTS.md`, reprises dans `api/src/agent/agent.ts`) ; vérifiées par le lint
   `eslint-plugin-vuejs-accessibility` (règle `label-has-for` adaptée au DSFR : for/id suffit).
+- **Pilotage à la voix** (Commande vocale, Accès vocal, Dragon) : chaque bouton et lien porte un
+  intitulé **visible**, contenu dans son nom accessible (jamais d'icône seule) ; vérifié par
+  `violationsAccessibilite`. Les zones de message proposent « Dicter » (`BoutonDicter`).
 - Mocks typés dans les tests front (`vi.fn<() => Promise<T>>()`).
 
 ## Commandes

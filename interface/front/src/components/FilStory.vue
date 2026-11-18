@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AvatarAda from '@/components/AvatarAda.vue'
+import BoutonDicter from '@/components/BoutonDicter.vue'
 import ConversationAda from '@/components/ConversationAda.vue'
 import PropositionDecoupage from '@/components/PropositionDecoupage.vue'
 import ReponseChoix from '@/components/ReponseChoix.vue'
@@ -107,6 +108,11 @@ const designation = computed(() => {
 
 const heure = (iso: string) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 const date = (iso: string) => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+
+/** Dictée : chaque phrase reconnue s'ajoute à la suite du texte. */
+function ajouterDictee(phrase: string): void {
+  texte.value = texte.value.trim() ? `${texte.value.trimEnd()} ${phrase}` : phrase
+}
 
 function envoyer(): void {
   if (!texte.value.trim()) {
@@ -296,12 +302,14 @@ function envoyer(): void {
           ADA attend vos réponses à ses questions ci-dessous pour continuer.
         </p>
         <DsfrInputGroup
+          id="reponse-ada"
           v-model="texte"
           :label="story.statut === 'questions' ? 'Vos réponses' : story.statut === 'decoupage' ? 'Ce qu’il faut changer dans le découpage' : 'Ce qu’il faut changer dans le plan'"
           label-visible
           is-textarea
           :error-message="erreur"
         />
+        <BoutonDicter champ="reponse-ada" class="fr-mb-2w" @texte="ajouterDictee" />
         <p id="reponse-enregistrement" class="fr-text--sm fr-mb-2w">
           <span class="fr-icon-information-line fr-icon--sm" aria-hidden="true" />
           <strong>En envoyant, votre texte est enregistré tel quel sur GitHub, en commentaire

@@ -51,7 +51,7 @@ const versionsOuvertes = ref(-1)
     <template v-if="projets.courant">
       <div class="barre__entete">
         <h2 id="titre-stories" class="barre__titre" tabindex="-1">Demandes</h2>
-        <DsfrButton tertiary no-outline size="sm" icon-only icon="fr-icon-refresh-line" label="Actualiser les demandes" @click="emit('actualiser')" />
+        <DsfrButton tertiary no-outline size="sm" icon="fr-icon-refresh-line" label="Actualiser" @click="emit('actualiser')" />
       </div>
       <p v-if="stories.chargement" class="fr-text--sm">Chargement…</p>
       <DsfrAlert v-else-if="stories.erreur" type="error" small :description="stories.erreur" />

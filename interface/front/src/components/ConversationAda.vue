@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BoutonDicter from '@/components/BoutonDicter.vue'
 import TexteRiche from '@/components/TexteRiche.vue'
 import { computed, nextTick, ref, watch } from 'vue'
 import { MARQUEUR_LANCEMENT, MESSAGE_MAX, presenterMessage, type DetailStory } from '@/lib/story'
@@ -32,6 +33,11 @@ const texte = ref('')
 const erreur = ref('')
 const confirmerArret = ref(false)
 const date = (iso: string) => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+
+/** Dictée : chaque phrase reconnue s'ajoute à la suite du message. */
+function ajouterDictee(phrase: string): void {
+  texte.value = texte.value.trim() ? `${texte.value.trimEnd()} ${phrase}` : phrase
+}
 
 /** Entrée envoie, Maj+Entrée va à la ligne : comme dans les messageries. */
 function touche(evenement: KeyboardEvent): void {
@@ -84,7 +90,10 @@ function envoyer(): void {
         />
         <div class="saisie__bas">
           <p id="message-enregistrement" class="fr-text--xs fr-mb-0">Enregistré sur GitHub, à votre nom.</p>
-          <DsfrButton type="submit" icon="fr-icon-send-plane-fill" icon-only label="Envoyer" :disabled="actionEnCours" />
+          <span class="saisie__actions">
+            <BoutonDicter champ="message-conversation" @texte="ajouterDictee" />
+            <DsfrButton type="submit" icon="fr-icon-send-plane-fill" label="Envoyer" :disabled="actionEnCours" />
+          </span>
         </div>
       </form>
       <p v-if="erreur" id="erreur-conversation" class="fr-error-text fr-mt-1w" role="alert">{{ erreur }}</p>
@@ -155,6 +164,13 @@ function envoyer(): void {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.saisie__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .conclure {
