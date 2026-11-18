@@ -302,6 +302,11 @@ export class AgentService {
     await this.enregistrer(depot, numero, { journal });
   }
 
+  /** Modèle choisi dans la configuration (AGENT_MODELE) ; sinon celui du compte de l'agent. */
+  private optionModele(): string[] {
+    return this.config.AGENT_MODELE ? ['--model', this.config.AGENT_MODELE] : [];
+  }
+
   verifierDisponible(): void {
     if (!this.config.AGENT_COMMANDE) {
       throw new BadRequestException('Aucun agent n’est configuré pour cet atelier (AGENT_COMMANDE). Prévenez son administrateur.');
@@ -368,6 +373,7 @@ export class AgentService {
         '--output-format',
         'stream-json',
         '--verbose',
+        ...this.optionModele(),
         '--max-turns',
         '2',
         '--no-session-persistence',
@@ -411,6 +417,7 @@ export class AgentService {
       '--output-format',
       'stream-json',
       '--verbose',
+      ...this.optionModele(),
       '--max-turns',
       String(this.tours[phase]),
       ...(session ? (session.reprendre ? ['--resume', session.id] : ['--session-id', session.id]) : ['--no-session-persistence']),

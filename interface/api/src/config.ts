@@ -26,6 +26,11 @@ const schema = z.object({
    */
   AGENT_COMMANDE: z.string().default(''),
   /**
+   * Modèle de l'agent (option --model) : un alias (« sonnet », « opus », « haiku ») ou un nom
+   * complet. Vide : le modèle par défaut du compte de l'agent.
+   */
+  AGENT_MODELE: z.string().trim().default(''),
+  /**
    * Skills mises à disposition de l'assistant (chemins de dossiers contenant un SKILL.md,
    * séparés par des virgules) : reliées dans le projet avant chaque exécution, jamais commitées.
    */
