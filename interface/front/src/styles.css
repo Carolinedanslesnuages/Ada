@@ -1,19 +1,22 @@
 /* Mise en page « atelier », façon Claude : barre latérale, demande au centre, aperçu en panneau. */
 .atelier {
   display: grid;
-  grid-template-columns: 17rem minmax(0, 1fr) minmax(0, 1.15fr);
+  grid-template-columns: 17rem minmax(0, 1fr);
   gap: 1.5rem;
 }
 
-.atelier--sans-apercu {
-  grid-template-columns: 17rem minmax(0, 1fr);
-}
-
 @media (max-width: 62em) {
-  .atelier,
-  .atelier--sans-apercu {
+  .atelier {
     grid-template-columns: 1fr;
   }
+}
+
+/* La conversation, au centre, garde une largeur de lecture confortable. */
+.atelier__centre > * {
+  width: 100%;
+  max-width: 52rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .atelier__colonne {
@@ -50,7 +53,10 @@
 
 .atelier__haut {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.5rem 1rem;
   margin-bottom: -0.5rem;
 }
 

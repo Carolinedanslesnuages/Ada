@@ -9,8 +9,12 @@ interface Apercu {
   journal: string | null
 }
 
-/** `enAttente` : l'aperçu ne peut pas encore démarrer (reprise à valider) ; le texte l'explique. */
-const props = defineProps<{ projet: string | null; intervalleMs?: number; enAttente?: string | null }>()
+/**
+ * `enAttente` : l'aperçu ne peut pas encore démarrer (reprise à valider) ; le texte l'explique.
+ * `reductible` : affiché en grand, avec un bouton pour revenir à la conversation.
+ */
+const props = defineProps<{ projet: string | null; intervalleMs?: number; enAttente?: string | null; reductible?: boolean }>()
+const emit = defineEmits<{ reduire: []; adresse: [url: string | null] }>()
 
 const apercu = ref<Apercu | null>(null)
 const erreur = ref<string | null>(null)
@@ -64,15 +68,26 @@ watch(
   { immediate: true },
 )
 
+/* L'atelier propose « Ouvrir dans un onglet » depuis la conversation : il lui faut l'adresse. */
+watch(
+  () => (apercu.value?.etat === 'pret' ? apercu.value.url : null),
+  (url) => emit('adresse', url),
+  { immediate: true },
+)
+
 onUnmounted(arreterSuivi)
 </script>
 
 <template>
   <section class="atelier__panneau" aria-labelledby="titre-apercu">
     <div class="fr-grid-row fr-grid-row--middle fr-grid-row--gutters">
-      <h2 id="titre-apercu" class="fr-h4 fr-mb-0 fr-col">Aperçu</h2>
-      <div v-if="apercu?.etat === 'pret' && apercu.url" class="fr-col-auto">
+      <h2 id="titre-apercu" class="fr-h4 fr-mb-0 fr-col" tabindex="-1">Aperçu</h2>
+      <div class="fr-col-auto">
         <ul class="fr-btns-group fr-btns-group--inline fr-btns-group--sm fr-btns-group--icon-left">
+          <li v-if="reductible">
+            <DsfrButton size="sm" icon="fr-icon-arrow-left-line" label="Revenir à la conversation" @click="emit('reduire')" />
+          </li>
+          <template v-if="apercu?.etat === 'pret' && apercu.url">
           <li>
             <DsfrButton size="sm" tertiary icon="fr-icon-refresh-line" label="Recharger" @click="recharger" />
           </li>
@@ -81,6 +96,7 @@ onUnmounted(arreterSuivi)
               Ouvrir dans un onglet<span class="fr-sr-only"> (nouvelle fenêtre)</span>
             </a>
           </li>
+          </template>
         </ul>
       </div>
     </div>

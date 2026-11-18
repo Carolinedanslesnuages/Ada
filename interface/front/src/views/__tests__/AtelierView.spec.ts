@@ -139,14 +139,38 @@ describe('Écran de l’atelier', () => {
     wrapper.unmount()
   })
 
-  it('l’aperçu se masque et se réaffiche', async () => {
+  it('l’aperçu se regarde en grand, puis on revient à la conversation (bouton ou Échap)', async () => {
     const wrapper = await monter()
-    expect(wrapper.find('#panneau-apercu').exists()).toBe(true)
-    await bouton(wrapper, 'Masquer l’aperçu')!.trigger('click')
-    expect(wrapper.find('#panneau-apercu').exists()).toBe(false)
-    expect(wrapper.find('.atelier--sans-apercu').exists()).toBe(true)
-    await bouton(wrapper, 'Afficher l’aperçu')!.trigger('click')
-    expect(wrapper.find('#panneau-apercu').exists()).toBe(true)
+    const panneau = () => wrapper.find('#panneau-apercu').element as HTMLElement
+    const centre = () => wrapper.find('section[aria-label="Demande en cours"]').element as HTMLElement
+    expect(panneau().style.display).toBe('none')
+    expect(envoyer).toHaveBeenCalledWith('/projets/poc-portail/apercu', {})
+    await bouton(wrapper, 'Voir l’aperçu en grand')!.trigger('click')
+    await flushPromises()
+    expect(panneau().style.display).toBe('')
+    expect(centre().style.display).toBe('none')
+    expect(document.activeElement?.id).toBe('titre-apercu')
+    await bouton(wrapper, 'Revenir à la conversation')!.trigger('click')
+    await flushPromises()
+    expect(panneau().style.display).toBe('none')
+    expect(centre().style.display).toBe('')
+    expect(document.activeElement?.id).toBe('voir-apercu')
+    await bouton(wrapper, 'Voir l’aperçu en grand')!.trigger('click')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(panneau().style.display).toBe('none')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('l’aperçu prêt s’ouvre aussi dans un onglet, depuis la conversation', async () => {
+    lire.mockImplementation(async (chemin: string) => reponses[chemin])
+    envoyer.mockResolvedValue({ etat: 'pret', url: 'http://localhost:5301', journal: null })
+    const wrapper = await monter()
+    await flushPromises()
+    const lien = wrapper.find('.atelier__haut a[href="http://localhost:5301"]')
+    expect(lien.exists()).toBe(true)
+    expect(lien.attributes('target')).toBe('_blank')
     wrapper.unmount()
   })
 
