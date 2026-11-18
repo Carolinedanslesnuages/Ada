@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, HttpException, Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { appendFile, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -33,7 +34,7 @@ import {
 } from './agent.js';
 import { fichiersModifies } from './fichiers-modifies.js';
 import { BATTEMENT_VERROU_MS, verrouVivant, type Verrou } from './verrou.js';
-import { environnementAgent } from '../apercu/git-isole.js';
+import { dossierGitDe, environnementAgent } from '../apercu/git-isole.js';
 import { lireIdentifiant } from '../projets/depot.js';
 import { ProjetsService } from '../projets/projets.service.js';
 import { adaJsonReprise, corpsReprise, fichiersAApporter, MODELE_REFERENCE, ouvrirPrReprise } from '../projets/reprise.js';
@@ -194,7 +195,10 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
       disponibles.push(dossier);
     }
     if (!disponibles.length) return { noms: [], dossiers: [] };
-    const exclusion = join(cwd, '.git', 'info', 'exclude');
+    // Le dossier git d'un aperçu est rangé à côté du dépôt (`.git` n'y est qu'un fichier de renvoi,
+    // voir git-isole.ts) : c'est là que git lit ses exclusions locales.
+    const dossierGit = dossierGitDe(cwd);
+    const exclusion = join(dossierGit && existsSync(dossierGit) ? dossierGit : join(cwd, '.git'), 'info', 'exclude');
     const exclus = await readFile(exclusion, 'utf8').catch(() => '');
     const aAjouter = ['/.claude/skills/', '/.agents/skills/'].filter((motif) => !exclus.split('\n').includes(motif));
     if (aAjouter.length) {
