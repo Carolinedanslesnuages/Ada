@@ -11,6 +11,7 @@ import ResultatProjet from '@/components/ResultatProjet.vue'
 import RepriseProjet from '@/components/RepriseProjet.vue'
 import RepriseEnAttente from '@/components/RepriseEnAttente.vue'
 import AnnulerReprise from '@/components/AnnulerReprise.vue'
+import ProtectionProjet from '@/components/ProtectionProjet.vue'
 import type { ErreursProjet, NouveauProjet, ResultatCreation } from '@/lib/projet'
 import { STATUTS_ACTIFS, type StoryProposee } from '@/lib/story'
 import { useProjetsStore } from '@/stores/projets'
@@ -346,6 +347,7 @@ onUnmounted(() => {
           Ouvrir dans un onglet<span class="fr-sr-only"> (nouvelle fenêtre)</span>
         </a>
       </div>
+      <ProtectionProjet v-if="projets.idCourant && !projets.courant?.reprise" :projet="projets.idCourant" />
 
       <AnnulerReprise v-if="projets.courant && (projets.courant.reprise || projets.courant.repris)" :key="projets.courant.id" :projet="projets.courant" @fait="repriseAnnulee" />
       <RepriseEnAttente v-if="projets.courant?.reprise" :projet="projets.courant.id" @fusionnee="repriseFusionnee" />

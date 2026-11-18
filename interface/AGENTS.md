@@ -52,6 +52,9 @@ l'aperçu du produit tourne à droite dès la création du projet.
   (`docs/adr/0004`). ADA vérifie qu'elle peut démarrer AVANT d'écrire dans GitHub. La pull request
   d'une demande se retrouve sur GitHub par sa branche : le fichier d'activité local ne suffit pas.
   La fusion est refusée si la branche a avancé en dehors d'ADA (commit noté à chaque push).
+- **Protection de `main`** : à l'ouverture d'un projet, ADA vérifie qu'une règle exige une PR et la
+  pose sinon (`api/src/projets/projets.service.ts`, `assurerProtection`) ; un projet repris garde
+  ses règles. Les contrôles exigés avant fusion se lisent dans cette règle, `ada.json` à défaut.
 
 ## Conventions
 - Validation avec Zod côté API ; jamais de `any`.

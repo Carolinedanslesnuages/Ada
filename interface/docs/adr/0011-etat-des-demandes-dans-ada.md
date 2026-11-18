@@ -53,3 +53,13 @@ qui agit avec les droits du PO (push, PR).
   restent des fichiers du dépôt que d'autres peuvent modifier ; une approbation obligatoire
   casserait l'autonomie d'un PO seul (l'auteur d'une PR ne peut pas l'approuver), elle reste à
   décider pour les projets à plusieurs.
+
+## Mise à jour (2026-11-18) — protection de la branche principale
+Les projets Gladys et signalements, créés par ADA, n'avaient aucune protection sur `main` : la
+création l'avait tentée, avait échoué (signalements était alors privé, sur un compte gratuit) et
+rien ne la retentait. Désormais, à l'ouverture d'un projet, ADA vérifie les règles en vigueur sur
+`main` et pose la sienne si aucune n'exige de PR (`ProjetsService.assurerProtection`) ; un refus de
+GitHub est expliqué au PO et son motif exact journalisé. Un projet repris garde les règles de son
+équipe. Les contrôles exigés avant fusion se lisent dans cette règle de GitHub, plus dans `ada.json`
+(qui ne sert qu'à défaut de règle).
+
