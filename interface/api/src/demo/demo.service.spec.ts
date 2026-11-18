@@ -38,7 +38,12 @@ describe('Lien de démonstration', () => {
   beforeEach(() => {
     racine = mkdtempSync(join(tmpdir(), 'demo-'));
     executer = vi.fn<Executer>(async (commande, args) => {
-      if (commande === 'git' && args[0] === 'clone') mkdirSync(join(args.at(-1)!, '.git'), { recursive: true });
+      if (commande === 'git' && args[0] === 'clone') {
+        const dossierGit = args[args.indexOf('--separate-git-dir') + 1]!;
+        mkdirSync(args.at(-1)!, { recursive: true });
+        mkdirSync(dossierGit, { recursive: true });
+        writeFileSync(join(args.at(-1)!, '.git'), `gitdir: ${dossierGit}\n`);
+      }
       if (args.includes('ps')) return { stdout: JSON.stringify({ Service: 'app', State: 'running' }) };
       return { stdout: '' };
     });
@@ -57,7 +62,7 @@ describe('Lien de démonstration', () => {
     const demo = await service.demarrer(JETON, 'poc');
     expect(demo).toEqual({ etat: 'pret', url: 'http://localhost:5400', apercuDemarre: true });
     const clone = executer.mock.calls.find(([commande, args]) => commande === 'git' && args[0] === 'clone')!;
-    expect(clone[1]).toEqual(['clone', '--quiet', '--branch', 'main', 'https://github.com/proprio/poc.git', join(racine, 'poc', 'demo', 'depot')]);
+    expect(clone[1]).toEqual(['clone', '--quiet', '--branch', 'main', '--separate-git-dir', join(racine, 'poc', 'demo', 'git'), 'https://github.com/proprio/poc.git', join(racine, 'poc', 'demo', 'depot')]);
     expect(clone[1].join(' ')).not.toContain(JETON);
     const compose = readFileSync(join(racine, 'poc', 'demo', 'compose.yml'), 'utf8');
     expect(compose).toContain('name: demo-poc');

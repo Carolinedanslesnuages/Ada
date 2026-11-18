@@ -26,6 +26,11 @@ const schema = z.object({
    */
   AGENT_COMMANDE: z.string().default(''),
   /**
+   * Agents qui travaillent en même temps sur toute la machine (un par projet au plus). Les
+   * suivants attendent leur tour dans une file : chaque agent mobilise un conteneur et un processeur.
+   */
+  AGENT_MAX_SIMULTANES: z.coerce.number().int().min(1).default(3),
+  /**
    * Modèle de l'agent (option --model) : un alias (« sonnet », « opus », « haiku ») ou un nom
    * complet. Vide : le modèle par défaut du compte de l'agent.
    */

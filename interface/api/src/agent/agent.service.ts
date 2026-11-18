@@ -1,7 +1,6 @@
-import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { appendFile, lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { appendFile, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -24,6 +23,7 @@ import {
   lireDecision,
   texteQuestions,
   lireResultat,
+  OPTIONS_ISOLEMENT,
   OUTILS_INTERDITS,
   outilsAutorises,
   skillSure,
@@ -31,6 +31,9 @@ import {
   type StoryExistante,
   type Phase,
 } from './agent.js';
+import { fichiersModifies } from './fichiers-modifies.js';
+import { BATTEMENT_VERROU_MS, verrouVivant, type Verrou } from './verrou.js';
+import { environnementAgent } from '../apercu/git-isole.js';
 import { lireIdentifiant } from '../projets/depot.js';
 import { ProjetsService } from '../projets/projets.service.js';
 import { adaJsonReprise, corpsReprise, fichiersAApporter, MODELE_REFERENCE, ouvrirPrReprise } from '../projets/reprise.js';
@@ -47,6 +50,11 @@ export interface Activite {
   pullRequest: string | null;
   /** Conversation : session de l'agent, reprise d'un message à l'autre (garder le fil). */
   session?: string | null;
+  /**
+   * Dernier commit de la branche tel qu'ADA l'a poussé. À la fusion, une branche qui a avancé en
+   * dehors d'ADA (des commits ajoutés par quelqu'un d'autre) n'est plus ce que le PO a vérifié.
+   */
+  tete?: string | null;
 }
 
 /** Ce qu'il faut faire, décrit par des données : peut être confié à un processus travailleur. */
@@ -62,27 +70,12 @@ export interface Tache {
   finaliser?: boolean;
 }
 
-interface Verrou {
-  pid: number;
-  numero: number;
-  phase: Phase;
-}
-
 /** Écriture atomique : on ne lit jamais un fichier à moitié écrit (fichier temporaire puis renommage). */
 async function ecrireAtomique(chemin: string, contenu: string): Promise<void> {
   const temporaire = `${chemin}.${process.pid}.${Date.now()}.tmp`;
   await writeFile(temporaire, contenu);
   await rename(temporaire, chemin);
 }
-
-const processusVivant = (pid: number): boolean => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-};
 
 /**
  * Lance le travailleur par un intermédiaire qui se termine aussitôt (« double lancement ») : le
@@ -113,7 +106,8 @@ const lancerParDefaut =
   (commande: string): LancerAgent =>
   (args, cwd, surLigne) =>
     new Promise((ok, ko) => {
-      const processus = spawn(commande, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+      // Sans les secrets du serveur, et avec git verrouillé sur le dépôt de travail (voir git-isole.ts).
+      const processus = spawn(commande, args, { cwd, env: environnementAgent(process.env, cwd), stdio: ['ignore', 'pipe', 'pipe'] });
       let reste = '';
       processus.stdout.on('data', (morceau: Buffer) => {
         const lignes = (reste + morceau.toString('utf8')).split('\n');
@@ -127,10 +121,25 @@ const lancerParDefaut =
       });
     });
 
+/** Tâche qui attend qu'un agent se libère (jeton du PO compris : fichier privé). */
+interface EntreeFile {
+  tache: Tache;
+  le: string;
+  fichier: string;
+}
+
+/** Un garde de reprise plus ancien que cela vient d'un processus tombé en route : on l'écarte. */
+const DUREE_MAX_GARDE_MS = 10_000;
+const FREQUENCE_FILE_MS = 5_000;
+/** Au-delà, la tâche en attente est abandonnée : le jeton du PO aurait expiré. */
+const ATTENTE_MAX_MS = 30 * 60_000;
+/** Conseils de stack en même temps : chacun lance un agent, sans verrou de projet. */
+const CONSEILS_MAX = 3;
+
 const VIDE: Activite = { phase: null, enCours: false, debut: null, journal: [], erreur: null, pullRequest: null };
 
 @Injectable()
-export class AgentService {
+export class AgentService implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger(AgentService.name);
   lancerAgent: LancerAgent;
   /**
@@ -154,6 +163,7 @@ export class AgentService {
   }
 
   private indexRgaa: string | null | undefined;
+  private conseilsEnCours = 0;
 
   /** Index RGAA lu une fois ; absent → l'assistant garde les bases (ACCESSIBILITE). */
   private async lireIndexRgaa(): Promise<string | null> {
@@ -222,14 +232,9 @@ export class AgentService {
     return join(dirname(this.apercu.cheminDepot(depot)), 'agent', 'verrou.json');
   }
 
-  /** Verrou du projet, s'il est tenu par un processus vivant (sinon : reste d'une exécution interrompue). */
+  /** Verrou du projet, s'il est tenu par un processus vivant qui bat encore (sinon : reste d'une exécution interrompue). */
   async verrouActif(depot: string): Promise<Verrou | null> {
-    try {
-      const verrou = JSON.parse(await readFile(this.cheminVerrou(depot), 'utf8')) as Verrou;
-      return processusVivant(verrou.pid) ? verrou : null;
-    } catch {
-      return null;
-    }
+    return verrouVivant(this.cheminVerrou(depot));
   }
 
   private async poserVerrou(depot: string, verrou: Verrou): Promise<void> {
@@ -238,18 +243,67 @@ export class AgentService {
   }
 
   /**
-   * Prise exclusive du verrou du projet : création qui échoue si le fichier existe déjà ; seul un
-   * verrou tenu par un processus mort peut être repris. Deux tâches ne peuvent pas démarrer ensemble.
+   * Prise exclusive du verrou du projet : création qui échoue si le fichier existe déjà. Remplacer
+   * un verrou abandonné (processus mort, ou sans battement) se fait sous un garde de reprise, créé
+   * lui aussi de façon exclusive : un seul processus à la fois y vérifie que le verrou est bien
+   * mort, l'efface et prend le sien. Sans ce garde, deux tâches qui le trouvent mort ensemble
+   * pourraient l'une effacer le verrou tout neuf de l'autre, et travailler toutes deux sur le projet.
    */
   private async acquerirVerrou(depot: string, verrou: Verrou): Promise<void> {
-    await mkdir(dirname(this.cheminVerrou(depot)), { recursive: true });
-    try {
-      await writeFile(this.cheminVerrou(depot), JSON.stringify(verrou), { flag: 'wx' });
-    } catch (erreur) {
-      if ((erreur as NodeJS.ErrnoException).code !== 'EEXIST') throw erreur;
-      if (await this.verrouActif(depot)) throw new ConflictException('ADA travaille déjà sur ce projet');
-      await this.poserVerrou(depot, verrou);
+    const chemin = this.cheminVerrou(depot);
+    const garde = `${chemin}.reprise`;
+    await mkdir(dirname(chemin), { recursive: true });
+    const occupe = () => new ConflictException('ADA travaille déjà sur ce projet');
+    for (let essai = 0; essai < 40; essai++) {
+      try {
+        await writeFile(chemin, JSON.stringify(verrou), { flag: 'wx' });
+        return;
+      } catch (erreur) {
+        if ((erreur as NodeJS.ErrnoException).code !== 'EEXIST') throw erreur;
+      }
+      if (await this.verrouActif(depot)) throw occupe();
+      try {
+        await writeFile(garde, String(process.pid), { flag: 'wx' });
+      } catch (erreur) {
+        if ((erreur as NodeJS.ErrnoException).code !== 'EEXIST') throw erreur;
+        // Une autre reprise est en cours ; si son garde date (processus tombé en route), on le retire.
+        const age = Date.now() - (await stat(garde).then((fichier) => fichier.mtimeMs, () => Date.now()));
+        if (age > DUREE_MAX_GARDE_MS) await rm(garde, { force: true });
+        else await new Promise((ok) => setTimeout(ok, 25));
+        continue;
+      }
+      try {
+        if (await this.verrouActif(depot)) throw occupe(); // une autre tâche a repris la main entre-temps
+        await rm(chemin, { force: true });
+        await writeFile(chemin, JSON.stringify(verrou), { flag: 'wx' });
+        return;
+      } catch (erreur) {
+        if ((erreur as NodeJS.ErrnoException).code === 'EEXIST') throw occupe(); // une tâche toute neuve l'a pris
+        throw erreur;
+      } finally {
+        await rm(garde, { force: true });
+      }
     }
+    throw occupe();
+  }
+
+  /**
+   * Libre : aucun agent ne tient le projet et aucune tâche n'y attend son tour. À vérifier AVANT
+   * d'écrire quoi que ce soit dans GitHub (commentaire, statut) : sinon un refus laisserait l'issue
+   * « en cours » sans agent.
+   */
+  async verifierLibre(depot: string): Promise<void> {
+    if ((await this.verrouActif(depot)) || (await this.enFile(depot))) throw new ConflictException('ADA travaille déjà sur ce projet');
+  }
+
+  /**
+   * Tout ce qui doit être vrai pour lancer ou relancer ADA sur ce projet, vérifié avant la moindre
+   * écriture dans GitHub : agent configuré, projet sous son nom actuel, projet libre.
+   */
+  async verifierLancable(jeton: string, depot: string): Promise<void> {
+    this.verifierDisponible();
+    await this.verifierNomActuel(jeton, depot);
+    await this.verifierLibre(depot);
   }
 
   /** « En cours » seulement si un agent tourne vraiment (pas un reste d'exécution interrompue). */
@@ -262,7 +316,8 @@ export class AgentService {
   async activite(depot: string, numero: number): Promise<Activite> {
     const activite = await this.lireActivite(depot, numero);
     const verrou = await this.verrouActif(depot);
-    return { ...activite, enCours: activite.enCours && verrou?.numero === numero };
+    const enCours = activite.enCours && (verrou?.numero === numero || (await this.enFile(depot, numero)));
+    return { ...activite, enCours };
   }
 
   /**
@@ -270,8 +325,7 @@ export class AgentService {
    * → on reprend la réalisation ; sinon → nouvelle analyse.
    */
   async relancer(jeton: string, login: string, depot: string, numero: number): Promise<void> {
-    this.verifierDisponible();
-    if (await this.verrouActif(depot)) throw new ConflictException('ADA travaille déjà sur ce projet');
+    await this.verifierLancable(jeton, depot);
     const detail = await this.stories.detail(jeton, depot, numero);
     if (detail.statut !== 'en-cours' && detail.statut !== 'besoin-dev') {
       throw new ConflictException('Cette demande n’a pas besoin d’être relancée');
@@ -296,6 +350,16 @@ export class AgentService {
     return activite;
   }
 
+  /** Mémorise le commit que ADA vient de pousser (null : ne plus rien comparer). */
+  async noterTete(depot: string, numero: number, sha: string | null): Promise<void> {
+    await this.enregistrer(depot, numero, { tete: sha });
+  }
+
+  private async noterTeteDe(depot: string, numero: number, cwd: string): Promise<void> {
+    const { stdout } = await this.apercu.executer('git', ['-C', cwd, 'rev-parse', 'HEAD']);
+    await this.noterTete(depot, numero, stdout.trim() || null);
+  }
+
   private async noter(depot: string, numero: number, texte: string): Promise<void> {
     const activite = await this.lireActivite(depot, numero);
     const journal = [...activite.journal, { le: new Date().toISOString(), texte }].slice(-60);
@@ -317,7 +381,8 @@ export class AgentService {
   private async existantes(jeton: string, depot: string, numero: number): Promise<StoryExistante[]> {
     const stories = await this.stories.lister(jeton, depot);
     return stories
-      .filter((story) => story.numero !== numero)
+      // Les titres de ces demandes entrent dans la consigne de l'agent : pas ceux d'un auteur sans droit d'écriture.
+      .filter((story) => story.numero !== numero && story.fiable !== false)
       .map((story) => ({
         numero: story.numero,
         titre: story.titre,
@@ -327,11 +392,15 @@ export class AgentService {
       }));
   }
 
-  /** Reconstitue la demande et les échanges depuis l'issue. */
+  /**
+   * La demande telle qu'ADA l'a figée au lancement, et les échanges faits par son interface
+   * (journal d'ADA). L'agent ne lit jamais l'issue vivante ni ses commentaires : un titre, un
+   * label ou un commentaire écrits à la main sur GitHub ne peuvent pas lui donner de consigne.
+   */
   private async demande(jeton: string, depot: string, numero: number): Promise<Demande> {
-    const detail = await this.stories.detail(jeton, depot, numero);
-    const depart = detail.messages.findIndex((m) => m.texte.startsWith(DEBUT_LANCEMENT));
-    const echanges = detail.messages
+    const { fige, messages } = await this.stories.demandeFigee(jeton, depot, numero);
+    const depart = messages.findIndex((m) => m.texte.startsWith(DEBUT_LANCEMENT));
+    const echanges = messages
       .slice(depart + 1)
       .map((m) =>
         m.texte.startsWith(MARQUEUR_ASSISTANT)
@@ -340,12 +409,12 @@ export class AgentService {
       );
     return {
       numero,
-      titre: detail.titre,
-      type: detail.type,
-      contenu: detail.contenu,
-      contenuBug: detail.contenuBug,
-      contenuLibre: detail.contenuLibre,
-      parent: detail.parent,
+      titre: fige.titre,
+      type: fige.type,
+      contenu: fige.contenu,
+      contenuBug: fige.contenuBug,
+      contenuLibre: fige.contenuLibre,
+      parent: fige.parent,
       echanges,
     };
   }
@@ -362,11 +431,16 @@ export class AgentService {
     if (texte.length < 10 || texte.length > IDEE_MAX) {
       throw new BadRequestException('Racontez votre idée (une phrase au moins) pour qu’ADA puisse vous conseiller');
     }
+    if (this.conseilsEnCours >= CONSEILS_MAX) {
+      throw new HttpException('ADA est très sollicitée en ce moment : réessayez dans un instant, ou choisissez la stack vous-même.', 429);
+    }
     const { modeles, types } = this.projets.modeles();
     const disponibles = modeles.filter((modele) => modele.disponible);
-    const dossier = await mkdtemp(join(tmpdir(), 'ada-conseil-'));
+    this.conseilsEnCours++;
+    let dossier = '';
     let reponse = '';
     try {
+      dossier = await mkdtemp(join(tmpdir(), 'ada-conseil-'));
       const args = [
         '-p',
         consigneConseilStack(texte, disponibles, types),
@@ -376,6 +450,7 @@ export class AgentService {
         ...this.optionModele(),
         '--max-turns',
         '2',
+        ...OPTIONS_ISOLEMENT,
         '--no-session-persistence',
         '--disallowedTools',
         ...OUTILS_CONSEIL_INTERDITS,
@@ -391,7 +466,8 @@ export class AgentService {
     } catch (e) {
       this.log.warn(`Conseil de stack impossible : ${(e as Error).message}`);
     } finally {
-      await rm(dossier, { recursive: true, force: true });
+      this.conseilsEnCours--;
+      if (dossier) await rm(dossier, { recursive: true, force: true });
     }
     const conseil = lireConseilStack(reponse, disponibles.map((modele) => modele.id));
     if (!conseil) throw new ConflictException('ADA n’a pas pu proposer de stack : choisissez-la vous-même dans la liste.');
@@ -420,6 +496,7 @@ export class AgentService {
       ...this.optionModele(),
       '--max-turns',
       String(this.tours[phase]),
+      ...OPTIONS_ISOLEMENT,
       ...(session ? (session.reprendre ? ['--resume', session.id] : ['--session-id', session.id]) : ['--no-session-persistence']),
       '--disallowedTools',
       ...OUTILS_INTERDITS,
@@ -462,25 +539,149 @@ export class AgentService {
     }
   }
 
-  /** Démarre une tâche pour la demande ; une seule par projet (verrou partagé entre processus). */
+  /**
+   * Démarre une tâche pour la demande : une seule par projet (verrou partagé entre processus) et
+   * au plus AGENT_MAX_SIMULTANES sur toute la machine. Au-delà, la tâche attend son tour dans une
+   * file : les agents consomment chacun un conteneur et un processeur, et vingt PO qui lancent
+   * ensemble ne doivent pas saturer le serveur.
+   */
   private async lancerTache(tache: Tache): Promise<void> {
     this.verifierDisponible();
     await this.verifierNomActuel(tache.jeton, tache.depot);
-    await this.acquerirVerrou(tache.depot, { pid: process.pid, numero: tache.numero, phase: tache.phase });
-    // L'agent lance ses commandes dans le conteneur de l'aperçu : s'il dormait, on le réveille.
-    this.apercu.noterUtilisation(tache.depot);
-    if (this.apercu.estEnVeille(tache.depot)) await this.apercu.demarrer(tache.jeton, tache.depot);
-    await this.enregistrer(tache.depot, tache.numero, {
-      phase: tache.phase,
-      enCours: true,
-      debut: new Date().toISOString(),
-      erreur: null,
+    await this.serialiser(async () => {
+      await this.verifierLibre(tache.depot);
+      if ((await this.agentsEnCours()) >= this.config.AGENT_MAX_SIMULTANES) {
+        await this.mettreEnFile(tache);
+        return;
+      }
+      await this.demarrerTache(tache);
     });
-    if (this.travailleurSepare) {
-      await this.demarrerTravailleur(tache);
-      return;
+  }
+
+  /** Une décision à la fois (compter les agents, puis prendre une place) : sinon deux lancements simultanés dépasseraient le plafond. */
+  private chaine: Promise<unknown> = Promise.resolve();
+  private serialiser<T>(travail: () => Promise<T>): Promise<T> {
+    const suite = this.chaine.then(travail, travail);
+    this.chaine = suite.catch(() => undefined);
+    return suite;
+  }
+
+  /** Prend le verrou du projet et lance la tâche ; en cas d'échec, rend le verrou (sinon le projet resterait « occupé »). */
+  private async demarrerTache(tache: Tache): Promise<void> {
+    await this.acquerirVerrou(tache.depot, { pid: process.pid, numero: tache.numero, phase: tache.phase });
+    try {
+      // L'agent lance ses commandes dans le conteneur de l'aperçu : s'il dormait, on le réveille.
+      this.apercu.noterUtilisation(tache.depot);
+      if (this.apercu.estEnVeille(tache.depot)) await this.apercu.demarrer(tache.jeton, tache.depot);
+      await this.enregistrer(tache.depot, tache.numero, {
+        phase: tache.phase,
+        enCours: true,
+        debut: new Date().toISOString(),
+        erreur: null,
+      });
+      if (this.travailleurSepare) {
+        await this.demarrerTravailleur(tache);
+        return;
+      }
+      this.derniereTache = this.executerTache(tache);
+    } catch (e) {
+      await rm(this.cheminVerrou(tache.depot), { force: true });
+      // L'écran du PO affiche cette erreur avec « Relancer ADA » : l'issue ne reste pas « en cours » sans explication.
+      await this.enregistrer(tache.depot, tache.numero, { enCours: false, erreur: (e as Error).message }).catch(() => undefined);
+      throw e;
     }
-    this.derniereTache = this.executerTache(tache);
+  }
+
+  // ---- File d'attente : tâches qui attendent qu'un agent se libère ----------------------------------------------
+
+  private minuteurFile: ReturnType<typeof setInterval> | null = null;
+
+  onModuleInit(): void {
+    if (!this.travailleurSepare) return;
+    this.minuteurFile = setInterval(() => void this.traiterFile().catch((e: unknown) => this.log.warn(`File d'attente : ${(e as Error).message}`)), FREQUENCE_FILE_MS);
+    this.minuteurFile.unref();
+  }
+
+  onModuleDestroy(): void {
+    if (this.minuteurFile) clearInterval(this.minuteurFile);
+  }
+
+  /** Dossier des tâches en attente, hors de tout projet (le point initial l'écarte des listes de projets). */
+  private get dossierFile(): string {
+    return join(resolve(this.config.DOSSIER_APERCUS), '.file-attente');
+  }
+
+  /** Une seule entrée par projet : son nom l'identifie, et sa création exclusive empêche tout doublon. */
+  private fichierFile(depot: string): string {
+    return join(this.dossierFile, `${Buffer.from(depot).toString('hex')}.json`);
+  }
+
+  private async lireEntreeFile(fichier: string): Promise<EntreeFile | null> {
+    try {
+      return { ...(JSON.parse(await readFile(fichier, 'utf8')) as Omit<EntreeFile, 'fichier'>), fichier };
+    } catch {
+      return null;
+    }
+  }
+
+  /** Des tâches attendent leur tour, dans l'ordre d'arrivée. */
+  private async entreesFile(): Promise<EntreeFile[]> {
+    const noms = await readdir(this.dossierFile).catch(() => [] as string[]);
+    const entrees = await Promise.all(noms.filter((nom) => nom.endsWith('.json')).map((nom) => this.lireEntreeFile(join(this.dossierFile, nom))));
+    return entrees.filter((entree): entree is EntreeFile => entree !== null).sort((a, b) => a.le.localeCompare(b.le));
+  }
+
+  /** Une tâche de ce projet (et de cette demande, si précisée) attend son tour. */
+  async enFile(depot: string, numero?: number): Promise<boolean> {
+    const entree = await this.lireEntreeFile(this.fichierFile(depot));
+    return entree !== null && (numero === undefined || entree.tache.numero === numero);
+  }
+
+  private async agentsEnCours(): Promise<number> {
+    return (await this.apercu.projetsAvecAgent()).length;
+  }
+
+  private async mettreEnFile(tache: Tache): Promise<void> {
+    await mkdir(this.dossierFile, { recursive: true, mode: 0o700 });
+    try {
+      // La tâche porte le jeton du PO : fichier lisible par le seul utilisateur, supprimé au départ de la tâche.
+      await writeFile(this.fichierFile(tache.depot), JSON.stringify({ tache, le: new Date().toISOString() }), { flag: 'wx', mode: 0o600 });
+    } catch (erreur) {
+      if ((erreur as NodeJS.ErrnoException).code === 'EEXIST') throw new ConflictException('ADA travaille déjà sur ce projet');
+      throw erreur;
+    }
+    await this.enregistrer(tache.depot, tache.numero, { phase: tache.phase, enCours: true, debut: new Date().toISOString(), erreur: null });
+    const devant = (await this.entreesFile()).findIndex((entree) => entree.tache.depot === tache.depot);
+    await this.noter(
+      tache.depot,
+      tache.numero,
+      `En file d’attente (${devant + 1}ᵉ) : ADA termine d’abord les demandes d’autres projets, puis s’y met toute seule`,
+    );
+  }
+
+  /**
+   * Démarre, dans l'ordre d'arrivée, les tâches en attente tant qu'il reste de la place. Appelée
+   * toutes les quelques secondes par l'API. Une tâche qui attend depuis trop longtemps est
+   * abandonnée (son jeton aurait expiré) : l'écran du PO propose alors « Relancer ADA ».
+   */
+  async traiterFile(maintenant = Date.now()): Promise<void> {
+    for (const entree of await this.entreesFile()) {
+      const { tache } = entree;
+      const suite = await this.serialiser(async (): Promise<'plein' | 'suivante'> => {
+        if (await this.verrouActif(tache.depot)) return 'suivante';
+        if (maintenant - Date.parse(entree.le) > ATTENTE_MAX_MS) {
+          await rm(entree.fichier, { force: true });
+          await this.enregistrer(tache.depot, tache.numero, { enCours: false, erreur: 'ADA n’a pas pu s’y mettre à temps : trop de demandes en même temps. Relancez-la.' });
+          await this.noter(tache.depot, tache.numero, 'Attente trop longue : à relancer');
+          return 'suivante';
+        }
+        if ((await this.agentsEnCours()) >= this.config.AGENT_MAX_SIMULTANES) return 'plein';
+        await rm(entree.fichier, { force: true }); // une tâche part une seule fois
+        await this.demarrerTache(tache).catch((e: unknown) => this.log.warn(`Tâche en file ${tache.depot}#${tache.numero} non démarrée : ${(e as Error).message}`));
+        return 'suivante';
+      });
+      if (suite === 'plein') break;
+    }
   }
 
   /**
@@ -501,6 +702,12 @@ export class AgentService {
   async executerTache(tache: Tache): Promise<void> {
     const { depot, numero, phase } = tache;
     await this.poserVerrou(depot, { pid: process.pid, numero, phase });
+    // Signe de vie : un verrou qui ne bat plus est abandonné, même si son numéro de processus existe encore.
+    const battement = setInterval(() => {
+      const maintenant = new Date();
+      void utimes(this.cheminVerrou(depot), maintenant, maintenant).catch(() => undefined);
+    }, BATTEMENT_VERROU_MS);
+    battement.unref();
     try {
       if (phase === 'analyse') await this.corpsAnalyse(tache);
       else if (phase === 'reprise') await this.corpsReprise(tache);
@@ -512,6 +719,7 @@ export class AgentService {
       this.log.warn(`Agent sur ${depot}#${numero} (${phase}) : ${message}`);
       await this.enregistrer(depot, numero, { enCours: false, erreur: message });
     } finally {
+      clearInterval(battement);
       await rm(this.cheminVerrou(depot), { force: true });
     }
   }
@@ -617,7 +825,7 @@ export class AgentService {
 
   /** Le PO valide le plan : réalisation sur une branche, puis branche poussée et PR ouverte. */
   async validerPlan(jeton: string, login: string, depot: string, numero: number): Promise<void> {
-    this.verifierDisponible();
+    await this.verifierLancable(jeton, depot);
     const detail = await this.stories.detail(jeton, depot, numero);
     if (detail.statut !== 'plan-a-valider') throw new ConflictException('Aucun plan n’attend votre validation');
     await this.stories.repondre(jeton, depot, numero, `✅ Plan validé par ${login}.`);
@@ -655,6 +863,7 @@ export class AgentService {
       if (await this.toucheDossiersReserves(jeton, depot, numero, cwd, branche)) return;
       await this.noter(depot, numero, 'Envoie la branche sur GitHub');
       await this.apercu.executer('git', ['-C', cwd, 'push', '--quiet', '-u', 'origin', branche], { env: this.apercu.environnementGit(jeton) });
+      await this.noterTeteDe(depot, numero, cwd);
       const pr = await this.ouvrirPullRequest(jeton, depot, cwd, branche, demande, resultat.resume);
       await this.enregistrer(depot, numero, { pullRequest: pr });
       await this.stories.commenterAssistant(
@@ -715,6 +924,7 @@ export class AgentService {
       if (await this.toucheDossiersReserves(jeton, depot, numero, cwd, branche)) return;
       await this.noter(depot, numero, 'Envoie la branche sur GitHub');
       await this.apercu.executer('git', ['-C', cwd, 'push', '--quiet', '-u', 'origin', branche], { env: this.apercu.environnementGit(jeton) });
+      await this.noterTeteDe(depot, numero, cwd);
       await this.noter(depot, numero, 'Relance l’aperçu');
       await this.apercu.relancerApplication(depot).catch((e: unknown) => this.log.warn(`Relance de l’aperçu de ${depot} : ${(e as Error).message.split('\n')[0]}`));
     }
@@ -768,7 +978,7 @@ export class AgentService {
 
   /** Le PO écrit dans la conversation : ADA reprend la main. */
   async reprendreConversation(jeton: string, login: string, depot: string, numero: number, texte: unknown): Promise<void> {
-    this.verifierDisponible();
+    await this.verifierLancable(jeton, depot);
     const verification = verifierMessage(texte, false);
     if (!verification.ok) throw new BadRequestException(verification.erreur);
     const detail = await this.stories.detail(jeton, depot, numero);
@@ -783,8 +993,7 @@ export class AgentService {
    * au projet (PR), ou ferme la conversation s'il n'y en a aucun. Tâche de l'agent, en arrière-plan.
    */
   async terminerConversation(jeton: string, login: string, depot: string, numero: number): Promise<void> {
-    this.verifierDisponible();
-    if (await this.verrouActif(depot)) throw new ConflictException('ADA travaille encore : attendez sa réponse');
+    await this.verifierLancable(jeton, depot);
     const detail = await this.stories.detail(jeton, depot, numero);
     if (detail.type !== 'conversation' || detail.statut !== 'echange') throw new ConflictException('Cette conversation ne peut pas être terminée maintenant');
     await this.stories.repondre(jeton, depot, numero, `✅ C’est bon : ${login} demande de proposer ces changements au projet.`);
@@ -794,7 +1003,7 @@ export class AgentService {
 
   /** Le PO arrête la conversation : rien n'arrive sur le projet (la branche reste sur GitHub). */
   async arreterConversation(jeton: string, login: string, depot: string, numero: number): Promise<void> {
-    if (await this.verrouActif(depot)) throw new ConflictException('ADA travaille encore : attendez sa réponse');
+    if ((await this.verrouActif(depot)) || (await this.enFile(depot))) throw new ConflictException('ADA travaille encore : attendez sa réponse');
     const detail = await this.stories.detail(jeton, depot, numero);
     if (detail.type !== 'conversation' || detail.statut === 'livree') throw new ConflictException('Cette conversation est déjà terminée');
     await this.stories.fermerSansSuite(jeton, depot, numero, `💬 Conversation arrêtée par ${login} : rien n’est ajouté au projet.`);
@@ -802,7 +1011,7 @@ export class AgentService {
 
   /** Le PO demande de revoir le plan, ou répond aux questions : nouvelle analyse. */
   async reprendreAnalyse(jeton: string, depot: string, numero: number, texte: string): Promise<void> {
-    this.verifierDisponible();
+    await this.verifierLancable(jeton, depot);
     const detail = await this.stories.detail(jeton, depot, numero);
     // Un autre découpage peut aussi être demandé (#36).
     if (detail.statut !== 'questions' && detail.statut !== 'plan-a-valider' && detail.statut !== 'decoupage') {
@@ -879,8 +1088,7 @@ export class AgentService {
    * soit l'outil utilisé (les interdits de l'agent ne couvrent que l'édition directe).
    */
   private async toucheDossiersReserves(jeton: string, depot: string, numero: number, cwd: string, branche: string): Promise<boolean> {
-    const { stdout } = await this.apercu.executer('git', ['-C', cwd, 'diff', '--name-only', `origin/main...${branche}`]);
-    const reserves = cheminsReserves(stdout.split('\n').filter(Boolean));
+    const reserves = cheminsReserves(await fichiersModifies(this.apercu.executer, cwd, branche));
     if (!reserves.length) return false;
     await this.bloquer(
       jeton,
@@ -892,9 +1100,15 @@ export class AgentService {
   }
 
   private async bloquer(jeton: string, depot: string, numero: number, raison: string): Promise<void> {
-    await this.stories.commenterAssistant(jeton, depot, numero, 'Besoin d’aide', `${raison}\n\nUn développeur doit regarder cette demande.`);
-    await this.stories.changerStatut(jeton, depot, numero, 'besoin-dev');
+    // La raison d'abord, en local : si GitHub refuse l'écriture (jeton expiré, coupure), l'écran du
+    // PO l'affiche quand même, avec « Relancer ADA », au lieu d'un « en cours » muet.
     await this.enregistrer(depot, numero, { erreur: raison });
+    try {
+      await this.stories.commenterAssistant(jeton, depot, numero, 'Besoin d’aide', `${raison}\n\nUn développeur doit regarder cette demande.`);
+      await this.stories.changerStatut(jeton, depot, numero, 'besoin-dev');
+    } catch (e) {
+      this.log.warn(`Blocage de ${depot}#${numero} non écrit dans GitHub : ${(e as Error).message}`);
+    }
     await this.noter(depot, numero, 'Bloqué : un développeur doit intervenir');
   }
 }

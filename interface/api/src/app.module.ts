@@ -18,6 +18,7 @@ import { ProjetsService } from './projets/projets.service.js';
 import { RepriseService } from './projets/reprise.service.js';
 import { RepriseController } from './projets/reprise.controller.js';
 import { StoriesController } from './stories/stories.controller.js';
+import { DemandesStore } from './stories/demandes.js';
 import { StoriesService } from './stories/stories.service.js';
 import { VerificationController } from './verification/verification.controller.js';
 import { VerificationService } from './verification/verification.service.js';
@@ -38,6 +39,7 @@ import { VersionsService } from './versions/versions.service.js';
     RegistreService,
     ProjetsService,
     RepriseService,
+    DemandesStore,
     StoriesService,
     VerificationService,
     VersionsService,

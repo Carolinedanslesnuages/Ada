@@ -8,8 +8,11 @@ d'issue du projet), puis les voit apparaître dans l'atelier et **les lance une 
 l'aperçu du produit tourne à droite dès la création du projet.
 
 ## Architecture
-- `api/` : NestJS (ESM, imports en `.js`). Aucune base de données : **GitHub est la source de
-  vérité** (issues = stories, labels = statuts ; voir `docs/adr/0001`). Le client GitHub agit au
+- `api/` : NestJS (ESM, imports en `.js`). Aucune base de données : les **stories s'écrivent dans
+  GitHub** (issues), mais **ADA garde elle-même l'état de chaque demande** (demande figée au
+  lancement, journal des échanges, statut) : `api/src/stories/demandes.ts`, `docs/adr/0011`.
+  Le label de statut et les commentaires d'ADA sont une copie pour l'équipe, **jamais relue pour
+  décider** : ce qui s'écrit sur GitHub hors de l'interface d'ADA ne peut pas l'influencer. Le client GitHub agit au
   nom du PO connecté (jeton utilisateur de la GitHub App).
 - `front/` : Vue 3 + DSFR (`@gouvminint/vue-dsfr`) + Pinia (session, projets, stories).
 - Règles d'une demande (lecture des formulaires GitHub, « prête » = complète et 4 critères au
@@ -34,6 +37,21 @@ l'aperçu du produit tourne à droite dès la création du projet.
 - Aperçu (`api/src/apercu/`) : clone du dépôt avec le jeton du PO (jeton passé par
   l'environnement, jamais en argument), puis `docker compose` (PostgreSQL + application, limites
   mémoire/CPU, ports 5300-5399 sur 127.0.0.1). Dossier de travail `apercus/`, hors git.
+  **Le dossier git d'un projet est rangé à côté du dépôt monté dans le conteneur**
+  (`apercus/<projet>/git`, jamais dans `depot/.git`) et tout `git -C <dépôt>` du serveur le désigne
+  explicitement (`api/src/apercu/git-isole.ts`) : une commande lancée dans le conteneur ne peut pas
+  y poser un hook exécuté ensuite sur le serveur. `ada.json` est validé strictement (image, dossiers)
+  car il finit dans `compose.yml` et des scripts shell. L'agent ne lit que les réglages de
+  l'utilisateur du serveur (`--setting-sources user`), sans les secrets d'ADA dans son environnement.
+- **Confiance** (avant le lancement, et pour les demandes d'avant ADR-0011) : les issues et commentaires GitHub sont publics ; seuls ceux d'un propriétaire, ou d'un
+  membre/collaborateur qui a le droit d'écrire (vérifié auprès de GitHub : le lien « membre » ne dit
+  rien du droit) comptent (`api/src/stories/confiance.ts`) : les autres ne
+  parviennent ni à l'agent ni à l'écran, et une issue écrite par un inconnu ne se lance pas.
+  `ProjetGuard` vérifie aussi, auprès de GitHub et avec le jeton du PO, que le dépôt lui est visible.
+- **Un agent à la fois par projet, `AGENT_MAX_SIMULTANES` sur la machine**, puis une file d'attente
+  (`docs/adr/0004`). ADA vérifie qu'elle peut démarrer AVANT d'écrire dans GitHub. La pull request
+  d'une demande se retrouve sur GitHub par sa branche : le fichier d'activité local ne suffit pas.
+  La fusion est refusée si la branche a avancé en dehors d'ADA (commit noté à chaque push).
 
 ## Conventions
 - Validation avec Zod côté API ; jamais de `any`.

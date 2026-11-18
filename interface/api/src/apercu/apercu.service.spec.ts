@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BadRequestException } from '@nestjs/common';
@@ -26,7 +26,14 @@ describe('ApercuService', () => {
       }),
     );
     executer = vi.fn<Executer>(async (commande, args) => {
-      if (commande === 'git' && args[0] === 'clone') mkdirSync(join(args[3]!, '.git'), { recursive: true });
+      // Comme le vrai « git clone --separate-git-dir » : dossier git à part, et simple fichier .git dans le dépôt.
+      if (commande === 'git' && args[0] === 'clone') {
+        const depot = args.at(-1)!;
+        const dossierGit = args[args.indexOf('--separate-git-dir') + 1]!;
+        mkdirSync(depot, { recursive: true });
+        mkdirSync(dossierGit, { recursive: true });
+        writeFileSync(join(depot, '.git'), `gitdir: ${dossierGit}\n`);
+      }
       if (args.includes('ps')) return { stdout: JSON.stringify({ Service: 'app', State: 'running' }) };
       if (args.includes('rev-parse')) return { stdout: brancheCourante + '\n' };
       return { stdout: '' };
@@ -38,7 +45,9 @@ describe('ApercuService', () => {
   it('clone le dépôt avec les droits du PO, sans jamais mettre le jeton dans les arguments', async () => {
     const apercu = await service.demarrer(JETON, 'poc-portail');
     const clone = executer.mock.calls.find(([c, a]) => c === 'git' && a[0] === 'clone')!;
-    expect(clone[1]).toEqual(['clone', '--quiet', 'https://github.com/proprio/poc-portail.git', join(racine, 'poc-portail', 'depot')]);
+    // Le dossier git est rangé à côté du dépôt, hors du dossier monté dans le conteneur de l'aperçu.
+    expect(clone[1]).toEqual(['clone', '--quiet', '--separate-git-dir', join(racine, 'poc-portail', 'git'), 'https://github.com/proprio/poc-portail.git', join(racine, 'poc-portail', 'depot')]);
+    expect(statSync(join(racine, 'poc-portail', 'depot', '.git')).isFile()).toBe(true);
     for (const [, args] of executer.mock.calls) expect(args.join(' ')).not.toContain(JETON);
     const entete = clone[2]!.env!.GIT_CONFIG_VALUE_0!;
     expect(Buffer.from(entete.replace('AUTHORIZATION: basic ', ''), 'base64').toString()).toBe(`x-access-token:${JETON}`);

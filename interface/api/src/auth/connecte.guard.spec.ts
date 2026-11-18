@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UnauthorizedException, type ExecutionContext } from '@nestjs/common';
-import { ConnecteGuard } from './connecte.guard.js';
+import { ConnecteGuard, MARGE_RENOUVELLEMENT_MS } from './connecte.guard.js';
 import type { GithubOAuthService } from './github-oauth.service.js';
 
 const contexte = (session: Record<string, unknown> | undefined) =>
@@ -26,11 +26,11 @@ describe('Garde de connexion et renouvellement du jeton', () => {
   });
 
   it('laisse passer un jeton encore valide, sans le renouveler', async () => {
-    expect(await garde.canActivate(contexte(session({ jetonExpireLe: Date.now() + 3_600_000 })))).toBe(true);
+    expect(await garde.canActivate(contexte(session({ jetonExpireLe: Date.now() + MARGE_RENOUVELLEMENT_MS + 3_600_000 })))).toBe(true);
     expect(oauth.rafraichir).not.toHaveBeenCalled();
   });
 
-  it('renouvelle en silence un jeton qui expire dans moins de 5 minutes', async () => {
+  it('renouvelle en silence un jeton qui expire bientôt', async () => {
     oauth.rafraichir.mockResolvedValue({ access_token: 'nouveau', refresh_token: 'renouv-2', expires_in: 28_800 });
     const sess = session({ jetonExpireLe: Date.now() + 60_000, jetonRafraichissement: 'renouv-1' });
     expect(await garde.canActivate(contexte(sess))).toBe(true);
@@ -51,5 +51,24 @@ describe('Garde de connexion et renouvellement du jeton', () => {
     const sess = session({ jetonExpireLe: Date.now() - 1000 });
     await expect(garde.canActivate(contexte(sess))).rejects.toThrow(/reconnectez-vous/);
     expect(oauth.rafraichir).not.toHaveBeenCalled();
+  });
+
+  it('renouvelle assez tôt pour qu’une tâche lancée maintenant garde un jeton valide pendant au moins 2 heures', async () => {
+    oauth.rafraichir.mockResolvedValue({ access_token: 'nouveau', refresh_token: 'renouv-2', expires_in: 28_800 });
+    const sess = session({ jetonExpireLe: Date.now() + MARGE_RENOUVELLEMENT_MS - 60_000, jetonRafraichissement: 'renouv-1' });
+    await garde.canActivate(contexte(sess));
+    expect(oauth.rafraichir).toHaveBeenCalledTimes(1);
+  });
+
+  it('des requêtes simultanées partagent un seul renouvellement (l’ancien jeton de renouvellement ne sert qu’une fois)', async () => {
+    let terminer: (valeur: { access_token: string; refresh_token: string; expires_in: number }) => void = () => undefined;
+    oauth.rafraichir.mockImplementation(() => new Promise((ok) => (terminer = ok)));
+    const proches = () => session({ jetonExpireLe: Date.now() + 1000, jetonRafraichissement: 'renouv-1' });
+    const [a, b, c] = [proches(), proches(), proches()];
+    const toutes = Promise.all([garde.canActivate(contexte(a)), garde.canActivate(contexte(b)), garde.canActivate(contexte(c))]);
+    terminer({ access_token: 'nouveau', refresh_token: 'renouv-2', expires_in: 28_800 });
+    expect(await toutes).toEqual([true, true, true]);
+    expect(oauth.rafraichir).toHaveBeenCalledTimes(1);
+    expect([a.jeton, b.jeton, c.jeton]).toEqual(['nouveau', 'nouveau', 'nouveau']);
   });
 });
