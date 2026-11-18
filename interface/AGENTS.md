@@ -53,8 +53,8 @@ l'aperçu du produit tourne à droite dès la création du projet.
   d'une demande se retrouve sur GitHub par sa branche : le fichier d'activité local ne suffit pas.
   La fusion est refusée si la branche a avancé en dehors d'ADA (commit noté à chaque push).
 - **Protection de `main`** : à l'ouverture d'un projet, ADA vérifie qu'une règle exige une PR et la
-  pose sinon (`api/src/projets/projets.service.ts`, `assurerProtection`) ; un projet repris garde
-  ses règles. Les contrôles exigés avant fusion se lisent dans cette règle, `ada.json` à défaut.
+  pose sinon (`api/src/projets/projets.service.ts`, `assurerProtection`). **Projet repris** : ADA ne
+  pose rien d'elle-même, elle **propose** et le PO décide (son choix est retenu, il peut y revenir). Les contrôles exigés avant fusion se lisent dans cette règle, `ada.json` à défaut.
 
 ## Conventions
 - Validation avec Zod côté API ; jamais de `any`.
