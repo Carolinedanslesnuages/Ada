@@ -417,9 +417,25 @@ export class AgentService {
     return resultat;
   }
 
+  /**
+   * Un dépôt renommé sur GitHub reste joignable sous son ancien nom (redirection) : ADA, qui range
+   * verrou, journal et aperçu sous le nom, y verrait deux projets et pourrait lancer deux agents
+   * sur la même story. On refuse donc tout lancement sous un nom périmé.
+   */
+  private async verifierNomActuel(jeton: string, depot: string): Promise<void> {
+    const cible = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
+    const { data } = await this.github.client(jeton).repos.get({ owner: cible.owner, repo: cible.repo });
+    if (data.name.toLowerCase() !== cible.repo.toLowerCase()) {
+      throw new ConflictException(
+        `Ce projet a été renommé « ${data.name} » sur GitHub. Rouvrez-le sous ce nom dans la liste des projets, puis relancez.`,
+      );
+    }
+  }
+
   /** Démarre une tâche pour la demande ; une seule par projet (verrou partagé entre processus). */
   private async lancerTache(tache: Tache): Promise<void> {
     this.verifierDisponible();
+    await this.verifierNomActuel(tache.jeton, tache.depot);
     await this.acquerirVerrou(tache.depot, { pid: process.pid, numero: tache.numero, phase: tache.phase });
     await this.enregistrer(tache.depot, tache.numero, {
       phase: tache.phase,

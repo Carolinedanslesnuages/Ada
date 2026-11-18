@@ -47,7 +47,7 @@ describe('AgentService', () => {
   let racine: string;
   let stories: Record<string, ReturnType<typeof vi.fn>>;
   let apercu: { relancerApplication: ReturnType<typeof vi.fn>; lireConfig: ReturnType<typeof vi.fn>; cheminDepot: ReturnType<typeof vi.fn>; preparerDepot: ReturnType<typeof vi.fn>; executer: ReturnType<typeof vi.fn>; environnementGit: ReturnType<typeof vi.fn> };
-  let gh: { pulls: { create: ReturnType<typeof vi.fn> } };
+  let gh: { pulls: { create: ReturnType<typeof vi.fn> }; repos: { get: ReturnType<typeof vi.fn> } };
   let service: AgentService;
   let lancer: ReturnType<typeof vi.fn<LancerAgent>>;
   let sortie: string[];
@@ -93,7 +93,10 @@ describe('AgentService', () => {
         stdout: args.includes('rev-list') ? `${commits}\n` : args.includes('rev-parse') ? 'main\n' : '',
       })),
     };
-    gh = { pulls: { create: vi.fn(async () => ({ data: { html_url: 'https://github.com/proprio/poc/pull/2' } })) } };
+    gh = {
+      pulls: { create: vi.fn(async () => ({ data: { html_url: 'https://github.com/proprio/poc/pull/2' } })) },
+      repos: { get: vi.fn(async ({ repo }: { repo: string }) => ({ data: { name: repo } })) },
+    };
     service = new AgentService(
       config(),
       { client: () => gh } as unknown as GithubService,
@@ -130,6 +133,16 @@ describe('AgentService', () => {
     await expect(service.conseillerStack('les agents réservent une salle de réunion')).rejects.toThrow(/choisissez-la vous-même/);
   });
 
+  it('refuse de lancer un agent sous l’ancien nom d’un projet renommé sur GitHub', async () => {
+    gh.repos.get = vi.fn(async () => ({ data: { name: 'Gladys' } }));
+    await expect(service.analyser(JETON, 'leon', 1)).rejects.toThrow(/renommé « Gladys »/);
+    expect(lancer).not.toHaveBeenCalled();
+    gh.repos.get = vi.fn(async () => ({ data: { name: 'Gladys' } }));
+    await service.analyser(JETON, 'gladys', 1);
+    await service.derniereTache;
+    expect(lancer).toHaveBeenCalledTimes(1);
+  });
+
   it('analyse en lecture seule et publie le plan, qui attend la validation du PO', async () => {
     sortie = [action('Read', { file_path: '/x/AGENTS.md' }), resultat('{"decision":"plan","texte":"Je vais créer la page."}')];
     await service.analyser(JETON, 'poc', 1);
@@ -153,7 +166,10 @@ describe('AgentService', () => {
   describe('reprise d’un projet existant (#37)', () => {
     const ghReprise = () => {
       const appels = {
-        repos: { getContent: vi.fn(async () => Promise.reject(Object.assign(new Error('absent'), { status: 404 }))) },
+        repos: {
+          get: vi.fn(async ({ repo }: { repo: string }) => ({ data: { name: repo } })),
+          getContent: vi.fn(async () => Promise.reject(Object.assign(new Error('absent'), { status: 404 }))),
+        },
         pulls: { list: vi.fn(async () => ({ data: [] })), create: vi.fn(async () => ({ data: { html_url: 'https://github.com/un-po/mon-poc/pull/2' } })) },
         git: {
           getRef: vi.fn(async () => ({ data: { object: { sha: 'sha-main' } } })),
