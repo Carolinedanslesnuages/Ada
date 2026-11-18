@@ -1,18 +1,45 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+
 /**
- * Petit avatar d'ADA, en bas à droite, qui fait coucou tant qu'elle travaille. Purement
- * décoratif : l'information « ADA travaille » est déjà annoncée dans le fil de la demande
- * (role="status"), donc l'avatar est masqué aux lecteurs d'écran et ne capte aucun clic.
- * Une fille aux cheveux bleu France (carré, raie au milieu, chignon en clin d'œil à Ada
- * Lovelace), visage clair, yeux qui clignent parfois.
- * Sans animation si la personne a demandé à réduire les mouvements.
+ * Petit avatar d'ADA, en bas à droite, qui fait coucou tant qu'elle travaille : une fille aux
+ * cheveux bleu France (carré, raie au milieu, chignon en clin d'œil à Ada Lovelace), visage
+ * clair, yeux qui clignent parfois. Un clic l'immobilise (RGAA 13.8 : une animation doit pouvoir
+ * être arrêtée) ; un autre la relance ; le choix est gardé sur l'appareil. Sans animation non
+ * plus si la personne a demandé à réduire les mouvements.
  */
 defineProps<{ phase?: string | null }>()
+
+const CLE = 'ada:avatar-immobile'
+function lireChoix(): boolean {
+  try {
+    return localStorage.getItem(CLE) === 'oui'
+  } catch {
+    return false
+  }
+}
+const immobile = ref(lireChoix())
+function basculer(): void {
+  immobile.value = !immobile.value
+  try {
+    if (immobile.value) localStorage.setItem(CLE, 'oui')
+    else localStorage.removeItem(CLE)
+  } catch {
+    // stockage indisponible : le choix vaut pour cette visite
+  }
+}
 </script>
 
 <template>
-  <div class="avatar-ada" aria-hidden="true" data-testid="avatar-ada">
-    <svg class="avatar-ada__dessin" viewBox="0 0 68 64" width="54" height="51" focusable="false">
+  <button
+    type="button"
+    class="avatar-ada"
+    :class="{ 'avatar-ada--immobile': immobile }"
+    :title="immobile ? 'Relancer l’animation' : 'Arrêter l’animation'"
+    data-testid="avatar-ada"
+    @click="basculer"
+  >
+    <svg class="avatar-ada__dessin" aria-hidden="true" viewBox="0 0 68 64" width="54" height="51" focusable="false">
       <circle class="avatar-ada__cheveux" cx="29" cy="10" r="6" />
       <path class="avatar-ada__cheveux" d="M8 34 A21 21 0 0 1 50 34 L50 45 Q50 51 45 50.5 Q42.5 50 42.5 46 L42.5 40 L15.5 40 L15.5 46 Q15.5 50 13 50.5 Q8 51 8 45 Z" />
       <circle class="avatar-ada__visage" cx="29" cy="39" r="14.5" />
@@ -38,7 +65,8 @@ defineProps<{ phase?: string | null }>()
     <span class="avatar-ada__texte">
       ADA {{ phase === 'realisation' ? 'réalise' : 'analyse' }}…
     </span>
-  </div>
+    <span class="fr-sr-only">{{ immobile ? ' : relancer l’animation' : ' : arrêter l’animation' }}</span>
+  </button>
 </template>
 
 <style scoped>
@@ -56,7 +84,22 @@ defineProps<{ phase?: string | null }>()
   border: 1px solid var(--border-default-grey);
   border-radius: 2rem;
   box-shadow: 0 2px 6px rgb(0 0 18 / 16%);
-  pointer-events: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.avatar-ada:hover {
+  background: var(--background-default-grey-hover);
+}
+
+.avatar-ada:focus-visible {
+  outline: 2px solid #0a76f6;
+  outline-offset: 2px;
+}
+
+.avatar-ada--immobile .avatar-ada__main,
+.avatar-ada--immobile .avatar-ada__yeux {
+  animation: none;
 }
 
 .avatar-ada__dessin {
