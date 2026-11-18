@@ -78,4 +78,5 @@ export const LABELS_ATELIER = [
   { name: 'story:besoin-dev', color: 'ce0500', description: 'Bloquée : un développeur doit intervenir' },
   { name: 'story:decoupage-a-valider', color: 'b34000', description: 'Le PO choisit les stories du découpage proposé' },
   { name: 'story:parent', color: '6a6af4', description: 'Demande découpée en stories' },
+  { name: 'story:en-attente', color: '929292', description: 'Rien à construire pour l’instant : à relancer plus tard' },
 ];

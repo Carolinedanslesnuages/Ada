@@ -28,6 +28,8 @@ export const STATUTS = {
   decoupage: 'story:decoupage-a-valider',
   /** Demande découpée : ses stories se réalisent une par une ; elle se ferme quand toutes sont livrées. */
   parent: 'story:parent',
+  /** Rien à construire pour l'instant (elle attend une autre story) : gardée ouverte, à relancer plus tard. */
+  attente: 'story:en-attente',
 } as const;
 
 export type Statut = 'nouvelle' | keyof typeof STATUTS | 'livree';

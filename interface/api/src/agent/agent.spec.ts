@@ -214,6 +214,17 @@ describe('Décision « découpage » d’ADA (#36)', () => {
   });
 });
 
+describe('Consigne d’analyse : jamais de plan qui ne construit rien', () => {
+  it('demande la décision « attente » quand rien ne peut être réalisé maintenant', () => {
+    const consigne = consigneAnalyse(demande);
+    expect(consigne).toContain('ne propose JAMAIS un plan qui ne\n   construit rien');
+    expect(consigne).toContain('{"decision":"attente"');
+  });
+  it('lit la décision « attente »', () => {
+    expect(lireDecision('{"decision":"attente","texte":"Attend #40."}')).toEqual({ decision: 'attente', texte: 'Attend #40.' });
+  });
+});
+
 describe('Consigne d’analyse : pas de doublon avec les stories déjà écrites', () => {
   it('liste les autres stories du projet et interdit de les proposer à nouveau', () => {
     const consigne = consigneAnalyse({ ...demande, existantes: [{ numero: 31, titre: 'Envoyer les e-mails depuis le site', livree: false }, { numero: 5, titre: 'Prévisualiser', livree: true }] });

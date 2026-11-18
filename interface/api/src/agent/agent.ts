@@ -48,7 +48,7 @@ export interface QuestionAChoix {
 }
 
 export type DecisionAnalyse = {
-  decision: 'questions' | 'plan' | 'decoupage';
+  decision: 'questions' | 'plan' | 'decoupage' | 'attente';
   texte: string;
   choix?: QuestionAChoix[];
   /** Découpage : les stories proposées (le PO choisit lesquelles ADA crée, #36). */
@@ -248,10 +248,16 @@ Ta tâche :
    - dans un découpage, ne propose JAMAIS une story déjà écrite : renvoie à elle dans ton
      explication (« déjà prévue : #numéro ») ; si une story proposée en recoupe une en partie,
      ajoute « doublonDe » : le numéro de celle qu'elle recoupe.
+6. Attente — si la demande ne peut pas être réalisée MAINTENANT (elle dépend d'une story pas encore
+   livrée, ou le PO a choisi de la garder pour plus tard), ne propose JAMAIS un plan qui ne
+   construit rien : un plan validé doit livrer quelque chose. Réponds par la décision « attente » :
+   dis ce qu'elle attend (#numéro si c'est une story), et reporte dans ton texte les critères
+   réécrits s'il y en a, pour ne pas les perdre. ADA la garde ouverte ; le PO la relancera.
 
 Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
 {"decision":"questions","texte":"<tes questions>","choix":[{"question":"<question 1>","choix":["<option>","<option>"],"plusieurs":false}]}
 ou {"decision":"plan","texte":"<ton plan>"}  (« choix » est facultatif)
+ou {"decision":"attente","texte":"<ce qu'elle attend, et les critères réécrits s'il y en a>"}
 ou {"decision":"decoupage","texte":"<pourquoi découper>","stories":[{"titre":"<titre court>","role":"<en tant que>","besoin":"<je veux>","benefice":"<afin de>","criteres":["<critère>"],"doublonDe":<numéro, seulement si elle recoupe une story existante>}]}`;
 }
 
@@ -322,7 +328,7 @@ export function lireJson<T>(texte: string, accepter: (valeur: Record<string, unk
 
 export function lireDecision(texte: string): DecisionAnalyse | null {
   const r = lireJson<DecisionAnalyse>(texte, (valeur) => 'decision' in valeur);
-  if (!(r && ['questions', 'plan', 'decoupage'].includes(r.decision) && typeof r.texte === 'string' && r.texte.trim())) return null;
+  if (!(r && ['questions', 'plan', 'decoupage', 'attente'].includes(r.decision) && typeof r.texte === 'string' && r.texte.trim())) return null;
   if (r.decision === 'decoupage') {
     const stories = nettoyerStoriesProposees(r.stories);
     // Découpage inexploitable : on garde l'explication, comme des questions (comportement d'avant).

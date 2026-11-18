@@ -246,12 +246,12 @@ export class StoriesService {
     }
   }
 
-  /** Lance une demande : une seule à la fois par projet, et seulement si elle est prête. */
+  /** Lance (ou relance, si elle était en attente) une demande : une seule à la fois par projet, et seulement si elle est prête. */
   async lancer(jeton: string, depot: string, numero: number, login: string): Promise<ResumeStory> {
     const toutes = await this.lister(jeton, depot);
     const cible = toutes.find((s) => s.numero === numero);
     if (!cible) throw new BadRequestException(`La demande #${numero} n’est ni une story ni un problème de l’atelier`);
-    if (cible.statut !== 'nouvelle') throw new ConflictException(`La demande #${numero} est déjà lancée ou terminée`);
+    if (cible.statut !== 'nouvelle' && cible.statut !== 'attente') throw new ConflictException(`La demande #${numero} est déjà lancée ou terminée`);
     if (!cible.prete) throw new BadRequestException(`La demande #${numero} n’est pas prête : ${cible.raison}`);
     const active = toutes.find((s) => STATUTS_ACTIFS.includes(s.statut));
     if (active) {
@@ -269,6 +269,7 @@ export class StoriesService {
         issue_number: numero,
         labels: [labelType, STATUTS['en-cours']],
       });
+      if (cible.statut === 'attente') await gh.issues.removeLabel({ ...this.cible(depot), issue_number: numero, name: STATUTS.attente });
       await gh.issues.createComment({
         ...this.cible(depot),
         issue_number: numero,

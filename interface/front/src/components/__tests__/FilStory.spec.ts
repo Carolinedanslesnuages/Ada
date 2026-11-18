@@ -330,6 +330,16 @@ describe('Fil d’une story', () => {
       wrapper.unmount()
     })
 
+    it('propose de relancer une demande mise en attente par ADA', async () => {
+      const wrapper = mount(FilStory, { props: { story: { ...nouvelle, statut: 'attente' as const } }, global: { plugins: [VueDsfr] }, attachTo: document.body })
+      expect(wrapper.text()).toContain('ADA a mis cette demande en attente')
+      const bouton = wrapper.findAll('button').find((b) => b.text().includes('Relancer cette story'))!
+      await bouton.trigger('click')
+      expect(wrapper.emitted('lancer')).toHaveLength(1)
+      expect(await violationsAccessibilite(document.body)).toEqual([])
+      wrapper.unmount()
+    })
+
     it('explique qu’une autre demande est en cours, sans bouton', () => {
       const wrapper = mount(FilStory, {
         props: { story: nouvelle, autreEnCours: { numero: 7, titre: 'Accueil' } },

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { LIBELLES_STATUT, ordonnerALancer, type ResumeStory } from '@/lib/story'
+import { LIBELLES_STATUT, aLancerOuRelancer, ordonnerALancer, type ResumeStory } from '@/lib/story'
 
 /**
  * Stories du projet : celles en cours (avec l'assistant, à vérifier…) restent visibles ; celles
@@ -9,10 +9,10 @@ import { LIBELLES_STATUT, ordonnerALancer, type ResumeStory } from '@/lib/story'
 const props = defineProps<{ stories: ResumeStory[]; numeroCourant?: number | null }>()
 const emit = defineEmits<{ ouvrir: [numero: number] }>()
 
-const enCours = computed(() => props.stories.filter((story) => story.statut !== 'nouvelle'))
+const enCours = computed(() => props.stories.filter((story) => !aLancerOuRelancer(story)))
 /** Dans l'ordre conseillé par ADA ; la première prête est la prochaine à lancer. */
-const aLancer = computed(() => ordonnerALancer(props.stories.filter((story) => story.statut === 'nouvelle')))
-const prochaine = computed(() => aLancer.value.find((story) => story.prete) ?? null)
+const aLancer = computed(() => ordonnerALancer(props.stories.filter(aLancerOuRelancer)))
+const prochaine = computed(() => aLancer.value.find((story) => story.prete && story.statut === 'nouvelle') ?? null)
 const titreALancer = computed(() => `À lancer (${aLancer.value.length})`)
 
 /** Fermé par défaut ; ouvert d'office quand la story affichée en fait partie. */
