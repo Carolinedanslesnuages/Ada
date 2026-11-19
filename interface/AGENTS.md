@@ -30,7 +30,9 @@ l'aperçu du produit tourne à droite dès la création du projet.
 - Projets : **un nouveau projet est créé sur le compte GitHub de la personne connectée** (jeton
   utilisateur), jamais sur `GITHUB_PROPRIETAIRE`. Identifiant `nom` (compte `GITHUB_PROPRIETAIRE`)
   ou `compte~nom` (compte personnel du PO),
-  lu par `api/src/projets/depot.ts` ; toute route `projets/:depot` passe par `ProjetGuard`. Un
+  lu par `api/src/projets/depot.ts` ; toute route `projets/:depot` passe par `ProjetGuard`.
+  **Chaque projet créé reçoit les skills `po-` d'ADA** (`skills/po/`, dossier `SKILLS_PO`) : copiées dans
+  `.agents/skills/` et reliées depuis `.claude/skills/`, au même commit que le modèle (`api/src/projets/skills-projet.ts`). Un
   projet existant est d'abord analysé par l'assistant (phase « reprise », `api/src/agent/consigne-reprise.ts`),
   puis entre dans ADA par une PR de reprise que le PO fusionne (`docs/adr/0010`).
 - Registre des projets (`api/src/indicateurs/registre*.ts`, fichier `registre/projets.json` hors

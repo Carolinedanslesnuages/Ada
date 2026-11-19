@@ -12,6 +12,9 @@ import { ProjetsService } from './projets.service.js';
 
 const racine = mkdtempSync(join(tmpdir(), 'ada-test-projets-'));
 const dossierCatalogue = join(racine, 'catalogue');
+const dossierSkills = join(racine, 'skills-po');
+/** Ce que la skill du test ajoute à chaque projet créé : le dossier commun et le lien de Claude Code. */
+const SKILLS_LIVREES = ['.agents/skills/po-bug/SKILL.md', '.agents/skills/po-bug/references/methode.md', '.claude/skills/po-bug'];
 
 const variables = {
   GITHUB_PROPRIETAIRE: 'proprio',
@@ -21,7 +24,7 @@ const variables = {
 };
 /** Dossier des aperçus des tests : jamais celui d'ADA (le choix de protection d'un PO y est écrit). */
 const dossierApercus = mkdtempSync(join(tmpdir(), 'apercus-projets-'));
-const config = lireConfig({ ...variables, CATALOGUE: dossierCatalogue, DOSSIER_APERCUS: dossierApercus });
+const config = lireConfig({ ...variables, CATALOGUE: dossierCatalogue, SKILLS_PO: dossierSkills, DOSSIER_APERCUS: dossierApercus });
 
 const depot = (name: string, topics: string[], updated_at = '2026-11-16T10:00:00Z', owner = 'proprio') => ({
   name,
@@ -63,6 +66,8 @@ const preparerCatalogue = () => {
   ecrire(join(dossierCatalogue, 'vue-node', 'charts', 'app', 'Chart.yaml'), 'name: __SLUG__');
   ecrire(join(dossierCatalogue, 'vue-node', 'charts', 'app', 'templates', 'deployment.yaml'), 'kind: Deployment');
   git(dossierCatalogue, 'init', '--quiet');
+  ecrire(join(dossierSkills, 'po-bug', 'SKILL.md'), '---\nname: po-bug\n---\n');
+  ecrire(join(dossierSkills, 'po-bug', 'references', 'methode.md'), 'méthode');
 };
 
 /** Dépôt « GitHub » du projet : un dépôt nu local, vide comme après la création. */
@@ -203,8 +208,12 @@ describe('ProjetsService', () => {
     expect(gh.repos.createForAuthenticatedUser).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'l-annuaire', private: true, auto_init: false }),
     );
-    expect(fichiersPousses(distant)).toEqual(['PROJET.md', 'ada.json', 'front/src/App.vue']);
+    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'PROJET.md', 'ada.json', 'front/src/App.vue']);
     expect(lirePousse(distant, 'PROJET.md')).toBe('# L’annuaire\nTrouver un collègue et son bureau.');
+    // Les skills po- d'ADA sont livrées avec le projet : dossier commun, et lien relatif pour Claude Code.
+    expect(lirePousse(distant, '.agents/skills/po-bug/references/methode.md')).toBe('méthode');
+    expect(git(distant, 'ls-tree', 'main', '.claude/skills/po-bug')).toMatch(/^120000 blob /);
+    expect(lirePousse(distant, '.claude/skills/po-bug')).toBe('../../.agents/skills/po-bug');
     expect(lirePousse(distant, 'front/src/App.vue')).toBe('sans marqueur __NOM_PROJET__');
     expect(git(distant, 'log', '--format=%an|%s', 'main').trim()).toBe('proprio|chore: création du projet L’annuaire');
 
@@ -316,7 +325,7 @@ describe('ProjetsService', () => {
     gh.repos.get.mockResolvedValue({ data: { ...depot('l-annuaire', []), template_repository: { name: 'modele-vue-nest-dsfr' } } });
 
     await service.creer('jeton', 'proprio', projetValide);
-    expect(fichiersPousses(distant)).toEqual(['PROJET.md', 'ada.json', 'front/src/App.vue']);
+    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'PROJET.md', 'ada.json', 'front/src/App.vue']);
     expect(git(distant, 'rev-list', '--count', 'main').trim()).toBe('2');
   });
 
@@ -362,13 +371,13 @@ describe('ProjetsService', () => {
   it('n’ajoute le chart de déploiement que si le PO prévoit de déployer le projet', async () => {
     preparerCreation();
     await service.creer('jeton', 'proprio', { ...projetValide, modele: 'vue-node' });
-    expect(fichiersPousses(distant)).toEqual(['Dockerfile', 'ada.json']);
+    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'Dockerfile', 'ada.json']);
   });
 
   it('projet déployé : chart Helm ajouté et personnalisé', async () => {
     preparerCreation();
     await service.creer('jeton', 'proprio', { ...projetValide, modele: 'vue-node', deploye: true });
-    expect(fichiersPousses(distant)).toEqual(['Dockerfile', 'ada.json', 'charts/app/Chart.yaml', 'charts/app/templates/deployment.yaml']);
+    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'Dockerfile', 'ada.json', 'charts/app/Chart.yaml', 'charts/app/templates/deployment.yaml']);
     expect(lirePousse(distant, 'charts/app/Chart.yaml')).toBe('name: l-annuaire');
   });
 

@@ -20,6 +20,8 @@ const schema = z.object({
     .transform((v) => v.split(',').map((l) => l.trim().toLowerCase()).filter(Boolean)),
   /** Dossier des modèles de projet (défaut : `catalogue/` à la racine du dépôt d'ADA). */
   CATALOGUE: z.string().default(''),
+  /** Dossier des skills `po-` livrées dans chaque projet créé (défaut : `skills/po/` à la racine du dépôt d'ADA). */
+  SKILLS_PO: z.string().default(''),
   /**
    * Commande de l'agent de code (mode non interactif, sortie stream-json). Vide : agent désactivé.
    * Démo : l'exécutable Claude Code. Remplaçable par un autre agent (voir src/agent/agent.ts).

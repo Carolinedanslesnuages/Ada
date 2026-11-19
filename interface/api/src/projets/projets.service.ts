@@ -123,6 +123,13 @@ export class ProjetsService {
       : resolve(import.meta.dirname, '..', '..', '..', '..', 'catalogue');
   }
 
+  /** Dossier `skills/po/` d'ADA : les skills livrées dans chaque projet créé. */
+  get dossierSkillsPo(): string {
+    return this.config.SKILLS_PO
+      ? resolve(this.config.SKILLS_PO)
+      : resolve(import.meta.dirname, '..', '..', '..', '..', 'skills', 'po');
+  }
+
   /** Catalogue : un modèle n'est proposé que si son dossier est livré avec son ada.json. */
   modeles(): { familles: typeof FAMILLES; types: typeof TYPES; modeles: Modele[] } {
     const modeles = catalogue().map((modele) => {
@@ -273,7 +280,7 @@ export class ProjetsService {
         objectif: projet.objectif,
         date: new Date().toISOString().slice(0, 10),
         po: login,
-      });
+      }, this.dossierSkillsPo);
       protectionMain = await this.protection.proteger(gh, owner, slug, configModele.controlesRequis);
       await gh.repos.replaceAllTopics({ owner, repo: slug, names: [this.config.TOPIC_ATELIER] });
       await this.poserLabels(gh, owner, slug);
