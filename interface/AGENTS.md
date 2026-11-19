@@ -57,6 +57,10 @@ l'aperçu du produit tourne à droite dès la création du projet.
   pose rien d'elle-même, elle **propose** et le PO décide (son choix est retenu, il peut y revenir). Les contrôles exigés avant fusion se lisent dans cette règle, `ada.json` à défaut.
 
 ## Conventions
+- **Un fichier, une responsabilité** : 400 lignes non vides au plus par fichier de code, 600 par
+  test (contrôle « Taille des fichiers » en CI). Un service qui grossit délègue à de petites classes
+  ou fonctions qu'il construit lui-même (ex. `api/src/agent/` : `ordonnanceur.ts`, `phase-*.ts`,
+  `outils-phase.ts`), sans couche d'architecture en plus. Montage partagé des tests : `*.banc.ts`.
 - Validation avec Zod côté API ; jamais de `any`.
 - Erreurs GitHub traduites par `traduireErreurGithub` (404, 403, 401).
 - Pinia dès qu'une donnée sert à plusieurs composants ; sinon `ref` local.

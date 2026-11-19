@@ -44,6 +44,14 @@ Règles pour les jobs de la stack :
 - **Lint sans `--fix`** en CI (un script `lint` qui corrige masquerait l'erreur).
 - Aucun service externe ni secret : les tests tournent sans base de données réelle.
 
+## `.github/workflows/taille-fichiers.yml` — un fichier, une responsabilité
+
+Copié **tel quel** depuis ADA (`.github/workflows/taille-fichiers.yml`, identique dans chaque
+modèle) ; contrôle requis « Taille des fichiers (une responsabilité par fichier) ». Sur chaque PR,
+un fichier de code ajouté ou modifié ne dépasse pas 400 lignes non vides (600 pour un test) ; un
+fichier déjà plus long est toléré tant qu'il ne grossit pas. Découper par responsabilité, jamais
+une fonction par fichier.
+
 Valider le fichier avant de commiter (si Docker est disponible) :
 `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12`
 

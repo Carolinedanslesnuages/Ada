@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import AvatarAda from '@/components/AvatarAda.vue'
 import BoutonDicter from '@/components/BoutonDicter.vue'
+import ContenuDemande from '@/components/ContenuDemande.vue'
 import ConversationAda from '@/components/ConversationAda.vue'
 import { api } from '@/services/api'
 import { enStreaming, formaterCo2, type Empreinte } from '@/lib/empreinte'
 import PropositionDecoupage from '@/components/PropositionDecoupage.vue'
 import ReponseChoix from '@/components/ReponseChoix.vue'
 import TexteRiche from '@/components/TexteRiche.vue'
+import VerificationControles from '@/components/VerificationControles.vue'
 import { computed, ref, watch } from 'vue'
 import {
-  LIBELLES_CONTROLE,
   aLancerOuRelancer,
   LIBELLES_STATUT,
   presenterMessage,
@@ -242,42 +243,12 @@ function envoyer(): void {
       </template>
 
       <template v-else-if="story.statut === 'en-verification'">
-        <p class="fr-text--sm">
-          Regardez le résultat dans l’aperçu. Quand tous les contrôles sont réussis, validez :
-          la demande sera ajoutée au projet et la suivante pourra être lancée.
-        </p>
-        <p v-if="!verification" class="fr-text--sm">Lecture des contrôles…</p>
-        <template v-else>
-          <ul class="fr-text--sm controles">
-            <li v-for="controle in verification.controles" :key="controle.nom">
-              <span
-                :class="{
-                  'fr-icon-checkbox-circle-fill controle--ok': controle.etat === 'reussi',
-                  'fr-icon-close-circle-fill controle--ko': controle.etat === 'echec',
-                  'fr-icon-time-line': controle.etat === 'en-cours' || controle.etat === 'en-attente',
-                  'fr-icon-warning-line': controle.etat === 'non-lance',
-                }"
-                class="fr-icon--sm"
-                aria-hidden="true"
-              />
-              {{ controle.nom }} : {{ LIBELLES_CONTROLE[controle.etat] }}
-            </li>
-          </ul>
-          <p v-if="verification.raison" class="fr-text--sm fr-mb-2w">{{ verification.raison }}</p>
-          <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
-            <li>
-              <DsfrButton
-                icon="fr-icon-check-line"
-                label="Valider et fusionner"
-                :disabled="!verification.fusionnable || actionEnCours"
-                @click="emit('fusionner')"
-              />
-            </li>
-            <li v-if="verification.controles.some((controle) => controle.etat === 'non-lance')">
-              <DsfrButton secondary icon="fr-icon-refresh-line" label="Relancer les contrôles" :disabled="actionEnCours" @click="emit('relancerControles')" />
-            </li>
-          </ul>
-        </template>
+        <VerificationControles
+          :verification="verification"
+          :action-en-cours="actionEnCours"
+          @fusionner="emit('fusionner')"
+          @relancer-controles="emit('relancerControles')"
+        />
       </template>
 
       <template v-else-if="story.statut === 'en-cours' || story.statut === 'besoin-dev'">
@@ -357,42 +328,7 @@ function envoyer(): void {
       </form>
     </section>
 
-    <!-- 3. La demande elle-même. -->
-    <section v-if="story.contenu" aria-labelledby="titre-story">
-      <h3 id="titre-story" class="fr-h6 fr-mb-1w">La story</h3>
-      <p class="fr-mb-1w">
-        <strong>En tant que</strong> {{ story.contenu.role }},<br />
-        <strong>je veux</strong> {{ story.contenu.besoin }},<br />
-        <strong>afin de</strong> {{ story.contenu.benefice }}.
-      </p>
-      <p class="fr-text--bold fr-mb-1v">Critères d’acceptation</p>
-      <ul>
-        <li v-for="critere in story.contenu.criteres" :key="critere">{{ critere }}</li>
-      </ul>
-    </section>
-    <section v-else-if="story.contenuBug" aria-labelledby="titre-probleme">
-      <h3 id="titre-probleme" class="fr-h6 fr-mb-1w">Le problème signalé</h3>
-      <dl class="fr-mb-2w">
-        <dt><strong>Ce qui se passe</strong></dt>
-        <dd>{{ story.contenuBug.constate }}</dd>
-        <dt><strong>Ce qui devrait se passer</strong></dt>
-        <dd>{{ story.contenuBug.attendu }}</dd>
-        <dt><strong>Comment le reproduire</strong></dt>
-        <dd class="fil-pre">{{ story.contenuBug.etapes }}</dd>
-        <template v-if="story.contenuBug.ecran">
-          <dt><strong>Écran concerné</strong></dt>
-          <dd>{{ story.contenuBug.ecran }}</dd>
-        </template>
-      </dl>
-    </section>
-    <section v-else-if="story.contenuLibre && story.type !== 'conversation'" aria-labelledby="titre-libre">
-      <h3 id="titre-libre" class="fr-h6 fr-mb-1w">Demande libre (hors story)</h3>
-      <p class="fr-text--xs fr-mb-1w">
-        Enregistrée sur GitHub comme demande n° {{ story.numero }} « mode libre ».
-      </p>
-      <p class="fil-pre">{{ story.contenuLibre }}</p>
-    </section>
-    <p v-else class="fr-text--sm">{{ story.texteBrut }}</p>
+    <!-- 3. La demande elle-même. -->    <ContenuDemande :story="story" />
 
     <section v-if="storiesParent.length" class="fr-mb-3w" aria-labelledby="titre-parent">
       <h3 id="titre-parent" class="fr-h6 fr-mb-1w">Découpée en {{ storiesParent.length }} stories</h3>

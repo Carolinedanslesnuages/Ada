@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { lancerDetache } from './agent.service.js';
+import { lancerDetache } from './lancement.js';
 
 describe('travailleur lancé hors de l’arbre de processus de l’API', () => {
   it('n’est pas un descendant de l’API : un redémarrage de l’API ne l’interrompt pas', async () => {

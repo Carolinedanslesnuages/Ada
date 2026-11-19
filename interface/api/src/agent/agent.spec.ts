@@ -1,26 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import {
-  consigneSkills,
-  brancheDe,
-  consigneAnalyse,
-  nettoyerChoix,
-  texteQuestions,
-  consigneRealisation,
-  consigneConversation,
-  consigneSuiteConversation,
-  lireFinConversation,
-  cheminsReserves,
-  lireReponseConversation,
-  decrireEvenement,
-  lireDecision,
-  lireResultat,
-  OUTILS_INTERDITS,
-  OPTIONS_ISOLEMENT,
-  outilsAutorises,
-  skillSure,
-  MISE_EN_FORME,
-  type Demande,
-} from './agent.js';
+import { brancheDe, type Demande } from './agent.js';
+import { decrireEvenement } from './activite.js';
+import { consigneAnalyse, consigneConversation, consigneRealisation, consigneSkills, consigneSuiteConversation, MISE_EN_FORME } from './consignes.js';
+import { cheminsReserves, OPTIONS_ISOLEMENT, OUTILS_INTERDITS, outilsAutorises, skillSure } from './outils.js';
+import { lireDecision, lireFinConversation, lireReponseConversation, lireResultat, nettoyerChoix, texteQuestions } from './reponses.js';
 import { consigneReprise } from './consigne-reprise.js';
 
 const demande: Demande = {
@@ -372,5 +355,16 @@ describe('Consigne d’analyse : bref, décisions à cocher, découpage si la de
         expect.arrayContaining(['Bash(git diff --no-index*)', 'Bash(git diff*--output*)', 'Bash(git log*--output*)', 'Bash(git commit*--file*)', 'Bash(git commit* -F*)']),
       );
     });
+  });
+});
+
+describe('Un fichier, une responsabilité (vérifié en CI dans chaque projet)', () => {
+  it('est une règle de la réalisation et de la conversation, sans pousser à une fonction par fichier', () => {
+    for (const consigne of [consigneRealisation(demande, 'story/1-accueil'), consigneConversation({ ...demande, type: 'conversation' }, 'conversation/1-accueil')]) {
+      expect(consigne).toContain('Un fichier, une responsabilité');
+      expect(consigne).toContain('400 lignes non vides (600 pour un test)');
+      expect(consigne).toContain('jamais une fonction par');
+      expect(consigne).toContain('Un fichier déjà trop long ne doit pas grossir');
+    }
   });
 });

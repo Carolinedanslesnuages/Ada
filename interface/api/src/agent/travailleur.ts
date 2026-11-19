@@ -12,7 +12,8 @@ import { GithubService } from '../github/github.service.js';
 import { DemandesStore } from '../stories/demandes.js';
 import { StoriesService } from '../stories/stories.service.js';
 import { ProjetsService } from '../projets/projets.service.js';
-import { AgentService, type Tache } from './agent.service.js';
+import type { Tache } from './agent.js';
+import { AgentService } from './agent.service.js';
 
 const fichierTache = process.argv[2];
 if (!fichierTache) {

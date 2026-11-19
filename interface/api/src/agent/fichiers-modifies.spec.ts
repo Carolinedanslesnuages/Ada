@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { cheminsReserves } from './agent.js';
+import { cheminsReserves } from './outils.js';
 import { fichiersModifies } from './fichiers-modifies.js';
 
 /** Vrai dépôt git (pas une sortie simulée) : c'est le comportement de git qui est en cause. */

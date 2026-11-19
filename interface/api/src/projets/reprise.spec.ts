@@ -41,7 +41,7 @@ describe('reprise : règles et écritures GitHub (#37)', () => {
     });
     const fichiers = await fichiersAApporter(octokit, 'un-po', 'mon-poc', modele, '{}');
     expect([...fichiers.keys()]).not.toContain('.github/ISSUE_TEMPLATE/bug.yml');
-    expect([...fichiers.keys()]).toEqual(expect.arrayContaining(['.github/ISSUE_TEMPLATE/user-story.yml', '.github/workflows/titre-pr.yml', 'ada.json']));
+    expect([...fichiers.keys()]).toEqual(expect.arrayContaining(['.github/ISSUE_TEMPLATE/user-story.yml', '.github/workflows/titre-pr.yml', '.github/workflows/taille-fichiers.yml', 'ada.json']));
   });
 
   it('un commit au nom du PO sur ada/reprise, puis une PR vers main, sans toucher main', async () => {
@@ -67,7 +67,7 @@ describe('reprise : règles et écritures GitHub (#37)', () => {
 
   it('ada.json repris : aperçu proposé, aucun fichier à personnaliser, seul le titre de PR exigé, pas de chart, apparence choisie', () => {
     const ada = JSON.parse(adaJsonReprise(JSON.stringify({ ...ADA_PAR_DEFAUT, personnaliser: ['README.md'], deploiement: { chart: 'charts/app' } }))) as Record<string, unknown>;
-    expect(ada).toMatchObject({ personnaliser: [], controlesRequis: ['Titre de PR (Conventional Commits, semver)'], deploiement: null, dsfr: false, apercu: ADA_PAR_DEFAUT.apercu });
+    expect(ada).toMatchObject({ personnaliser: [], controlesRequis: ['Titre de PR (Conventional Commits, semver)', 'Taille des fichiers (une responsabilité par fichier)'], deploiement: null, dsfr: false, apercu: ADA_PAR_DEFAUT.apercu });
     expect(JSON.parse(adaJsonReprise({ ...ADA_PAR_DEFAUT }, true))).toMatchObject({ dsfr: true });
   });
 

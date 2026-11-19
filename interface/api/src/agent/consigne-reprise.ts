@@ -1,5 +1,6 @@
 import { nettoyerStoriesProposees, type StoryProposee } from '../stories/story.js';
-import { accessibilite, consigneSkills, lireJson, MISE_EN_FORME } from './agent.js';
+import { accessibilite, consigneSkills, MISE_EN_FORME } from './consignes.js';
+import { lireJson } from './reponses.js';
 
 /**
  * Analyse d'un projet repris (#37) : l'assistant compare le projet à un projet créé avec ADA
@@ -38,7 +39,9 @@ export const REFERENCE_PROJET_ADA = `Un projet créé avec ADA contient :
 Les skills d'ADA attendent aussi : stories courtes (4 critères au plus), tests écrits avant le
 code, correction de bug précédée d'un test qui le reproduit, fiche de revue par livraison.
 ADA ajoute elle-même, dans la PR de reprise : formulaires de story et de signalement, contrôle du
-titre des PR, versions automatiques (release-please). Ne les propose pas.`;
+titre des PR, contrôle de la taille des fichiers, versions automatiques (release-please). Ne les
+propose pas. Un fichier de code de plus de 400 lignes non vides (600 pour un test) mélange
+souvent plusieurs responsabilités : propose de le découper, une story par fichier à découper.`;
 
 const FORMAT_ADA = `« ada » décrit comment ADA démarre l'aperçu dans un conteneur Docker où le projet est
 monté sur /app :
