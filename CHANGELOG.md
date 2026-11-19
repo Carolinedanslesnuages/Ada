@@ -1,5 +1,84 @@
 # Changelog
 
+## [0.3.0](https://github.com/Carolinedanslesnuages/ada/compare/v0.2.0...v0.3.0) (2026-11-19)
+
+
+### Features
+
+* Ada a des cheveux — carré à raie au milieu et chignon ([#84](https://github.com/Carolinedanslesnuages/ada/issues/84)) ([c073142](https://github.com/Carolinedanslesnuages/ada/commit/c0731423de9df482a436632934bb6d5c887b591f))
+* ADA estime l'empreinte carbone de son usage, avec des équivalents de l'ADEME ([#99](https://github.com/Carolinedanslesnuages/ada/issues/99)) ([fcaa55c](https://github.com/Carolinedanslesnuages/ada/commit/fcaa55c3f1d97692f6205ee34fe154777684d540))
+* ADA met en attente une demande qui n'a rien à construire pour l'instant ([#80](https://github.com/Carolinedanslesnuages/ada/issues/80)) ([8c172b7](https://github.com/Carolinedanslesnuages/ada/commit/8c172b7168b22782fe492155f8ea083f77377fb1))
+* ADA se pilote à la voix, et chaque zone de message propose « Dicter » ([#96](https://github.com/Carolinedanslesnuages/ada/issues/96)) ([d316a56](https://github.com/Carolinedanslesnuages/ada/commit/d316a561d01522ee4c13b3818ace11db60ee5698))
+* annuler une reprise, ou désynchroniser un projet repris (sans rien supprimer) ([#62](https://github.com/Carolinedanslesnuages/ada/issues/62)) ([3d96072](https://github.com/Carolinedanslesnuages/ada/commit/3d96072d00a018b7f0e13115f18f738ca2d24ba2))
+* aucun projet ouvert à l'arrivée, et « Masquer le projet » ([#60](https://github.com/Carolinedanslesnuages/ada/issues/60)) ([0946324](https://github.com/Carolinedanslesnuages/ada/commit/0946324b1a2cdfb5c491a52197389f1e37cb31f2))
+* avatar d'ADA redessiné, tête pleine avec chignon et yeux qui clignent ([#83](https://github.com/Carolinedanslesnuages/ada/issues/83)) ([fc8cae5](https://github.com/Carolinedanslesnuages/ada/commit/fc8cae5bbc0fc074e612be61ff3278a707b6a29c))
+* banc d'essai de l'agent (analyse et réalisation) à rejouer après chaque changement ([#108](https://github.com/Carolinedanslesnuages/ada/issues/108)) ([5a84f6c](https://github.com/Carolinedanslesnuages/ada/commit/5a84f6c11bd480d75500d4da3b9041fc2e8d89bf))
+* chaque projet créé reçoit les skills po- d'ADA (story, signalement, nouveau projet) ([#115](https://github.com/Carolinedanslesnuages/ada/issues/115)) ([6c6442b](https://github.com/Carolinedanslesnuages/ada/commit/6c6442b38f199baa6356ffe4e067a2784ad188f6))
+* choisir un dépôt privé ou public à la création d'un projet ([#70](https://github.com/Carolinedanslesnuages/ada/issues/70)) ([08d1025](https://github.com/Carolinedanslesnuages/ada/commit/08d102533ed597f60c16da31e70eccfeb49094c5))
+* création en étapier, idée libre et conseil de stack par l'assistant ([#69](https://github.com/Carolinedanslesnuages/ada/issues/69)) ([f1cf931](https://github.com/Carolinedanslesnuages/ada/commit/f1cf9312bdc2e520bcd17ff4229439d20afccb0d))
+* créer chaque nouveau projet sur le compte GitHub de la personne connectée ([#75](https://github.com/Carolinedanslesnuages/ada/issues/75)) ([a19e93e](https://github.com/Carolinedanslesnuages/ada/commit/a19e93e60928390980786dc367ed8a21378a63ab))
+* en conversation, ADA propose des stories pour plus tard que le PO publie depuis ADA ([#110](https://github.com/Carolinedanslesnuages/ada/issues/110)) ([156f00c](https://github.com/Carolinedanslesnuages/ada/commit/156f00c4a8f4e982f59cfa69ac9b586ab4b48ad3))
+* équivalents de l'empreinte carbone choisis selon l'ordre de grandeur ([#107](https://github.com/Carolinedanslesnuages/ada/issues/107)) ([9a05211](https://github.com/Carolinedanslesnuages/ada/commit/9a05211bc5e3aa9cb3a026e1b99de0b0008c3873))
+* indicateurs sur tous les projets passés par ADA (archivés, retirés, supprimés compris) ([#65](https://github.com/Carolinedanslesnuages/ada/issues/65)) ([e1dea74](https://github.com/Carolinedanslesnuages/ada/commit/e1dea7499f2ab4dda0cac5aa6cd0ffb6f4594627))
+* l'accueil d'un projet affiche son empreinte carbone estimée, toutes demandes confondues ([#117](https://github.com/Carolinedanslesnuages/ada/issues/117)) ([4abeec6](https://github.com/Carolinedanslesnuages/ada/commit/4abeec66bdbfd867d21633a786e6141e17cad38b))
+* la conversation garde toute la place, l'aperçu se regarde en grand ou dans un onglet ([#95](https://github.com/Carolinedanslesnuages/ada/issues/95)) ([8a34c62](https://github.com/Carolinedanslesnuages/ada/commit/8a34c6241a524ce3057286efbe3666d5bffe7f6b))
+* le modèle de l'agent se choisit dans la configuration (AGENT_MODELE) ([#101](https://github.com/Carolinedanslesnuages/ada/issues/101)) ([6b9cef2](https://github.com/Carolinedanslesnuages/ada/commit/6b9cef28f7ffcee5453fe8722499226d30619ec2))
+* liste OU demande — une demande ouverte prend toute la colonne de gauche ([#90](https://github.com/Carolinedanslesnuages/ada/issues/90)) ([77d1b08](https://github.com/Carolinedanslesnuages/ada/commit/77d1b08980526545f25b9941e17272f717eba25b))
+* logo « ADA » en capitales comme titre de la page d'accueil ([#59](https://github.com/Carolinedanslesnuages/ada/issues/59)) ([c3a88ae](https://github.com/Carolinedanslesnuages/ada/commit/c3a88ae853e9b7216b76aa7c96151d1d9a07d24a))
+* logo d'ADA (en-tête, onglet du navigateur, README) ([#57](https://github.com/Carolinedanslesnuages/ada/issues/57)) ([0eee12c](https://github.com/Carolinedanslesnuages/ada/commit/0eee12cefd84c6ed1be0f144ed2ce88933098a78))
+* modèle documentation VitePress, aux couleurs de l'État ([#52](https://github.com/Carolinedanslesnuages/ada/issues/52)) ([8cee4ea](https://github.com/Carolinedanslesnuages/ada/commit/8cee4ea675bdf0c67a4d53048f2359f03d999222))
+* modèle outil de gestion Django (administration intégrée) ([#51](https://github.com/Carolinedanslesnuages/ada/issues/51)) ([17bc187](https://github.com/Carolinedanslesnuages/ada/commit/17bc1877aae0f7c82fab457ca5bf0e7e1135230b))
+* modèle site d'information Nuxt avec le DSFR (pages générées) ([#53](https://github.com/Carolinedanslesnuages/ada/issues/53)) ([e2e5198](https://github.com/Carolinedanslesnuages/ada/commit/e2e5198f6277f1c37fdfc2f96ec2460ed8082bd0))
+* modèle traitement de données en Python (scripts planifiés) ([#50](https://github.com/Carolinedanslesnuages/ada/issues/50)) ([904d294](https://github.com/Carolinedanslesnuages/ada/commit/904d29412e266a142170d3993213038c40dc9716))
+* modèle Vue 3 + Python (FastAPI) + PostgreSQL, et Node ajouté aux aperçus Python ([#47](https://github.com/Carolinedanslesnuages/ada/issues/47)) ([93c1c71](https://github.com/Carolinedanslesnuages/ada/commit/93c1c71f1b0dc9fbda012ccfbce77564464c70d0))
+* nouvelle disposition façon Claude — barre latérale, conversation au centre, aperçu repliable ([#94](https://github.com/Carolinedanslesnuages/ada/issues/94)) ([2a5f596](https://github.com/Carolinedanslesnuages/ada/commit/2a5f5965496cf3f69e4852c18ed16ed5910985ca))
+* ordre conseillé des stories à lancer, et la prochaine mise en avant ([#78](https://github.com/Carolinedanslesnuages/ada/issues/78)) ([b1ea381](https://github.com/Carolinedanslesnuages/ada/commit/b1ea38151eccb6f231c20f8178c760de4aaf1c04))
+* page Indicateurs plus lisible, avec un squelette pendant le calcul ([#67](https://github.com/Carolinedanslesnuages/ada/issues/67)) ([aec06dc](https://github.com/Carolinedanslesnuages/ada/commit/aec06dcc7a9c82c8c2ccb9d45ba788f31d29ba87))
+* sur un projet repris, ADA propose de protéger la branche principale et le PO décide ([#106](https://github.com/Carolinedanslesnuages/ada/issues/106)) ([148acf9](https://github.com/Carolinedanslesnuages/ada/commit/148acf9d98c27da9afd22e3fc82fdaf85b7040bd))
+* tout projet peut être retiré d'ADA, y compris un projet créé par elle (rien n'est supprimé sur GitHub) ([#111](https://github.com/Carolinedanslesnuages/ada/issues/111)) ([d20d03f](https://github.com/Carolinedanslesnuages/ada/commit/d20d03f7f5aea9107a4b4066bf1ed1b0bd5b68f8))
+* un clic sur l'avatar d'ADA arrête son animation ([#87](https://github.com/Carolinedanslesnuages/ada/issues/87)) ([a55e91a](https://github.com/Carolinedanslesnuages/ada/commit/a55e91a0770e9072475ea2e0ae674a373a7a528b))
+* un fichier, une responsabilité, vérifié en CI dans ADA et dans chaque projet ([#109](https://github.com/Carolinedanslesnuages/ada/issues/109)) ([649302f](https://github.com/Carolinedanslesnuages/ada/commit/649302f173e5bca201e3f719257e38871b5aa149))
+* un petit avatar d'ADA fait coucou en bas à droite pendant qu'elle travaille ([#82](https://github.com/Carolinedanslesnuages/ada/issues/82)) ([bd3dac3](https://github.com/Carolinedanslesnuages/ada/commit/bd3dac3380040e45def1c020bfc077bf017f11dc))
+* un vrai prompt — discuter librement avec ADA, qui agit tout de suite ([#89](https://github.com/Carolinedanslesnuages/ada/issues/89)) ([ef2d6f8](https://github.com/Carolinedanslesnuages/ada/commit/ef2d6f8ebafb7376edfc0bdee04dd3537698af83))
+
+
+### Bug Fixes
+
+* ADA évite de proposer des stories déjà écrites dans le projet ([#79](https://github.com/Carolinedanslesnuages/ada/issues/79)) ([2010f31](https://github.com/Carolinedanslesnuages/ada/commit/2010f3109e32f3ea990486a46d1784ee5fb05d76))
+* ADA ne met plus une story en attente de sa propre demande parent ([#85](https://github.com/Carolinedanslesnuages/ada/issues/85)) ([5b4e68b](https://github.com/Carolinedanslesnuages/ada/commit/5b4e68bb672cfc7706378800f823730a3c6fac64))
+* ADA ne se laisse plus influencer par ce qui s'écrit hors de son interface ([#102](https://github.com/Carolinedanslesnuages/ada/issues/102)) ([565e9b4](https://github.com/Carolinedanslesnuages/ada/commit/565e9b44fa7ee690cd69f898e79f0e30f5c355f9))
+* ADA peut supprimer ou renommer un fichier, sans jamais toucher aux dossiers réservés ([#91](https://github.com/Carolinedanslesnuages/ada/issues/91)) ([0b1b376](https://github.com/Carolinedanslesnuages/ada/commit/0b1b37627c28a7e42dab487a83610febc7fcea53))
+* ADA protège la branche principale d'un projet à son ouverture, si la création n'y était pas parvenue ([#105](https://github.com/Carolinedanslesnuages/ada/issues/105)) ([2cabed6](https://github.com/Carolinedanslesnuages/ada/commit/2cabed6db387dde1c7b988e80b213da22dd90895))
+* ADA refuse de lancer un agent sous l'ancien nom d'un projet renommé ([#93](https://github.com/Carolinedanslesnuages/ada/issues/93)) ([acfd4c4](https://github.com/Carolinedanslesnuages/ada/commit/acfd4c42eaddc780ac84bdb113e12daef526c00e))
+* ADA refuse de lancer une demande modifiée sur GitHub et signale les commentaires qu'elle ignore ([#104](https://github.com/Carolinedanslesnuages/ada/issues/104)) ([6f78834](https://github.com/Carolinedanslesnuages/ada/commit/6f78834f737e13cb55adeb77b1650ff099009c5b))
+* atelier moins chargé (formulaires centrés, stories à lancer en accordéon) ([#73](https://github.com/Carolinedanslesnuages/ada/issues/73)) ([ef323f4](https://github.com/Carolinedanslesnuages/ada/commit/ef323f47fa7cdc374342a30c97c5e040596d5cd1))
+* boutons de vérification lisibles, plan « ci-dessus », questions sans numéro en double ([#61](https://github.com/Carolinedanslesnuages/ada/issues/61)) ([e37c483](https://github.com/Carolinedanslesnuages/ada/commit/e37c483ba3576ab777d880130975cdc0e0c5a00e))
+* boutons du projet alignés (groupe de boutons DSFR sous le sélecteur) ([#64](https://github.com/Carolinedanslesnuages/ada/issues/64)) ([09e59b9](https://github.com/Carolinedanslesnuages/ada/commit/09e59b97ab889ff2c2c3cf4215eae80743687368))
+* en-tête : le nom complet « Atelier de Développement Assisté » revient à côté du logo ([#66](https://github.com/Carolinedanslesnuages/ada/issues/66)) ([f171293](https://github.com/Carolinedanslesnuages/ada/commit/f171293f6048f3a85ff2302681b6b3f853c29fa9))
+* en-tête sans le texte « ADA », le logo suffit ([#58](https://github.com/Carolinedanslesnuages/ada/issues/58)) ([58621f1](https://github.com/Carolinedanslesnuages/ada/commit/58621f14310e09666b39795986505e18dcf67fec))
+* l'agent démarre de nouveau sur les projets dont le dossier git est rangé hors du dépôt ([#103](https://github.com/Carolinedanslesnuages/ada/issues/103)) ([7b674dd](https://github.com/Carolinedanslesnuages/ada/commit/7b674dddfe5276b86a16fa233493a497ac61ebd3))
+* l'aperçu garde la hauteur de la fenêtre et suit le défilement ([#88](https://github.com/Carolinedanslesnuages/ada/issues/88)) ([0858955](https://github.com/Carolinedanslesnuages/ada/commit/0858955f7d747cd9a4fd4a6288cfe280dbb31b9d))
+* l'assistant se saisit aussitôt de l'idée de départ, et le projet s'ouvre dessus ([#71](https://github.com/Carolinedanslesnuages/ada/issues/71)) ([afa9968](https://github.com/Carolinedanslesnuages/ada/commit/afa99681a98f12af730d37e4aa5b44575edfd40f))
+* l'assistant survit à un redémarrage d'ADA (travailleur hors de l'arbre de processus) ([#49](https://github.com/Carolinedanslesnuages/ada/issues/49)) ([d0edd28](https://github.com/Carolinedanslesnuages/ada/commit/d0edd289b241d7243eecbbae79b42e5220f3294b))
+* l'avatar d'ADA ne passe plus sous l'aperçu quand on fait défiler ([#92](https://github.com/Carolinedanslesnuages/ada/issues/92)) ([10ff4af](https://github.com/Carolinedanslesnuages/ada/commit/10ff4afa33b484b45be654284e26c9a7e521d82f))
+* l'empreinte ne compte plus plusieurs fois les tours d'une conversation ([#100](https://github.com/Carolinedanslesnuages/ada/issues/100)) ([f13f69d](https://github.com/Carolinedanslesnuages/ada/commit/f13f69db57f37261a00a7eb64a29b81aa1273a5c))
+* l'interface parle d'ADA plutôt que de « l'assistant » ([#77](https://github.com/Carolinedanslesnuages/ada/issues/77)) ([214184f](https://github.com/Carolinedanslesnuages/ada/commit/214184f63a43d0cbb860fb880d1c793e41c3b574))
+* la consigne et la documentation disent ce que l'agent fait vraiment (skills, gitleaks local, dépôt unique) ([#116](https://github.com/Carolinedanslesnuages/ada/issues/116)) ([ae184f6](https://github.com/Carolinedanslesnuages/ada/commit/ae184f65fb937de396f46289ad27086686632086))
+* le dernier message de l'assistant avant « À vous de vérifier / de jouer » ([#54](https://github.com/Carolinedanslesnuages/ada/issues/54)) ([3452ef6](https://github.com/Carolinedanslesnuages/ada/commit/3452ef67caa41a1259644864e5b5a09364126400))
+* les tests des modèles pwa et api-nest sont personnalisés à la création ([#86](https://github.com/Carolinedanslesnuages/ada/issues/86)) ([45102ac](https://github.com/Carolinedanslesnuages/ada/commit/45102aca334f2c40f0a285dbc86a77753de9601e))
+* messages de l'assistant aérés (phrases courtes, paragraphes séparés) ([#74](https://github.com/Carolinedanslesnuages/ada/issues/74)) ([a47507e](https://github.com/Carolinedanslesnuages/ada/commit/a47507e74b69f45e3bd985f37198c1ca931386b0))
+* panneau de conversation un tiers plus étroit, aperçu plus large ([#63](https://github.com/Carolinedanslesnuages/ada/issues/63)) ([a099140](https://github.com/Carolinedanslesnuages/ada/commit/a099140ee542a70ac89b361492230272a056f67a))
+* reprendre un projet sans écran (script, traitement) sans bloquer ([#72](https://github.com/Carolinedanslesnuages/ada/issues/72)) ([381509e](https://github.com/Carolinedanslesnuages/ada/commit/381509e20f974ef4268b981223aa48757f199068))
+* un dossier absent dans ada.json n'arrête plus l'aperçu ([#76](https://github.com/Carolinedanslesnuages/ada/issues/76)) ([fe14567](https://github.com/Carolinedanslesnuages/ada/commit/fe1456779eedb7ccf9658d5a5980aeb87b4ad1fb))
+* une consigne glissée dans une issue ou le dépôt ne peut plus atteindre l'agent ni ses réglages ([#114](https://github.com/Carolinedanslesnuages/ada/issues/114)) ([9fd2f42](https://github.com/Carolinedanslesnuages/ada/commit/9fd2f42979d4fcacdc2dcebecaa9e8d5dbec6662))
+* une demande fermée sans être réalisée n'apparaît plus comme livrée ([#81](https://github.com/Carolinedanslesnuages/ada/issues/81)) ([45ae55c](https://github.com/Carolinedanslesnuages/ada/commit/45ae55cc6055aa7a28e6ddda3553dd6e847e6851))
+
+
+### Performance Improvements
+
+* conversations plus rapides — session gardée, contrôles complets au « c'est bon » ([#98](https://github.com/Carolinedanslesnuages/ada/issues/98)) ([f0f696c](https://github.com/Carolinedanslesnuages/ada/commit/f0f696c6827a59b999e5bcc1cd43f89919856d74))
+* les aperçus inutilisés depuis 30 minutes sont mis en veille ([#97](https://github.com/Carolinedanslesnuages/ada/issues/97)) ([93aeee4](https://github.com/Carolinedanslesnuages/ada/commit/93aeee4dfb9fff307b0c20cf70a2e3c718a51aaf))
+
 ## [0.2.0](https://github.com/Carolinedanslesnuages/ada/compare/v0.1.0...v0.2.0) (2026-11-17)
 
 
