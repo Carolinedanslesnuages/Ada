@@ -8,6 +8,7 @@ import type { Executer } from '../apercu/apercu.service.js';
 import { decrireErreurGithub } from '../github/erreurs.js';
 import { formaterPrompt, LABEL_LIBRE, MARQUEUR_LANCEMENT, STATUTS, titrePrompt } from '../stories/story.js';
 import { personnaliser, type ValeursProjet } from './projet.js';
+import { ajouterSkillsPo } from './skills-projet.js';
 import type { DepotGithub } from './projets.service.js';
 
 const statut = (e: unknown) => (e as { status?: number }).status;
@@ -55,7 +56,8 @@ export async function creerDepotVide(gh: Octokit, slug: string, description: str
 
 /**
  * Copie du modèle (fichiers suivis par git uniquement : ni node_modules ni secrets locaux),
- * marqueurs remplacés, un seul commit au nom du PO. Sans différence (reprise), rien n'est poussé.
+ * marqueurs remplacés, skills `po-` d'ADA ajoutées, un seul commit au nom du PO. Sans différence
+ * (création interrompue puis rejouée), rien n'est poussé.
  */
 export async function pousserModele(
   outils: { executer: Executer; env: NodeJS.ProcessEnv; url: string },
@@ -64,6 +66,7 @@ export async function pousserModele(
   aPersonnaliser: string[],
   exclus: string[],
   valeurs: ValeursProjet,
+  dossierSkills: string | null = null,
 ): Promise<void> {
   const travail = await mkdtemp(join(tmpdir(), 'ada-creation-'));
   const copie = join(travail, 'depot');
@@ -91,6 +94,7 @@ export async function pousserModele(
         await writeFile(cible, personnaliser(await readFile(cible, 'utf8'), valeurs));
       }
     }
+    await ajouterSkillsPo(copie, dossierSkills);
     await git('add', '-A');
     const { stdout: changements } = await git('status', '--porcelain');
     if (!changements.trim()) return;
