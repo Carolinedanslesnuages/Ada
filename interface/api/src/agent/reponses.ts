@@ -1,13 +1,23 @@
 /** Lecture des réponses de l'agent (son JSON final), à transmettre au PO ou à GitHub. */
-import { nettoyerStoriesProposees } from '../stories/story.js';
+import { nettoyerStoriesProposees, type StoryProposee } from '../stories/story.js';
 import { MARQUEUR_CHOIX, type DecisionAnalyse, type QuestionAChoix, type ResultatRealisation } from './agent.js';
 
+/**
+ * Réponse d'ADA en conversation : son message, si les contrôles complets passent (par défaut, oui),
+ * et les stories qu'elle propose d'écrire (le PO les choisit, ADA les publie à son nom).
+ */
+export interface FinConversation {
+  reponse: string;
+  pret: boolean;
+  stories: StoryProposee[];
+}
+
 /** Fin de conversation : la réponse, et si les contrôles complets passent (par défaut, oui). */
-export function lireFinConversation(texte: string): { reponse: string; pret: boolean } | null {
+export function lireFinConversation(texte: string): FinConversation | null {
   const reponse = lireReponseConversation(texte);
   if (!reponse) return null;
-  const json = lireJson<{ pret?: unknown }>(texte, (valeur) => 'reponse' in valeur);
-  return { reponse, pret: json?.pret !== false };
+  const json = lireJson<{ pret?: unknown; stories?: unknown }>(texte, (valeur) => 'reponse' in valeur);
+  return { reponse, pret: json?.pret !== false, stories: nettoyerStoriesProposees(json?.stories, 1) };
 }
 
 /** Réponse d'ADA en conversation : son JSON, ou à défaut son texte brut (mieux qu'un blocage). */

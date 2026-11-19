@@ -3,10 +3,11 @@
  * de suite sur sa branche ; à « c'est bon », contrôles complets puis PR.
  */
 import { randomUUID } from 'node:crypto';
+import { texteDecoupage } from '../stories/story.js';
 import { brancheDe, type Demande, type Tache } from './agent.js';
 import { consigneConversation, consigneSuiteConversation } from './consignes.js';
 import type { OutilsPhase } from './outils-phase.js';
-import { lireFinConversation } from './reponses.js';
+import { lireFinConversation, type FinConversation } from './reponses.js';
 
 export async function phaseConversation(outils: OutilsPhase, { jeton, login, depot, numero, finaliser = false }: Tache): Promise<void> {
   const demande = await outils.demande(jeton, depot, numero);
@@ -23,7 +24,7 @@ export async function phaseConversation(outils: OutilsPhase, { jeton, login, dep
   // et l'historique) ; sans session, ou si elle ne se reprend plus, on repart de la consigne complète.
   const precedente = (await outils.lireActivite(depot, numero)).session ?? null;
   const dernierMessage = [...demande.echanges].reverse().find((echange) => echange.auteur === 'po')?.texte;
-  let fin: { reponse: string; pret: boolean } | null = null;
+  let fin: FinConversation | null = null;
   if (precedente && dernierMessage) {
     fin = await executerConversation(consigneSuiteConversation(dernierMessage, controles, finaliser), { id: precedente, reprendre: true }).catch((e: unknown) => {
       outils.log.warn(`Reprise de la session de ${depot}#${numero} impossible : ${(e as Error).message}`);
@@ -46,7 +47,9 @@ export async function phaseConversation(outils: OutilsPhase, { jeton, login, dep
     await outils.relancerApercu(depot, numero);
   }
   if (!finaliser) {
-    await outils.stories.commenterAssistant(jeton, depot, numero, 'ADA', fin.reponse);
+    // Stories pour plus tard : jointes au message, le PO les choisit et ADA les publie (même circuit qu'un découpage).
+    const message = fin.stories.length ? texteDecoupage(fin.reponse, fin.stories) : fin.reponse;
+    await outils.stories.commenterAssistant(jeton, depot, numero, 'ADA', message);
     await outils.stories.changerStatut(jeton, depot, numero, 'echange');
     await outils.noter(depot, numero, 'À vous : répondez à ADA');
     return;
@@ -65,7 +68,7 @@ async function proposerChangements(
   cwd: string,
   branche: string,
   demande: Demande,
-  fin: { reponse: string; pret: boolean },
+  fin: FinConversation,
 ): Promise<void> {
   const { stories } = outils;
   if (!fin.pret) {

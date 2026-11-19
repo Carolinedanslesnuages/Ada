@@ -245,9 +245,9 @@ describe('Conversation (« vrai prompt »)', () => {
     expect(suite.length).toBeLessThan(800);
   });
   it('fin de conversation : prête sauf « pret » à faux', () => {
-    expect(lireFinConversation('{"reponse":"Fait.","pret":true}')).toEqual({ reponse: 'Fait.', pret: true });
-    expect(lireFinConversation('{"reponse":"Échec.","pret":false}')).toEqual({ reponse: 'Échec.', pret: false });
-    expect(lireFinConversation('{"reponse":"Fait."}')).toEqual({ reponse: 'Fait.', pret: true });
+    expect(lireFinConversation('{"reponse":"Fait.","pret":true}')).toEqual({ reponse: 'Fait.', pret: true, stories: [] });
+    expect(lireFinConversation('{"reponse":"Échec.","pret":false}')).toEqual({ reponse: 'Échec.', pret: false, stories: [] });
+    expect(lireFinConversation('{"reponse":"Fait."}')).toEqual({ reponse: 'Fait.', pret: true, stories: [] });
     expect(lireFinConversation('')).toBeNull();
   });
   it('lit la réponse JSON, ou à défaut le texte brut', () => {
@@ -366,5 +366,21 @@ describe('Un fichier, une responsabilité (vérifié en CI dans chaque projet)',
       expect(consigne).toContain('jamais une fonction par');
       expect(consigne).toContain('Un fichier déjà trop long ne doit pas grossir');
     }
+  });
+});
+
+describe('Stories proposées pendant une conversation', () => {
+  it('sont lues dans la réponse d’ADA, nettoyées comme un découpage ; sans stories, liste vide', () => {
+    const story = { titre: 'Envoyer les tirages', role: 'organisateur', besoin: 'envoyer', benefice: 'prévenir', criteres: ['Un e-mail', 'Deux', 'Trois', 'Quatre', 'Cinq'] };
+    expect(lireFinConversation(JSON.stringify({ reponse: 'Voici.', stories: [story, { titre: '' }] }))).toEqual({
+      reponse: 'Voici.',
+      pret: true,
+      stories: [{ ...story, criteres: ['Un e-mail', 'Deux', 'Trois', 'Quatre'] }],
+    });
+    expect(lireFinConversation('{"reponse":"C’est fait."}')?.stories).toEqual([]);
+  });
+
+  it('le rappel des tours suivants redit qu’ADA n’a pas accès à GitHub', () => {
+    expect(consigneSuiteConversation('Note ces idées en stories')).toContain('aucun accès à\nGitHub');
   });
 });

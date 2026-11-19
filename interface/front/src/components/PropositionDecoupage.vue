@@ -8,7 +8,16 @@ import { CRITERES_MAX, type StoryProposee } from '@/lib/story'
  * ADA les publie sur GitHub à son nom. Une story qui recoupe une story déjà écrite arrive décochée,
  * avec un avertissement : un PO pressé ne publie pas un doublon sans le voir.
  */
-const props = defineProps<{ stories: StoryProposee[]; designation: string; actionEnCours?: boolean }>()
+const props = withDefaults(
+  defineProps<{
+    stories: StoryProposee[]
+    designation: string
+    actionEnCours?: boolean
+    /** Faux en conversation : pour d'autres stories, le PO répond simplement à ADA. */
+    autreDecoupage?: boolean
+  }>(),
+  { autreDecoupage: true },
+)
 const emit = defineEmits<{ creer: [stories: StoryProposee[]]; autreDecoupage: [] }>()
 
 /** Champs modifiables, préremplis ; les critères s'écrivent un par ligne. */
@@ -123,7 +132,7 @@ function publier(): void {
     </p>
     <ul class="fr-btns-group fr-btns-group--inline-md">
       <li><DsfrButton type="submit" :label="libelleBouton" aria-describedby="decoupage-enregistrement" :disabled="actionEnCours" /></li>
-      <li>
+      <li v-if="autreDecoupage">
         <DsfrButton type="button" secondary label="Demander un autre découpage" :disabled="actionEnCours" @click="emit('autreDecoupage')" />
       </li>
     </ul>

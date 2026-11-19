@@ -10,7 +10,7 @@ import type { DemandesStore } from './demandes.js';
 import { assurerLabel } from './labels.js';
 import { resumer, type Issue, type ResumeStory } from './resume-story.js';
 import type { StoriesService } from './stories.service.js';
-import { ajouterDecoupage, cocherEnfant, formaterStory, LABEL_STORY, lireParent, validerStoriesAPublier } from './story.js';
+import { ajouterDecoupage, cocherEnfant, formaterStory, LABEL_STORY, lireParent, MARQUEUR_DECOUPAGE, validerStoriesAPublier } from './story.js';
 
 export class Decoupage {
   constructor(
@@ -24,10 +24,18 @@ export class Decoupage {
    * Découpage validé par le PO (#36) : ADA publie, à son nom, les stories qu'il a cochées — telles
    * qu'il les a relues et éventuellement corrigées (champs préremplis par l'assistant) — et la
    * demande d'origine devient leur parent (liste à cocher, fermée quand toutes sont livrées).
+   * En conversation, les stories proposées par ADA sont publiées sans parent : la conversation continue.
    */
   async creer(jeton: string, depot: string, numero: number, saisies: unknown, login: string): Promise<ResumeStory[]> {
     const parent = await this.stories.detail(jeton, depot, numero);
-    if (parent.statut !== 'decoupage') throw new ConflictException('Aucun découpage n’attend votre choix sur cette demande');
+    // Conversation : des stories proposées par ADA dans son dernier message (la conversation continue).
+    const enConversation = parent.type === 'conversation';
+    if (enConversation) {
+      const dernier = parent.messages.at(-1);
+      if (parent.statut !== 'echange' || !dernier?.texte.includes(MARQUEUR_DECOUPAGE)) {
+        throw new ConflictException('Aucune story proposée par ADA n’attend votre choix dans cette conversation');
+      }
+    } else if (parent.statut !== 'decoupage') throw new ConflictException('Aucun découpage n’attend votre choix sur cette demande');
     const stories = validerStoriesAPublier(saisies);
     const gh = this.github.client(jeton);
     const creees: ResumeStory[] = [];
@@ -37,10 +45,16 @@ export class Decoupage {
         const { data } = await gh.issues.create({
           ...this.cible(depot),
           title: story.titre,
-          body: formaterStory(story, numero),
+          body: formaterStory(story, numero, enConversation ? 'conversation' : 'decoupage'),
           labels: [LABEL_STORY],
         });
         creees.push(resumer(data as Issue, true, 'nouvelle'));
+      }
+      if (enConversation) {
+        const notice = `📝 Stories publiées par ${login} : ${creees.map((story) => `#${story.numero}`).join(', ')}, créées depuis ADA à partir de la conversation.`;
+        await this.demandes.ajouterMessage(depot, numero, { auteur: login, texte: notice });
+        await gh.issues.createComment({ ...this.cible(depot), issue_number: numero, body: notice });
+        return creees;
       }
       const { data: issueParent } = await gh.issues.get({ ...this.cible(depot), issue_number: numero });
       await gh.issues.update({
