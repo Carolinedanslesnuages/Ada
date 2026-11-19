@@ -34,10 +34,10 @@ import { DemandesStore, type DemandeFigee, type MessageJournal } from './demande
 
 /** Marque les commentaires écrits par l'assistant, pour reconstituer les échanges. */
 export const MARQUEUR_ASSISTANT = '<!-- atelier-po:assistant -->';
-/** Marque le commentaire de lancement : les échanges utiles à l'agent commencent après. */
-/** Début du commentaire de lancement (« depuis ADA », ou « depuis l’atelier PO » avant le renommage). */
-export { MARQUEUR_LANCEMENT } from './story.js';
 import { MARQUEUR_LANCEMENT } from './story.js';
+/** Marque le commentaire de lancement : les échanges utiles à l'agent commencent après. */
+export { MARQUEUR_LANCEMENT } from './story.js';
+/** Début du commentaire de lancement (« depuis ADA », ou « depuis l’atelier PO » avant le renommage). */
 export const DEBUT_LANCEMENT = '▶️ Lancée depuis ';
 
 export type { DetailStory, Message, Personne, ResumeStory } from './resume-story.js';
@@ -387,7 +387,6 @@ export class StoriesService {
     return this.decoupage.signalerLivraison(jeton, depot, numero);
   }
 
-  /** Message de l'assistant dans l'issue, reconnaissable par son marqueur. */
   /**
    * Message d'ADA : consigné d'abord dans le journal d'ADA (c'est lui que l'écran et l'agent
    * relisent), puis recopié sur l'issue pour l'équipe, avec le marqueur qui le fait reconnaître.

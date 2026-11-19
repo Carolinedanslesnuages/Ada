@@ -44,7 +44,6 @@ export interface ResultatReprise {
   pullRequest: string | null;
 }
 
-/** Demande enregistrée dans le projet, au nom du PO, et suivie par l'assistant (ADR-0009). */
 /** Début de la demande d'analyse enregistrée par une reprise : sert à la retrouver pour la fermer. */
 export const DEBUT_DEMANDE_ANALYSE = 'Analyser ce projet comme s’il avait été créé avec ADA';
 

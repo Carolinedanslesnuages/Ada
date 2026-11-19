@@ -91,7 +91,11 @@ ${regleApparence(dsfr)}
 - tableaux avec titre et en-têtes ; animations qui respectent prefers-reduced-motion.`;
 export const ACCESSIBILITE = accessibilite();
 
-/** Quand utiliser chaque skill connue ; les autres sont simplement listées. */
+/**
+ * Quand utiliser chaque skill connue ; les autres sont simplement listées. L'agent ne lit que les
+ * réglages de l'utilisateur du serveur (OPTIONS_ISOLEMENT) : son outil Skill ne voit pas les skills
+ * reliées au projet. La consigne lui dit donc où lire leur SKILL.md (lecture autorisée, outils.ts).
+ */
 const USAGE_SKILLS: Record<string, string> = {
   'dsfr-skill': 'avant d’écrire ou de modifier un composant ou une page DSFR (version et balisage officiels ; en Vue, utiliser le composant vue-dsfr correspondant)',
   'bug-investigate': 'pour un problème signalé : hypothèses de cause, puis test qui reproduit le bug avant toute correction',
@@ -106,7 +110,8 @@ export function consigneSkills(toutes: string[], dsfr = true): string {
   const lignes = skills.map((nom) => `- ${nom}${USAGE_SKILLS[nom] ? ` : ${USAGE_SKILLS[nom]}` : ''}`);
   return `
 
-Skills disponibles (outil Skill) — utilise-les au bon moment plutôt que ta mémoire :
+Méthodes à ta disposition (un dossier par méthode dans .claude/skills/ du projet : ouvre son
+SKILL.md avec Read au moment indiqué, plutôt que de te fier à ta mémoire) :
 ${lignes.join('\n')}`;
 }
 

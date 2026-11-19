@@ -23,7 +23,7 @@ skills/<groupe>/index.json         catalogue GÉNÉRÉ : node scripts/skills-ind
 scripts/                           vérification des skills, des modèles et génération des catalogues
 catalogue/<modele>/                modèles de projet (copiés à la création d'un projet, décrits par ada.json)
 projets/                           projets des PO (un dépôt git chacun, hors de ce dépôt)
-interface/                         interface web PO (dépôt git séparé)
+interface/                         interface web PO (API NestJS, front Vue ; même dépôt)
 docs/                              documentation (sources externes reprises)
 ```
 

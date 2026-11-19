@@ -1,8 +1,7 @@
 /** Ce que l'agent a le droit de faire, et ce qui lui reste interdit quelle que soit la phase. */
 import type { Phase } from './agent.js';
 
-/** Commande pour exécuter une commande dans le conteneur de l'aperçu (depuis le dépôt cloné). */
-/** Commande dans l'aperçu, en utilisateur non privilégié (1000 : « node » ou « ada » selon l'image). */
+/** Commande exécutée dans le conteneur de l'aperçu (depuis le dépôt cloné), en utilisateur non privilégié (1000 : « node » ou « ada » selon l'image). */
 export const DANS_CONTENEUR = 'docker compose -f ../compose.yml exec -T -u 1000 app bash -lc';
 
 /**
@@ -36,10 +35,10 @@ export function outilsAutorises(phase: Phase, dossiersLisibles: string[] = []): 
 }
 
 /**
- * Interdits, quelle que soit la phase : l'agent ne touche jamais aux workflows GitHub (CI,
- * versions) qui contrôlent son propre travail. Une interdiction l'emporte sur une autorisation.
+ * Interdits, quelle que soit la phase : ce qui est réservé aux développeurs (la CI et les versions
+ * dans .github, le déploiement dans charts) et les réglages de l'agent lui-même. Une interdiction
+ * l'emporte sur une autorisation.
  */
-/** Réservés aux développeurs : la CI et les versions (.github), le déploiement (charts). */
 export const OUTILS_INTERDITS = [
   'Edit(./.github/**)',
   'Write(./.github/**)',

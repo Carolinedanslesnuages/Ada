@@ -157,9 +157,11 @@ git clone https://github.com/numerique-gouv/dsfr-skill.git ~/.local/share/dsfr-s
 git clone https://github.com/IA-Generative/agent-skills.git ~/.local/share/agent-skills  # IA-Generative
 ```
 
-Skills utilisées : `dsfr-skill` (composants et pages DSFR), `bug-investigate` (problèmes
+Skills reliées : `dsfr-skill` (composants et pages DSFR), `bug-investigate` (problèmes
 signalés), `repo-perimetre` (avant de livrer), `controle-qualite-code` (relecture). Mise à jour :
-`git -C ~/.local/share/<catalogue> pull`.
+`git -C ~/.local/share/<catalogue> pull`. Avec l'isolement actuel (`--setting-sources user`), l'outil
+Skill de l'agent ne voit pas ces skills : la consigne lui indique de lire leur `SKILL.md` au bon moment
+(`.claude/skills/<nom>/`), et le banc d'essai compte ces lectures. Leur apport n'est pas encore mesuré.
 
 **Cloisonnement** : l'agent ne lit et n'écrit que dans le projet (règles `Read(./**)`,
 `Edit(./**)`…), plus la lecture des dossiers des skills. ADA écarte toute skill qui pré-autorise

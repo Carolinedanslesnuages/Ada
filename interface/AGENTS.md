@@ -102,6 +102,6 @@ est vérifié en CI (`titre-pr.yml`) et par ADA avant de fusionner une demande
 (`api/src/versions/conventionnel.ts`).
 
 ## Règles absolues
-- Aucun secret dans le dépôt (`api/.env` est ignoré ; gitleaks en local et en CI ; `--no-verify` interdit).
+- Aucun secret dans le dépôt (`api/.env` est ignoré ; gitleaks en CI, et en local après `pre-commit install` ; `--no-verify` interdit).
 - Seuls les comptes de `LOGINS_AUTORISES` (ou le propriétaire) se connectent : ne jamais affaiblir ce contrôle.
 - Aucune fonction de suppression de dépôt ou d'issue dans l'interface.

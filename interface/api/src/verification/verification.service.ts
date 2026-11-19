@@ -29,7 +29,6 @@ export class VerificationService {
     private readonly demo: DemoService,
   ) {}
 
-  /** La PR de la demande, l'état de ses contrôles, et si le PO peut fusionner. */
   /** Nombre de commits de main absents de la branche (0 : la branche est à jour). */
   private async retard(gh: ReturnType<GithubService['client']>, depot: string, base: string, tete: string): Promise<number> {
     const { data } = await gh.repos.compareCommits({ ...lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE), base: tete, head: base });
@@ -55,6 +54,7 @@ export class VerificationService {
     }
   }
 
+  /** La PR de la demande, l'état de ses contrôles, et si le PO peut fusionner. */
   async verifier(jeton: string, depot: string, numero: number): Promise<Verification> {
     const activite = await this.agent.activite(depot, numero);
     const numeroPr = await this.numeroPullRequest(this.github.client(jeton), jeton, depot, numero, activite.pullRequest);

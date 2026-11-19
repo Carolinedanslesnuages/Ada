@@ -31,10 +31,12 @@ regarder le résultat dans l'aperçu et à valider.
 ![Formulaire de création d'un projet](docs/captures/nouveau-projet.png)
 
 Skills au format ouvert [Agent Skills](https://agentskills.io) : Claude Code, Codex, OpenCode,
-Cursor, Copilot, Gemini CLI. ADA réutilise les skills de
+Cursor, Copilot, Gemini CLI. ADA relie à chaque projet les skills de
 [IA-Generative/agent-skills](https://github.com/IA-Generative/agent-skills) et de la DINUM
-(`dsfr-skill`), et ajoute 3 skills qui lui sont propres (voir ci-dessous), écrites selon les
-mêmes conventions qu'agent-skills.
+(`dsfr-skill`) pour que son agent puisse les lire, et ajoute 3 skills qui lui sont propres (voir
+ci-dessous), écrites selon les mêmes conventions qu'agent-skills. Ces 3 skills guident un agent
+piloté par une personne, dans ADA ou dans un projet créé par elle ; l'agent de l'interface suit,
+lui, des consignes écrites dans le code (`interface/api/src/agent/consignes.ts`).
 
 > 🤖 Vous êtes un agent de codage ? Lisez [`AGENTS.md`](AGENTS.md).
 
