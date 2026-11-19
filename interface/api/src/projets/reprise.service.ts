@@ -231,8 +231,8 @@ export class RepriseService {
    * Annule une reprise, ou désynchronise un projet repris. Rien n'est supprimé, ni dépôt ni demande.
    * - Reprise pas encore validée : la PR de reprise est fermée et sa branche retirée (main n'a
    *   jamais été modifié), la demande d'analyse est fermée avec une explication, le marquage est retiré.
-   * - Reprise validée : seul le marquage d'ADA est retiré ; fichiers, stories et versions restent.
-   * Un projet créé par ADA n'est pas concerné.
+   * - Reprise validée, ou projet créé par ADA : seul le marquage d'ADA est retiré ; fichiers,
+   *   stories et versions restent. Le projet peut revenir par « Reprendre un projet ».
    */
   async annuler(jeton: string, login: string, depot: string): Promise<ResultatAnnulation> {
     const { owner, repo } = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
@@ -241,12 +241,13 @@ export class RepriseService {
     try {
       const { data } = await gh.repos.get({ owner, repo });
       const topics = data.topics ?? [];
-      if (!topics.includes(TOPIC_REPRISE)) throw new BadRequestException('Ce projet n’a pas été repris : il a été créé par ADA.');
       const autres = topics.filter((topic) => ![TOPIC_REPRISE, this.config.TOPIC_ATELIER, 'atelier-po'].includes(topic));
-      if (topics.includes(this.config.TOPIC_ATELIER)) {
+      // Projet dans ADA (créé par elle, ou repris et validé) : seul son marquage est retiré.
+      if (topics.includes(this.config.TOPIC_ATELIER) || topics.includes('atelier-po')) {
         await gh.repos.replaceAllTopics({ owner, repo, names: autres });
         return { etat: 'desynchronisee' };
       }
+      if (!topics.includes(TOPIC_REPRISE)) throw new BadRequestException('Ce projet n’est pas dans ADA.');
       const numeroPr = numeroDepuisUrl(await prReprise(gh, owner, repo));
       if (numeroPr) {
         await gh.issues.createComment({ owner, repo, issue_number: numeroPr, body: `Reprise annulée depuis ADA par ${login} : rien n'a été ajouté au projet.` });
