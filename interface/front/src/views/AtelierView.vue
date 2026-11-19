@@ -386,6 +386,7 @@ onUnmounted(() => {
         <AccueilProjet
           v-else-if="projets.courant && !projets.courant.reprise"
           :nom-projet="projets.courant.nom"
+          :projet="projets.courant.id"
           :stories="stories.aFaire"
           :active="stories.active"
           :envoi-en-cours="actionEnCours"
