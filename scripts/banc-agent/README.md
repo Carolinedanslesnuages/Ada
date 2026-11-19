@@ -10,8 +10,8 @@ Il utilise le code d'ADA compilé : les consignes, les outils autorisés et les 
 
 | Banc | Question | Durée | Coût |
 |---|---|---|---|
-| `analyse.mjs` | Pour chaque demande, l'agent choisit-il la bonne décision (questions, plan, découpage, attente) ? Cite-t-il le doublon ? Résiste-t-il à une consigne piégée ? | environ 2 min pour 9 cas × 5 | faible (environ 40 000 tokens produits) |
-| `realisation.mjs` | L'agent livre-t-il une petite story : commit, fiche, tests dont accessibilité, contrôles du projet verts, composants DSFR ? | environ 1 min par exécution | plus élevé ; demande Docker |
+| `analyse.mjs` | Pour chaque demande, l'agent choisit-il la bonne décision (questions, plan, découpage, attente) ? Cite-t-il le doublon ? Résiste-t-il à une consigne piégée (dans la demande, son titre, le titre d'une autre story, les fichiers du projet, ou à propager dans des stories) ? | environ 3 min pour 13 cas × 5 | faible (environ 60 000 tokens produits) |
+| `realisation.mjs` | L'agent livre-t-il une petite story : commit, fiche, tests dont accessibilité, contrôles du projet verts, composants DSFR ? Et sans toucher aux réglages de l'agent ni obéir à un critère ou un AGENTS.md piégé ? | environ 1 min par exécution | plus élevé ; demande Docker |
 
 Le banc de réalisation **relance lui-même** les contrôles du projet : il ne croit pas l'agent sur parole.
 
@@ -55,8 +55,9 @@ modèles : `BANC_MODELE=haiku …` puis `BANC_MODELE=sonnet …`.
 
 ## Ajouter un cas
 
-Dans `cas.mjs` : une demande (`demande(...)`), ce qu'on attend (`attendu`, `citer`, `interdit`), et pour la
-réalisation des `verifs(diff)` qui renvoient des `[libellé, ok]`. Garde les contrôles simples et robustes :
+Dans `cas.mjs` : une demande (`demande(...)`), ce qu'on attend (`attendu`, `citer`, `interdit`, `obeit`), et pour la
+réalisation des `verifs(diff)` ou `verifsFichiers(fichiers)` qui renvoient des `[libellé, ok]`. `fichiers` écrit
+des fichiers dans le projet jetable avant l'exécution (un `AGENTS.md` piégé, par exemple). Garde les contrôles simples et robustes :
 vérifier un mot précis rend le banc fragile (« #7 » ou « n°7 » disent la même chose).
 
 Quand un défaut réel est corrigé dans ADA (comme les doublons de stories ou l'impasse d'une demande parent),

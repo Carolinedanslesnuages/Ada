@@ -70,10 +70,15 @@ export const OUTILS_INTERDITS = [
  */
 export const OPTIONS_ISOLEMENT = ['--setting-sources', 'user', '--strict-mcp-config'];
 
-/** Dossiers réservés aux développeurs (CI, versions, déploiement) : jamais modifiés par ADA. */
-const DOSSIERS_RESERVES = ['.github/', 'charts/'];
+/**
+ * Chemins réservés : la CI, les versions et le déploiement (réservés aux développeurs), et les
+ * réglages de l'agent lui-même (skills, permissions, serveurs MCP). Les interdits d'outils ne
+ * couvrent que l'édition directe ; depuis le conteneur, l'agent écrit où il veut dans le dépôt
+ * monté : un fichier d'instructions glissé dans une PR agirait sur toutes les demandes suivantes.
+ */
+const DOSSIERS_RESERVES = ['.github/', 'charts/', '.claude/', '.agents/', '.mcp.json'];
 
-/** Fichiers modifiés, ajoutés ou supprimés dans un dossier réservé : la branche ne doit pas partir. */
+/** Fichiers modifiés, ajoutés ou supprimés dans un chemin réservé : la branche ne doit pas partir. */
 export function cheminsReserves(fichiers: string[]): string[] {
   return fichiers.filter((fichier) => DOSSIERS_RESERVES.some((dossier) => fichier.trim().startsWith(dossier)));
 }

@@ -48,7 +48,7 @@ function noter(nom, resultat) {
 const taches = choisis.flatMap((nom) => Array.from({ length: repetitions }, (_, rang) => ({ nom, rang })))
 const faits = []
 await enParallele(taches, 3, async ({ nom, rang }) => {
-  const cwd = projetJetable('pwa', reglages.skills)
+  const cwd = projetJetable('pwa', reglages.skills, CAS_ANALYSE[nom].fichiers)
   const execution = await lancerAgent({ api, reglages, phase: 'analyse', consigne: consigneDe(nom), cwd, tours: 30 })
   const { decision, verifs } = noter(nom, execution.resultat)
   faits.push({ nom, decision: decision?.decision ?? null, verifs, ...execution })

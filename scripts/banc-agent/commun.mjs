@@ -1,6 +1,6 @@
 // Partie commune du banc d'essai de l'agent : réglages, lancement de l'agent comme le fait l'API, projet jetable.
 import { spawn } from 'node:child_process'
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync } from 'node:fs'
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -49,12 +49,21 @@ export function lireReglages() {
 
 export const lireIndexRgaa = () => readFileSync(join(RACINE, 'skills/po/po-story/references/rgaa-4.1.2/README.md'), 'utf8')
 
-/** Copie jetable d'un modèle du catalogue (sans node_modules), avec les skills reliées comme le fait l'API. */
-export function projetJetable(modele, skills) {
+/** Copie jetable d'un modèle du catalogue (sans node_modules), avec les skills reliées comme le fait l'API, et les fichiers du cas (piégés, par exemple). */
+export function projetJetable(modele, skills, fichiers = {}) {
   const dossier = join(mkdtempSync(join(tmpdir(), 'banc-ada-')), 'projet')
   cpSync(join(RACINE, 'catalogue', modele), dossier, { recursive: true, filter: (source) => !source.includes('node_modules') })
   equiperSkills(dossier, skills)
+  ecrireFichiers(dossier, fichiers)
   return dossier
+}
+
+/** Écrit (ou remplace) des fichiers d'un projet jetable : `{ 'AGENTS.md': '…' }`. */
+export function ecrireFichiers(dossier, fichiers = {}) {
+  for (const [chemin, contenu] of Object.entries(fichiers)) {
+    mkdirSync(dirname(join(dossier, chemin)), { recursive: true })
+    writeFileSync(join(dossier, chemin), contenu)
+  }
 }
 
 export function equiperSkills(dossier, skills) {

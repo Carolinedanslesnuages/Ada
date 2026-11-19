@@ -12,7 +12,7 @@ import { lireEmpreintes, sommer } from '../empreinte/journal-empreinte.js';
 import { GithubService } from '../github/github.service.js';
 import { lireIdentifiant } from '../projets/depot.js';
 import { ProjetsService } from '../projets/projets.service.js';
-import { StoriesService } from '../stories/stories.service.js';
+import { StoriesService, type DetailStory } from '../stories/stories.service.js';
 import { verifierMessage } from '../stories/story.js';
 import type { Tache } from './agent.js';
 import type { ConseilStack } from './conseil-stack.js';
@@ -174,12 +174,23 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Le détail d'une demande qu'on s'apprête à confier à l'agent. Une demande lancée avant que son
+   * état vive dans ADA (ADR-0011) est figée depuis l'issue vivante au premier passage de l'agent :
+   * si son auteur n'a pas le droit d'écrire dans le projet, elle ne lui est pas confiée.
+   */
+  private async detailFiable(jeton: string, depot: string, numero: number): Promise<DetailStory> {
+    const detail = await this.stories.detail(jeton, depot, numero);
+    if (detail.fiable === false) throw new ConflictException(`ADA ne reprend pas la demande #${numero} : ${detail.raison ?? 'son auteur n’a pas le droit d’écrire dans le projet'}`);
+    return detail;
+  }
+
+  /**
    * Demande en cours ou bloquée sans agent actif. Plan déjà validé (dernière phase : réalisation)
    * → on reprend la réalisation ; sinon → nouvelle analyse.
    */
   async relancer(jeton: string, login: string, depot: string, numero: number): Promise<void> {
     await this.verifierLancable(jeton, depot);
-    const detail = await this.stories.detail(jeton, depot, numero);
+    const detail = await this.detailFiable(jeton, depot, numero);
     if (detail.statut !== 'en-cours' && detail.statut !== 'besoin-dev') {
       throw new ConflictException('Cette demande n’a pas besoin d’être relancée');
     }
@@ -209,7 +220,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
   /** Le PO demande de revoir le plan, ou répond aux questions : nouvelle analyse. */
   async reprendreAnalyse(jeton: string, depot: string, numero: number, texte: string): Promise<void> {
     await this.verifierLancable(jeton, depot);
-    const detail = await this.stories.detail(jeton, depot, numero);
+    const detail = await this.detailFiable(jeton, depot, numero);
     // Un autre découpage peut aussi être demandé (#36).
     if (detail.statut !== 'questions' && detail.statut !== 'plan-a-valider' && detail.statut !== 'decoupage') {
       throw new ConflictException('ADA n’attend pas de réponse sur cette demande');
@@ -222,7 +233,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
   /** Le PO valide le plan : réalisation sur une branche, puis branche poussée et PR ouverte. */
   async validerPlan(jeton: string, login: string, depot: string, numero: number): Promise<void> {
     await this.verifierLancable(jeton, depot);
-    const detail = await this.stories.detail(jeton, depot, numero);
+    const detail = await this.detailFiable(jeton, depot, numero);
     if (detail.statut !== 'plan-a-valider') throw new ConflictException('Aucun plan n’attend votre validation');
     await this.stories.repondre(jeton, depot, numero, `✅ Plan validé par ${login}.`);
     await this.stories.changerStatut(jeton, depot, numero, 'en-cours');

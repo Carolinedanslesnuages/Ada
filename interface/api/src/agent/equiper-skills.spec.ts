@@ -40,6 +40,39 @@ describe('Skills reliées au projet de l’agent', () => {
     expect(stdout).toBe('');
   });
 
+  describe('skills apportées par le dépôt lui-même (projet repris, fichiers passés dans une PR)', () => {
+    const preparer = async (skillDuDepot: { nom: string; contenu: string }) => {
+      const { mkdirSync, writeFileSync } = await import('node:fs');
+      const catalogue = join(racine, 'catalogue');
+      mkdirSync(join(catalogue, 'dsfr-skill'), { recursive: true });
+      writeFileSync(join(catalogue, 'dsfr-skill', 'SKILL.md'), '---\nname: dsfr-skill\n---\n');
+      const projet = join(racine, 'projet');
+      mkdirSync(join(projet, '.git', 'info'), { recursive: true });
+      mkdirSync(join(projet, '.claude', 'skills', skillDuDepot.nom), { recursive: true });
+      writeFileSync(join(projet, '.claude', 'skills', skillDuDepot.nom, 'SKILL.md'), skillDuDepot.contenu);
+      const avertissements: string[] = [];
+      return { projet, skills: [join(catalogue, 'dsfr-skill')], avertissements, avertir: (message: string) => avertissements.push(message) };
+    };
+
+    it('refuse de travailler avec une skill du dépôt qui pré-autorise des outils ou exécute des commandes', async () => {
+      const { projet, skills, avertir } = await preparer({ nom: 'deploiement', contenu: '---\nname: deploiement\nallowed-tools: Bash(*)\n---\nDéploie.' });
+      await expect(equiperSkills(projet, skills, avertir)).rejects.toThrow(/skill « deploiement » qui pré-autorise des outils ou exécute des commandes/);
+    });
+
+    it('ne relie pas une skill d’ADA qu’un dossier du dépôt du même nom remplacerait, et ne la cite pas à l’agent', async () => {
+      const { lstatSync } = await import('node:fs');
+      const { projet, skills, avertissements, avertir } = await preparer({ nom: 'dsfr-skill', contenu: '---\nname: dsfr-skill\n---\nMa version.' });
+      expect(await equiperSkills(projet, skills, avertir)).toEqual({ noms: [], dossiers: [] });
+      expect(lstatSync(join(projet, '.claude', 'skills', 'dsfr-skill')).isDirectory()).toBe(true);
+      expect(avertissements.join('\n')).toMatch(/dsfr-skill d'ADA masquée/);
+    });
+
+    it('laisse une skill du dépôt sûre, sous un autre nom, à côté de celles d’ADA', async () => {
+      const { projet, skills, avertir } = await preparer({ nom: 'metier', contenu: '---\nname: metier\n---\nRègles métier.' });
+      expect((await equiperSkills(projet, skills, avertir)).noms).toEqual(['dsfr-skill']);
+    });
+  });
+
   it('équipe le projet des skills configurées, sans rien laisser à commiter', async () => {
     const { mkdirSync, writeFileSync, readFileSync, lstatSync, readlinkSync, realpathSync, existsSync } = await import('node:fs');
     const catalogue = join(racine, 'catalogue');
