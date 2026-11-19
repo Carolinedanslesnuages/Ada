@@ -31,6 +31,12 @@ jobs:
           for modele in catalogue/*/; do
             diff -u .github/workflows/release-please.yml "$modele.github/workflows/release-please.yml"
           done
+      - name: Contrôle « un fichier, une responsabilité » identique dans ADA et chaque modèle
+        run: |
+          for modele in catalogue/*/; do
+            diff -u .github/workflows/taille-fichiers.yml "$modele.github/workflows/taille-fichiers.yml"
+            grep -q '"Taille des fichiers (une responsabilité par fichier)"' "$modele/ada.json" || { echo "contrôle non exigé dans $modele/ada.json"; exit 1; }
+          done
       - name: Liens .claude/skills et .agents/skills vers chaque skill
         run: |
           for s in skills/po/*/; do

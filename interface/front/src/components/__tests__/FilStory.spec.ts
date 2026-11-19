@@ -134,6 +134,9 @@ describe('Fil d’une story', () => {
     expect(wrapper.text()).toContain('Traçabilité')
     expect(wrapper.text()).toContain('commentaires de la story n° 12')
     expect(wrapper.text()).toContain('N’y écrivez donc rien de confidentiel')
+    // ADR-0011 : ce qui s'écrit sur GitHub hors d'ADA ne lui parvient pas.
+    expect(wrapper.text()).toContain('ce qui est écrit ou modifié directement sur GitHub ne lui parvient pas')
+    expect(wrapper.text()).not.toContain('prochaine lecture')
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })

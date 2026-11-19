@@ -15,7 +15,9 @@ export async function chargerApi() {
     console.error('Compilez d’abord l’API : cd interface/api && npm run build')
     process.exit(1)
   }
-  return { agent: await import(agent), empreinte: await import(join(API, 'dist/empreinte/empreinte.js')) }
+  // L'agent est découpé par responsabilité (ADR-0012) : le banc en réunit les modules.
+  const modules = ['agent', 'consignes', 'outils', 'reponses', 'activite'].map((nom) => import(join(API, `dist/agent/${nom}.js`)))
+  return { agent: Object.assign({}, ...(await Promise.all(modules))), empreinte: await import(join(API, 'dist/empreinte/empreinte.js')) }
 }
 
 const developper = (chemin) => (chemin.startsWith('~') ? join(homedir(), chemin.slice(1)) : chemin)

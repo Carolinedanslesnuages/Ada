@@ -18,7 +18,8 @@
     "API (lint, tests, compilation)",
     "Front (lint, types, tests dont accessibilité, compilation)",
     "Image et chart (construction, helm lint)",
-    "Titre de PR (Conventional Commits, semver)"
+    "Titre de PR (Conventional Commits, semver)",
+    "Taille des fichiers (une responsabilité par fichier)"
   ],
   "controles": [
     "cd /app/api && npm run lint && npm test && npm run test:e2e && npm run build",

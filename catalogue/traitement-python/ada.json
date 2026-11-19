@@ -14,7 +14,8 @@
   "controlesRequis": [
     "Anti-fuite (gitleaks)",
     "Traitement (lint, types, tests)",
-    "Titre de PR (Conventional Commits, semver)"
+    "Titre de PR (Conventional Commits, semver)",
+    "Taille des fichiers (une responsabilité par fichier)"
   ],
   "controles": [
     "cd /app && ruff check . && ruff format --check . && mypy && pytest"

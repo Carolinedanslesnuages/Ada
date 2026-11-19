@@ -14,7 +14,8 @@
   "controlesRequis": [
     "Anti-fuite (gitleaks)",
     "Site (lint, types, tests dont accessibilité, génération, accessibilité des pages)",
-    "Titre de PR (Conventional Commits, semver)"
+    "Titre de PR (Conventional Commits, semver)",
+    "Taille des fichiers (une responsabilité par fichier)"
   ],
   "controles": [
     "cd /app && npx oxlint . && npx eslint . && npm run type-check && npm run test:unit -- --run && npm run generate && npm run verifier:accessibilite"

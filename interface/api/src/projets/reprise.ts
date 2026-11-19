@@ -8,17 +8,24 @@ import { lireAdaConfig, type AdaConfig } from '../ada/ada-config.js';
  * RepriseService (demande du PO) et l'assistant (qui ouvre la PR à la fin de son analyse).
  */
 
+/** Topic posé par une reprise (#37) : le projet entre dans ADA quand sa PR de reprise est fusionnée. */
+export const TOPIC_REPRISE = 'ada-reprise';
+
 /** Branche et titre de la PR de reprise (Conventional Commits : `chore`, sans nouvelle version). */
 export const BRANCHE_REPRISE = 'ada/reprise';
 export const TITRE_REPRISE = 'chore: reprise du projet par ADA';
-/** Seul contrôle exigé : le titre de PR, ajouté par la reprise. La CI du projet reste la sienne. */
+/**
+ * Contrôles exigés : ceux qu'ajoute la reprise (titre de PR, taille des fichiers). La CI du projet
+ * reste la sienne. Un fichier déjà trop long est toléré tant qu'il ne grossit pas.
+ */
 export const CONTROLE_TITRE = 'Titre de PR (Conventional Commits, semver)';
+export const CONTROLE_TAILLE = 'Taille des fichiers (une responsabilité par fichier)';
 /** Modèle dont viennent les fichiers communs (identiques dans tous les modèles, vérifié en CI). */
 export const MODELE_REFERENCE = 'vue-node';
 
 /**
  * Fichiers qu'ADA apporte à un projet repris, s'ils n'y sont pas déjà : formulaires de story et de
- * signalement, vérification du titre des PR, versions par release-please. `ada.json` est toujours
+ * signalement, vérification du titre des PR et de la taille des fichiers, versions par release-please. `ada.json` est toujours
  * proposé (il décrit l'aperçu) ; rien d'autre n'est touché.
  */
 export const FICHIERS_REPRISE = [
@@ -26,6 +33,7 @@ export const FICHIERS_REPRISE = [
   '.github/ISSUE_TEMPLATE/bug.yml',
   '.github/ISSUE_TEMPLATE/config.yml',
   '.github/workflows/titre-pr.yml',
+  '.github/workflows/taille-fichiers.yml',
   '.github/workflows/release-please.yml',
   'release-please-config.json',
   '.release-please-manifest.json',
@@ -36,7 +44,7 @@ const statut = (e: unknown) => (e as { status?: number }).status;
 
 /**
  * ada.json d'un projet repris, à partir de celui que propose l'analyse (ou du modèle choisi) :
- * aucun fichier à personnaliser, seul le contrôle du titre de PR exigé, pas de chart, et
+ * aucun fichier à personnaliser, seuls les contrôles ajoutés par la reprise exigés, pas de chart, et
  * l'apparence choisie par le PO. Lève une erreur si la description de l'aperçu est invalide.
  */
 /**
@@ -60,7 +68,7 @@ export function adaJsonReprise(brut: unknown, dsfr = false): string {
   const base = typeof brut === 'string' ? (JSON.parse(brut) as unknown) : brut;
   if (!base || typeof base !== 'object' || Array.isArray(base)) throw new Error('ada.json absent');
   const lu = base as Record<string, unknown>;
-  const ada = { ...lu, apercu: completerApercu(lu.apercu), personnaliser: [], controlesRequis: [CONTROLE_TITRE], deploiement: null, dsfr };
+  const ada = { ...lu, apercu: completerApercu(lu.apercu), personnaliser: [], controlesRequis: [CONTROLE_TITRE, CONTROLE_TAILLE], deploiement: null, dsfr };
   const valide: AdaConfig = lireAdaConfig(JSON.stringify(ada));
   return `${JSON.stringify({ ...ada, apercu: valide.apercu, type: valide.type, controles: valide.controles }, null, 2)}\n`;
 }

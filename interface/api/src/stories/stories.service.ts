@@ -15,26 +15,21 @@ import {
   verifierMessage,
   LABEL_CONVERSATION,
   lireStory,
-  ajouterDecoupage,
-  cocherEnfant,
   empreinteDemande,
-  formaterStory,
-  lireParent,
-  validerStoriesAPublier,
   STATUTS,
   STATUTS_ACTIFS,
   statutDepuis,
   titrePrompt,
   typeDepuis,
-  verifierPrete,
   verifierPrompt,
-  type ContenuBug,
-  type ContenuStory,
   type Statut,
   type TypeDemande,
 } from './story.js';
 import { lireIdentifiant, type CibleDepot } from '../projets/depot.js';
-import { droitEcriture, lienDeConfiance, raisonAuteurInconnu } from './confiance.js';
+import { Decoupage } from './decoupage.js';
+import { DroitsAuteur } from './droits-auteur.js';
+import { assurerLabel } from './labels.js';
+import { figeeDepuisIssue, nomsLabels, resumer, type DetailStory, type Issue, type Message, type Personne, type ResumeStory } from './resume-story.js';
 import { DemandesStore, type DemandeFigee, type MessageJournal } from './demandes.js';
 
 /** Marque les commentaires écrits par l'assistant, pour reconstituer les échanges. */
@@ -45,102 +40,23 @@ export { MARQUEUR_LANCEMENT } from './story.js';
 import { MARQUEUR_LANCEMENT } from './story.js';
 export const DEBUT_LANCEMENT = '▶️ Lancée depuis ';
 
-export interface ResumeStory {
-  numero: number;
-  type: TypeDemande;
-  titre: string;
-  statut: Statut;
-  creeeLe: string;
-  /** Date de fermeture de l'issue (livraison), null tant qu'elle est ouverte. */
-  fermeeLe: string | null;
-  url: string;
-  /** Prête à être lancée (complète, assez petite) ; sinon la raison, à corriger sur GitHub. */
-  prete: boolean;
-  raison: string | null;
-  /** Demande découpée dont la story est issue (ordre du découpage) ; null sinon. */
-  parent: number | null;
-  /** Écrite par quelqu'un qui a le droit d'écrire dans le projet (voir confiance.ts). */
-  fiable: boolean;
-}
-
-export interface Message {
-  id: number;
-  auteur: string;
-  avatar: string | null;
-  texte: string;
-  le: string;
-}
-
-/** Développeur qui peut être assigné à une demande (accès au dépôt du projet). */
-export interface Personne {
-  login: string;
-  avatar: string | null;
-}
-
-export interface DetailStory extends ResumeStory {
-  /** Développeurs assignés sur GitHub (déblocage d'une demande « Besoin d'un développeur »). */
-  assignes: Personne[];
-  contenu: ContenuStory | null;
-  contenuBug: ContenuBug | null;
-  /** Mode sauvage : le prompt du PO. */
-  contenuLibre: string | null;
-  texteBrut: string;
-  messages: Message[];
-  /** Empreinte du titre et du corps affichés : renvoyée au lancement pour vérifier que rien n'a changé. */
-  empreinte: string;
-  /** Commentaires écrits directement sur GitHub depuis le lancement, qu'ADA ne lit pas (le PO doit répondre dans ADA). */
-  commentairesIgnores: number;
-}
-
-type Issue = {
-  number: number;
-  title: string;
-  state: string;
-  created_at: string;
-  closed_at?: string | null;
-  /** « not_planned » : fermée sans être réalisée (doublon, abandon) — ce n'est pas une livraison. */
-  state_reason?: string | null;
-  html_url: string;
-  body?: string | null;
-  pull_request?: unknown;
-  labels: (string | { name?: string })[];
-  /** Lien de l'auteur avec le dépôt (OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR, NONE…). */
-  author_association?: string | null;
-  user?: { login?: string | null } | null;
-};
-
-const nomsLabels = (labels: Issue['labels']) => labels.map((l) => (typeof l === 'string' ? l : (l.name ?? '')));
-
-/** `deConfiance` : l'auteur a le droit d'écrire dans le projet (voir confiance.ts) ; sinon la demande ne se lance pas. */
-const resumer = (i: Issue, deConfiance: boolean, statut: Statut): ResumeStory => {
-  const labels = nomsLabels(i.labels);
-  const corps = i.body ?? '';
-  const type = typeDepuis(labels, corps) ?? 'story';
-  const verification = verifierPrete(type, lireStory(corps), lireBug(corps), lirePrompt(corps) ?? lireConversation(corps));
-  return {
-    numero: i.number,
-    type,
-    titre: i.title,
-    statut,
-    creeeLe: i.created_at,
-    fermeeLe: i.closed_at ?? null,
-    url: i.html_url,
-    prete: verification.prete && deConfiance,
-    raison: !deConfiance ? raisonAuteurInconnu(i.user?.login) : verification.prete ? null : verification.raison,
-    parent: lireParent(corps),
-    fiable: deConfiance,
-  };
-};
+export type { DetailStory, Message, Personne, ResumeStory } from './resume-story.js';
 
 @Injectable()
 export class StoriesService {
   private readonly journal = new Logger(StoriesService.name);
 
+  private readonly droits: DroitsAuteur;
+  private readonly decoupage: Decoupage;
+
   constructor(
     @Inject(CONFIG) private readonly config: Config,
     private readonly github: GithubService,
     private readonly demandes: DemandesStore,
-  ) {}
+  ) {
+    this.droits = new DroitsAuteur((depot) => this.cible(depot));
+    this.decoupage = new Decoupage(this, github, demandes, (depot) => this.cible(depot));
+  }
 
   /**
    * Statut d'une demande : celui qu'ADA a enregistré, jamais celui des labels de GitHub (que toute
@@ -164,54 +80,11 @@ export class StoriesService {
     await this.demandes.marquerStatutsRepris(depot);
   }
 
-  private figeeDepuisIssue(issue: Issue, type: TypeDemande, login: string): DemandeFigee {
-    const corps = issue.body ?? '';
-    return {
-      numero: issue.number,
-      titre: issue.title,
-      type,
-      contenu: lireStory(corps),
-      contenuBug: lireBug(corps),
-      contenuLibre: lirePrompt(corps) ?? lireConversation(corps),
-      parent: lireParent(corps),
-      lanceeLe: new Date().toISOString(),
-      lanceePar: login,
-    };
-  }
-
   /** La demande part : figée telle qu'elle est, statut « en cours », et le lancement ouvre le journal des échanges. */
   private async enregistrerLancement(depot: string, figee: DemandeFigee, login: string, texte: string): Promise<void> {
     await this.demandes.figer(depot, figee);
     await this.demandes.ecrireStatut(depot, figee.numero, 'en-cours');
     await this.demandes.ajouterMessage(depot, figee.numero, { auteur: login, texte });
-  }
-
-  /** « dépôt|login » → droit d'écrire, gardé 5 minutes (un refus d'appel, 30 secondes). */
-  private readonly droits = new Map<string, { ecrit: boolean; expire: number }>();
-
-  /** Le compte peut-il écrire dans le projet ? Demandé à GitHub ; en cas d'erreur, non. */
-  private async peutEcrire(gh: ReturnType<GithubService['client']>, depot: string, login: string): Promise<boolean> {
-    const { owner, repo } = this.cible(depot);
-    const cle = `${owner}/${repo}|${login.toLowerCase()}`;
-    const connu = this.droits.get(cle);
-    if (connu && connu.expire > Date.now()) return connu.ecrit;
-    let ecrit = false;
-    let duree = 5 * 60_000;
-    try {
-      const { data } = await gh.repos.getCollaboratorPermissionLevel({ owner, repo, username: login });
-      ecrit = droitEcriture(data.role_name) || droitEcriture(data.permission);
-    } catch {
-      duree = 30_000;
-    }
-    this.droits.set(cle, { ecrit, expire: Date.now() + duree });
-    return ecrit;
-  }
-
-  /** Auteur (issue ou commentaire) digne de confiance : propriétaire, ou membre/collaborateur qui a le droit d'écrire. */
-  private async auteurFiable(gh: ReturnType<GithubService['client']>, depot: string, lien: string | null | undefined, login: string | null | undefined): Promise<boolean> {
-    const confiance = lienDeConfiance(lien);
-    if (confiance !== 'a-verifier') return confiance === 'cru';
-    return login ? this.peutEcrire(gh, depot, login) : false;
   }
 
   /** Compte et dépôt GitHub d'un projet d'ADA (voir projets/depot.ts). */
@@ -240,7 +113,7 @@ export class StoriesService {
       await Promise.all(
         [...new Set(retenues.map((i) => `${i.author_association ?? ''}|${i.user?.login ?? ''}`))].map(async (cle) => {
           const [lien = '', login = ''] = cle.split('|');
-          fiables.set(cle, await this.auteurFiable(gh, depot, lien, login));
+          fiables.set(cle, await this.droits.fiable(gh, depot, lien, login));
         }),
       );
       if (!(await this.demandes.statutsRepris(depot))) await this.reprendreStatuts(depot, retenues);
@@ -271,7 +144,7 @@ export class StoriesService {
       const auteurs = new Map<string, boolean>();
       const fiable = async (lien: string | null | undefined, login: string | null | undefined) => {
         const cle = `${lien ?? ''}|${login ?? ''}`;
-        if (!auteurs.has(cle)) auteurs.set(cle, await this.auteurFiable(gh, depot, lien, login));
+        if (!auteurs.has(cle)) auteurs.set(cle, await this.droits.fiable(gh, depot, lien, login));
         return auteurs.get(cle)!;
       };
       const issueFiable = await fiable((issue as Issue).author_association, (issue as Issue).user?.login);
@@ -371,7 +244,6 @@ export class StoriesService {
     }
     return this.detail(jeton, depot, numero);
   }
-
   /**
    * Mode sauvage : le prompt devient une issue « mode-libre » (trace dans GitHub), lancée tout
    * de suite. Mêmes règles qu'une story : une seule demande active par projet.
@@ -379,27 +251,7 @@ export class StoriesService {
   async prompter(jeton: string, depot: string, texte: unknown, login: string): Promise<ResumeStory> {
     const verification = verifierPrompt(texte);
     if (!verification.ok) throw new BadRequestException({ erreurs: { texte: verification.erreur } });
-    const active = (await this.lister(jeton, depot)).find((s) => STATUTS_ACTIFS.includes(s.statut));
-    if (active) {
-      throw new ConflictException(`La demande #${active.numero} « ${active.titre} » est en cours : une seule demande à la fois`);
-    }
-    const gh = this.github.client(jeton);
-    try {
-      await this.assurerLabel(jeton, depot, LABEL_LIBRE);
-      await this.assurerLabel(jeton, depot, STATUTS['en-cours']);
-      const { data } = await gh.issues.create({
-        ...this.cible(depot),
-        title: titrePrompt(verification.texte),
-        body: formaterPrompt(verification.texte),
-        labels: [LABEL_LIBRE, STATUTS['en-cours']],
-      });
-      const lancement = `${MARQUEUR_LANCEMENT} par ${login} (mode sauvage).`;
-      await gh.issues.createComment({ ...this.cible(depot), issue_number: data.number, body: lancement });
-      await this.enregistrerLancement(depot, this.figeeDepuisIssue(data as Issue, 'libre', login), login, lancement);
-      return resumer(data as Issue, true, 'en-cours'); // créée à l'instant par le PO connecté
-    } catch (e) {
-      traduireErreurGithub(e);
-    }
+    return this.creerEtLancer(jeton, depot, login, { type: 'libre', label: LABEL_LIBRE, titre: titrePrompt(verification.texte), corps: formaterPrompt(verification.texte), mode: 'mode sauvage' });
   }
 
   /**
@@ -409,23 +261,28 @@ export class StoriesService {
   async ouvrirConversation(jeton: string, depot: string, texte: unknown, login: string): Promise<ResumeStory> {
     const verification = verifierMessage(texte, true);
     if (!verification.ok) throw new BadRequestException({ erreurs: { texte: verification.erreur } });
+    return this.creerEtLancer(jeton, depot, login, { type: 'conversation', label: LABEL_CONVERSATION, titre: titreConversation(verification.texte), corps: formaterConversation(verification.texte), mode: 'conversation' });
+  }
+
+  /** Crée l'issue d'une demande écrite dans ADA (mode sauvage, conversation) et la lance aussitôt. */
+  private async creerEtLancer(
+    jeton: string,
+    depot: string,
+    login: string,
+    demande: { type: TypeDemande; label: string; titre: string; corps: string; mode: string },
+  ): Promise<ResumeStory> {
     const active = (await this.lister(jeton, depot)).find((s) => STATUTS_ACTIFS.includes(s.statut));
     if (active) {
       throw new ConflictException(`La demande #${active.numero} « ${active.titre} » est en cours : une seule demande à la fois`);
     }
     const gh = this.github.client(jeton);
     try {
-      await this.assurerLabel(jeton, depot, LABEL_CONVERSATION);
-      await this.assurerLabel(jeton, depot, STATUTS['en-cours']);
-      const { data } = await gh.issues.create({
-        ...this.cible(depot),
-        title: titreConversation(verification.texte),
-        body: formaterConversation(verification.texte),
-        labels: [LABEL_CONVERSATION, STATUTS['en-cours']],
-      });
-      const lancement = `${MARQUEUR_LANCEMENT} par ${login} (conversation).`;
+      await assurerLabel(gh, this.cible(depot), demande.label);
+      await assurerLabel(gh, this.cible(depot), STATUTS['en-cours']);
+      const { data } = await gh.issues.create({ ...this.cible(depot), title: demande.titre, body: demande.corps, labels: [demande.label, STATUTS['en-cours']] });
+      const lancement = `${MARQUEUR_LANCEMENT} par ${login} (${demande.mode}).`;
       await gh.issues.createComment({ ...this.cible(depot), issue_number: data.number, body: lancement });
-      await this.enregistrerLancement(depot, this.figeeDepuisIssue(data as Issue, 'conversation', login), login, lancement);
+      await this.enregistrerLancement(depot, figeeDepuisIssue(data as Issue, demande.type, login), login, lancement);
       return resumer(data as Issue, true, 'en-cours'); // créée à l'instant par le PO connecté
     } catch (e) {
       traduireErreurGithub(e);
@@ -468,8 +325,8 @@ export class StoriesService {
     }
     try {
       const labelType = { bug: LABEL_BUG, libre: LABEL_LIBRE, conversation: LABEL_CONVERSATION, story: LABEL_STORY }[cible.type];
-      await this.assurerLabel(jeton, depot, labelType);
-      await this.assurerLabel(jeton, depot, STATUTS['en-cours']);
+      await assurerLabel(gh, this.cible(depot), labelType);
+      await assurerLabel(gh, this.cible(depot), STATUTS['en-cours']);
       await gh.issues.addLabels({
         ...this.cible(depot),
         issue_number: numero,
@@ -479,7 +336,7 @@ export class StoriesService {
       const lancement = `${MARQUEUR_LANCEMENT} par ${login}.`;
       await gh.issues.createComment({ ...this.cible(depot), issue_number: numero, body: lancement });
       // La demande est figée telle que le PO l'a lue : l'agent ne lira jamais l'issue vivante.
-      await this.enregistrerLancement(depot, this.figeeDepuisIssue(issue as Issue, cible.type, login), login, lancement);
+      await this.enregistrerLancement(depot, figeeDepuisIssue(issue as Issue, cible.type, login), login, lancement);
     } catch (e) {
       traduireErreurGithub(e);
     }
@@ -496,7 +353,7 @@ export class StoriesService {
     try {
       const { data } = await gh.issues.get({ ...this.cible(depot), issue_number: numero });
       const autres = nomsLabels((data as Issue).labels).filter((l) => !l.startsWith('story:'));
-      await this.assurerLabel(jeton, depot, STATUTS[statut]);
+      await assurerLabel(gh, this.cible(depot), STATUTS[statut]);
       await gh.issues.setLabels({ ...this.cible(depot), issue_number: numero, labels: [...autres, STATUTS[statut]] });
     } catch (e) {
       this.journal.warn(`Label de statut de ${depot}#${numero} non recopié sur GitHub : ${(e as Error).message}`);
@@ -515,65 +372,14 @@ export class StoriesService {
       this.journal.warn(`Labels de ${depot}#${numero} non retirés sur GitHub : ${(e as Error).message}`);
     }
   }
-
-  /**
-   * Découpage validé par le PO (#36) : ADA publie, à son nom, les stories qu'il a cochées — telles
-   * qu'il les a relues et éventuellement corrigées (champs préremplis par l'assistant) — et la
-   * demande d'origine devient leur parent (liste à cocher, fermée quand toutes sont livrées).
-   */
-  async creerDecoupage(jeton: string, depot: string, numero: number, saisies: unknown, login: string): Promise<ResumeStory[]> {
-    const parent = await this.detail(jeton, depot, numero);
-    if (parent.statut !== 'decoupage') throw new ConflictException('Aucun découpage n’attend votre choix sur cette demande');
-    const stories = validerStoriesAPublier(saisies);
-    const gh = this.github.client(jeton);
-    const creees: ResumeStory[] = [];
-    try {
-      await this.assurerLabel(jeton, depot, LABEL_STORY);
-      for (const story of stories) {
-        const { data } = await gh.issues.create({
-          ...this.cible(depot),
-          title: story.titre,
-          body: formaterStory(story, numero),
-          labels: [LABEL_STORY],
-        });
-        creees.push(resumer(data as Issue, true, 'nouvelle'));
-      }
-      const { data: issueParent } = await gh.issues.get({ ...this.cible(depot), issue_number: numero });
-      await gh.issues.update({
-        ...this.cible(depot),
-        issue_number: numero,
-        body: ajouterDecoupage(issueParent.body ?? '', creees.map((story) => ({ numero: story.numero, titre: story.titre }))),
-      });
-      const notice = `✂️ Découpage validé par ${login} : ${creees.map((story) => `#${story.numero}`).join(', ')} créées depuis ADA.`;
-      await this.demandes.ajouterMessage(depot, numero, { auteur: login, texte: notice });
-      await gh.issues.createComment({ ...this.cible(depot), issue_number: numero, body: notice });
-      await this.changerStatut(jeton, depot, numero, 'parent');
-    } catch (e) {
-      traduireErreurGithub(e);
-    }
-    return creees;
+  /** Découpage validé par le PO (#36) : voir decoupage.ts. */
+  creerDecoupage(jeton: string, depot: string, numero: number, saisies: unknown, login: string): Promise<ResumeStory[]> {
+    return this.decoupage.creer(jeton, depot, numero, saisies, login);
   }
 
-  /** Story livrée : si elle vient d'un découpage, la cocher dans sa demande parent, fermée quand tout est livré. */
-  async signalerLivraisonAuParent(jeton: string, depot: string, numero: number): Promise<void> {
-    const gh = this.github.client(jeton);
-    try {
-      const { data: enfant } = await gh.issues.get({ ...this.cible(depot), issue_number: numero });
-      const numeroParent = lireParent(enfant.body ?? '');
-      if (!numeroParent) return;
-      const { data: parent } = await gh.issues.get({ ...this.cible(depot), issue_number: numeroParent });
-      const { corps, toutesLivrees } = cocherEnfant(parent.body ?? '', numero);
-      if (corps !== parent.body) await gh.issues.update({ ...this.cible(depot), issue_number: numeroParent, body: corps });
-      if (toutesLivrees && parent.state === 'open') {
-        const notice = '✅ Toutes les stories du découpage sont livrées.';
-        await this.demandes.ajouterMessage(depot, numeroParent, { auteur: 'ADA', texte: notice });
-        await gh.issues.createComment({ ...this.cible(depot), issue_number: numeroParent, body: notice });
-        await gh.issues.update({ ...this.cible(depot), issue_number: numeroParent, state: 'closed', state_reason: 'completed' });
-        await this.retirerStatut(jeton, depot, numeroParent);
-      }
-    } catch (e) {
-      traduireErreurGithub(e);
-    }
+  /** Story livrée : si elle vient d'un découpage, la cocher dans sa demande parent (voir decoupage.ts). */
+  signalerLivraisonAuParent(jeton: string, depot: string, numero: number): Promise<void> {
+    return this.decoupage.signalerLivraison(jeton, depot, numero);
   }
 
   /** Message de l'assistant dans l'issue, reconnaissable par son marqueur. */
@@ -605,21 +411,6 @@ export class StoriesService {
       return { id: c.id, auteur: c.user?.login ?? 'inconnu', avatar: c.user?.avatar_url ?? null, texte: c.body ?? '', le: c.created_at };
     } catch (e) {
       traduireErreurGithub(e);
-    }
-  }
-
-  private async assurerLabel(jeton: string, depot: string, nom: string): Promise<void> {
-    const gh = this.github.client(jeton);
-    try {
-      await gh.issues.getLabel({ ...this.cible(depot), name: nom });
-    } catch (e) {
-      if ((e as { status?: number }).status !== 404) throw e;
-      await gh.issues.createLabel({
-        ...this.cible(depot),
-        name: nom,
-        color: nom === LABEL_LIBRE ? '6a6af4' : '0063cb',
-        description: nom === LABEL_LIBRE ? 'Demande libre du PO (mode sauvage, hors story)' : 'Statut géré par ADA',
-      });
     }
   }
 }

@@ -42,6 +42,9 @@ docs/                              documentation (sources externes reprises)
 - Aucune donnée réelle, aucun secret dans un projet. `--no-verify` interdit.
 - Seules les stacks de `skills/po/po-projet-nouveau/references/stacks/` sont autorisées.
 - Vérifier sur les **codes de retour** des commandes, jamais sur un extrait filtré de la sortie.
+- **Un fichier, une responsabilité**, dans ADA comme dans chaque projet qu'elle crée ou reprend :
+  au plus 400 lignes non vides par fichier de code, 600 par test (`.github/workflows/taille-fichiers.yml`,
+  identique partout). Découper par responsabilité, jamais une fonction par fichier.
 
 ## Invariants des skills (compatibles avec agent-skills IA-Generative)
 
