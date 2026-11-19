@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { lireDecoupage } from '../stories/story.js';
 import type { AgentService } from './agent.service.js';
 import { detailEssai, type FauxApercu, JETON, preparerBanc, resultat } from './agent.banc.js';
 
@@ -64,6 +65,22 @@ describe('AgentService — conversation', () => {
       const appels = apercu.executer.mock.calls.map((appel) => (appel[1] as string[]).join(' '));
       expect(appels.some((appel) => appel.includes('push'))).toBe(false);
       expect(statut).toBe('echange');
+    });
+
+    it('sait qu’elle n’a aucun accès à GitHub ; les stories pour plus tard qu’elle propose arrivent à choisir dans ADA', async () => {
+      commits = '0';
+      const proposee = { titre: 'Envoyer les tirages', role: 'organisateur', besoin: 'envoyer les tirages par e-mail', benefice: 'prévenir chacun', criteres: ['Un e-mail par participant'] };
+      sortie = [resultat(JSON.stringify({ reponse: 'Voici une story pour plus tard.', stories: [proposee] }))];
+      await service.converser(JETON, 'po1', 'poc', 1);
+      await service.derniereTache;
+      const consigne = lancer.mock.calls[0]![0][1]!;
+      expect(consigne).toContain('Tu n\'as AUCUN accès à GitHub');
+      expect(consigne).toContain('"stories":[{"titre"');
+      const message = stories.commenterAssistant.mock.calls[0]![4] as string;
+      expect(message).toContain('Voici une story pour plus tard.');
+      expect(message).toContain('**Envoyer les tirages**');
+      expect(lireDecoupage(message)).toEqual([proposee]);
+      expect(statut).toBe('echange'); // la conversation continue
     });
 
     it('un message du PO relance ADA ; refusé si ADA n’attend rien', async () => {

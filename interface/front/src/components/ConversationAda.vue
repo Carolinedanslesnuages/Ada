@@ -1,15 +1,23 @@
 <script setup lang="ts">
 import BoutonDicter from '@/components/BoutonDicter.vue'
+import PropositionDecoupage from '@/components/PropositionDecoupage.vue'
 import TexteRiche from '@/components/TexteRiche.vue'
 import { computed, nextTick, ref, watch } from 'vue'
-import { MARQUEUR_LANCEMENT, MESSAGE_MAX, presenterMessage, type DetailStory } from '@/lib/story'
+import { lireDecoupage, MARQUEUR_ASSISTANT, MARQUEUR_LANCEMENT, MESSAGE_MAX, presenterMessage, type DetailStory, type StoryProposee } from '@/lib/story'
 
 /**
  * Conversation (« vrai prompt ») : tous les échanges dans l'ordre, puis, quand ADA a répondu, le
- * message suivant du PO, « c'est bon » (proposer les changements au projet) ou « arrêter ».
+ * message suivant du PO, « c'est bon » (proposer les changements au projet) ou « arrêter ». Des stories
+ * pour plus tard proposées par ADA dans son dernier message se choisissent ici ; ADA les publie.
  */
 const props = defineProps<{ story: DetailStory; attendReponse: boolean; actionEnCours?: boolean }>()
-const emit = defineEmits<{ envoyer: [texte: string]; terminer: []; arreter: [] }>()
+const emit = defineEmits<{ envoyer: [texte: string]; terminer: []; arreter: []; creerStories: [stories: StoryProposee[]] }>()
+
+/** Stories proposées par ADA dans son dernier message (une fois publiées, le message suivant les retire). */
+const storiesProposees = computed(() => {
+  const dernier = props.story.messages[props.story.messages.length - 1]
+  return dernier?.texte.startsWith(MARQUEUR_ASSISTANT) ? lireDecoupage(dernier.texte) : []
+})
 
 const echanges = computed(() => [
   ...(props.story.contenuLibre ? [{ id: 0, auteur: 'Vous', texte: props.story.contenuLibre, assistant: false, le: props.story.creeeLe }] : []),
@@ -74,6 +82,17 @@ function envoyer(): void {
         <TexteRiche :texte="message.texte" />
       </li>
     </ol>
+
+    <PropositionDecoupage
+      v-if="attendReponse && storiesProposees.length"
+      :key="`stories-${story.messages.length}`"
+      class="fr-mb-2w"
+      :stories="storiesProposees"
+      :designation="`la conversation n° ${story.numero}`"
+      :action-en-cours="actionEnCours"
+      :autre-decoupage="false"
+      @creer="(stories) => emit('creerStories', stories)"
+    />
 
     <div v-if="attendReponse" class="zone-message">
       <form novalidate class="saisie" @submit.prevent="envoyer">

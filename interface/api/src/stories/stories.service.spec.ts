@@ -569,6 +569,34 @@ describe('StoriesService', () => {
       expect(gh.issues.create).not.toHaveBeenCalled();
     });
 
+    describe('stories proposées par ADA pendant une conversation', () => {
+      const conversation = issue(7, { title: 'Conversation : secret santa', labels: [{ name: 'mode-conversation' }, { name: 'story:conversation' }], body: '### Conversation avec ADA\n\nMets le titre en bleu\n\n<!-- ada:conversation -->' });
+      const messageAda = (texte: string) => ({ id: 2, user: { login: 'robot' }, author_association: 'OWNER', body: `${MARQUEUR_ASSISTANT}\n🤖 **ADA**\n\n${texte}`, created_at: '' });
+
+      beforeEach(() => {
+        gh.issues.get.mockResolvedValue({ data: conversation });
+        gh.issues.listComments.mockResolvedValue({ data: [messageAda(texteDecoupage('Voici les stories pour plus tard.', stories))] });
+      });
+
+      it('les publie à son nom, sans en faire des enfants : la conversation continue', async () => {
+        const creees = await service.creerDecoupage('jeton', 'poc', 7, [stories[0], stories[1]], 'po1');
+        expect(creees.map((story) => story.numero)).toEqual([10, 11]);
+        const corps = (gh.issues.create.mock.calls[0]![0] as { body: string }).body;
+        expect(lireStory(corps)?.criteres).toEqual(['Liste']);
+        expect(lireParent(corps)).toBeNull();
+        expect(corps).toContain('#7 — story proposée par ADA pendant la conversation');
+        expect(gh.issues.update).not.toHaveBeenCalled(); // le corps de la conversation ne change pas
+        expect(gh.issues.setLabels).not.toHaveBeenCalled(); // elle reste « à vous »
+        expect(gh.issues.createComment).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 7, body: expect.stringContaining('Stories publiées par po1 : #10, #11') }));
+      });
+
+      it('refuse si le dernier message d’ADA ne propose pas de stories (déjà publiées, ou conversation repartie)', async () => {
+        gh.issues.listComments.mockResolvedValue({ data: [messageAda('Voici les stories pour plus tard.')] });
+        await expect(service.creerDecoupage('jeton', 'poc', 7, [stories[0]], 'po1')).rejects.toThrow(/Aucune story proposée par ADA/);
+        expect(gh.issues.create).not.toHaveBeenCalled();
+      });
+    });
+
     it('story livrée : cochée dans le parent ; le parent se ferme quand toutes le sont', async () => {
       const corpsParent = ajouterDecoupage('Tout', [{ numero: 10, titre: 'Voir' }, { numero: 11, titre: 'Rendre' }]);
       const enfant = (numero: number) => issue(numero, { body: formaterStory(stories[0]!, 4) });

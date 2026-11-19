@@ -246,11 +246,14 @@ export const MARQUEUR_DECOUPAGE = 'ada:decoupage';
 const DONNEES_DECOUPAGE = /<!-- ada:decoupage (\S+) -->/;
 const SECTION_PARENT = '### Demande parent';
 const SECTION_DECOUPAGE = '### Découpage';
+/** Story proposée en conversation : d'où elle vient, sans en faire une enfant de la conversation. */
+const SECTION_ORIGINE = '### Origine';
 
 const texteCourt = (valeur: unknown, maximum: number) => (typeof valeur === 'string' ? valeur.trim().slice(0, maximum) : '');
 
 /** Ne garde que des stories complètes : 2 à 8, chacune 1 à CRITERES_MAX critères. */
-export function nettoyerStoriesProposees(brut: unknown): StoryProposee[] {
+/** `minimum` : un découpage en propose au moins deux ; en conversation, une seule story pour plus tard suffit. */
+export function nettoyerStoriesProposees(brut: unknown, minimum = 2): StoryProposee[] {
   if (!Array.isArray(brut)) return [];
   const stories = brut
     .map((element) => (element ?? {}) as Record<string, unknown>)
@@ -267,7 +270,7 @@ export function nettoyerStoriesProposees(brut: unknown): StoryProposee[] {
     }))
     .filter((story) => story.titre && story.role && story.besoin && story.benefice && story.criteres.length > 0)
     .slice(0, 8);
-  return stories.length >= 2 ? stories : [];
+  return stories.length >= minimum ? stories : [];
 }
 
 /** Commentaire « Découpage proposé » : lisible sur GitHub, et relisible par ADA (données cachées). */
@@ -287,14 +290,18 @@ export function lireDecoupage(texte: string): StoryProposee[] {
   const donnees = DONNEES_DECOUPAGE.exec(texte)?.[1];
   if (!donnees) return [];
   try {
-    return nettoyerStoriesProposees(JSON.parse(Buffer.from(donnees, 'base64').toString('utf8')));
+    return nettoyerStoriesProposees(JSON.parse(Buffer.from(donnees, 'base64').toString('utf8')), 1); // relu tel qu'ADA l'a écrit
   } catch {
     return [];
   }
 }
 
-/** Corps d'une story créée par ADA : celui du formulaire de story, plus le lien vers la demande parent. */
-export function formaterStory(story: StoryProposee, parent: number): string {
+/**
+ * Corps d'une story créée par ADA : celui du formulaire de story, plus le lien vers la demande parent
+ * (découpage). Proposée pendant une conversation : son origine seulement, sans lien parent (la
+ * conversation continue, elle n'attend pas ces stories pour se terminer).
+ */
+export function formaterStory(story: StoryProposee, parent: number, origine: 'decoupage' | 'conversation' = 'decoupage'): string {
   return [
     '### En tant que',
     '',
@@ -312,9 +319,9 @@ export function formaterStory(story: StoryProposee, parent: number): string {
     '',
     ...story.criteres.map((critere) => `- ${critere}`),
     '',
-    SECTION_PARENT,
-    '',
-    `#${parent} — story créée depuis ADA, à partir du découpage qu’elle a proposé.`,
+    ...(origine === 'conversation'
+      ? [SECTION_ORIGINE, '', `#${parent} — story proposée par ADA pendant la conversation, publiée depuis ADA.`]
+      : [SECTION_PARENT, '', `#${parent} — story créée depuis ADA, à partir du découpage qu’elle a proposé.`]),
   ].join('\n');
 }
 

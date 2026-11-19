@@ -242,6 +242,20 @@ ou {"resultat":"bloque","raison":"<ce qui bloque, simplement>"}`;
 }
 
 /**
+ * En conversation, l'agent n'a aucun accès à GitHub : des stories pour plus tard se proposent dans sa
+ * réponse ; le PO les choisit et ADA les publie à son nom (même circuit qu'un découpage).
+ */
+const STORIES_EN_CONVERSATION = `- Tu n'as AUCUN accès à GitHub (issues, stories, pull requests) : n'essaie jamais d'y écrire,
+  ADA s'en charge. Si le PO veut garder des idées pour plus tard sous forme de stories, mets-les dans
+  « stories » de ta réponse (8 au plus, chacune petite : titre, « en tant que », « je veux », « afin
+  de », 1 à 4 critères vérifiables) : il les relira et ADA les publiera sur GitHub à son nom. N'écris
+  pas de fichier pour les garder, et ne propose pas de stories qu'il n'a pas demandées.`;
+
+const FORMAT_CONVERSATION = `Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
+{"reponse":"<ton message au PO>"}
+ou, s'il veut des stories pour plus tard : {"reponse":"<ton message>","stories":[{"titre":"…","role":"…","besoin":"…","benefice":"…","criteres":["…"]}]}`;
+
+/**
  * Conversation (« vrai prompt ») : le PO parle librement, ADA agit tout de suite sur une branche
  * à part, sans plan à valider. Rien n'arrive sur le projet avant que le PO dise « c'est bon » :
  * ADA ouvre alors la PR, contrôles verts obligatoires, et le PO fusionne.
@@ -277,11 +291,11 @@ ${UNE_RESPONSABILITE}
   « fix: … »). Ne pousse pas, ne fusionne jamais : l'atelier s'en charge quand le PO dit « c'est bon ».
 - Pour supprimer ou renommer un fichier : « git rm <fichier> » ou « git mv <ancien> <nouveau> ».
 - Ne modifie jamais .github/ ni charts/ (réservés aux développeurs) ; aucun secret, aucune donnée réelle.
+${STORIES_EN_CONVERSATION}
 - Dans ta réponse : ce que tu as fait, où le voir dans l'aperçu, et ce qu'il peut demander ensuite.
   Rappelle-lui, quand c'est utile, qu'il peut dire « c'est bon » pour proposer ces changements au projet.
 
-${finaliser ? finalisationConversation(controles) : `Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
-{"reponse":"<ton message au PO>"}`}`;
+${finaliser ? finalisationConversation(controles) : FORMAT_CONVERSATION}`;
 }
 
 /** « C'est bon » : contrôles complets une seule fois, puis résumé de tout ce qui a changé. */
@@ -304,8 +318,8 @@ export function consigneSuiteConversation(message: string, controles: string[] =
 ${message}
 
 Rappel : mêmes règles qu'au début de la conversation (agis tout de suite, tests liés au changement
-seulement, un commit par changement, ne pousse pas, jamais .github/ ni charts/).
+seulement, un commit par changement, ne pousse pas, jamais .github/ ni charts/, aucun accès à
+GitHub : des stories pour plus tard vont dans « stories » de ta réponse).
 
-${finaliser ? finalisationConversation(controles) : `Ta réponse finale doit être UNIQUEMENT un objet JSON, sans texte autour :
-{"reponse":"<ton message au PO>"}`}`;
+${finaliser ? finalisationConversation(controles) : FORMAT_CONVERSATION}`;
 }

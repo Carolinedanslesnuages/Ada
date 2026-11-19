@@ -182,6 +182,7 @@ function envoyer(): void {
       @envoyer="(message) => emit('envoyerMessage', message)"
       @terminer="emit('terminerConversation')"
       @arreter="emit('arreterConversation')"
+      @creer-stories="(stories) => emit('creerDecoupage', stories)"
     />
     <section v-else-if="dernierMessage" class="fr-mb-3w" aria-labelledby="titre-dernier-message">
       <h3 id="titre-dernier-message" class="fr-h6 fr-mb-1w">Dernier message d’ADA</h3>
