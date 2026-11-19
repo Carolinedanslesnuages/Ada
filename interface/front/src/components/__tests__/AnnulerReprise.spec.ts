@@ -51,12 +51,12 @@ describe('Annuler une reprise / désynchroniser un projet repris', () => {
     wrapper.unmount()
   })
 
-  it('reprise validée : « Désynchroniser d’ADA », rien n’est supprimé', async () => {
+  it('projet dans ADA (repris ou créé par elle) : « Retirer d’ADA », rien n’est supprimé sur GitHub', async () => {
     envoyer.mockResolvedValue({ etat: 'desynchronisee' })
     const wrapper = monter(projet({}))
-    await bouton(wrapper, 'Désynchroniser d’ADA')!.trigger('click')
-    expect(wrapper.text()).toContain('rien n’est supprimé')
-    await bouton(wrapper, 'Confirmer la désynchronisation')!.trigger('click')
+    await bouton(wrapper, 'Retirer d’ADA')!.trigger('click')
+    expect(wrapper.text()).toContain('rien n’est supprimé sur GitHub')
+    await bouton(wrapper, 'Confirmer le retrait')!.trigger('click')
     await flushPromises()
     expect(wrapper.emitted('fait')).toEqual([['desynchronisee']])
     wrapper.unmount()
@@ -64,10 +64,10 @@ describe('Annuler une reprise / désynchroniser un projet repris', () => {
 
   it('« Garder le projet dans ADA » ne fait rien', async () => {
     const wrapper = monter(projet({}))
-    await bouton(wrapper, 'Désynchroniser d’ADA')!.trigger('click')
+    await bouton(wrapper, 'Retirer d’ADA')!.trigger('click')
     await bouton(wrapper, 'Garder le projet dans ADA')!.trigger('click')
     expect(envoyer).not.toHaveBeenCalled()
-    expect(bouton(wrapper, 'Désynchroniser d’ADA')).toBeDefined()
+    expect(bouton(wrapper, 'Retirer d’ADA')).toBeDefined()
     wrapper.unmount()
   })
 })

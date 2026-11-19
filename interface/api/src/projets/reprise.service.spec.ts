@@ -154,7 +154,7 @@ describe('RepriseService (#37)', () => {
     });
   });
 
-  describe('annuler une reprise, ou désynchroniser un projet repris (rien n’est supprimé)', () => {
+  describe('annuler une reprise, ou retirer un projet d’ADA (rien n’est supprimé)', () => {
     beforeEach(() => {
       gh.git.deleteRef.mockResolvedValue({});
       gh.paginate.mockResolvedValue([
@@ -183,9 +183,18 @@ describe('RepriseService (#37)', () => {
       expect(gh.issues.update).not.toHaveBeenCalled();
     });
 
-    it('refuse pour un projet créé par ADA, ou pendant que ADA travaille', async () => {
-      gh.repos.get.mockResolvedValue({ data: depot('signalements', 'proprio', ['ada']) });
-      await expect(service.annuler('jeton', 'un-po', 'signalements')).rejects.toThrow(/créé par ADA/);
+    it('projet créé par ADA : retiré d’ADA de la même façon, seul son marquage est retiré', async () => {
+      gh.repos.get.mockResolvedValue({ data: depot('signalements', 'proprio', ['carte', 'ada']) });
+      expect(await service.annuler('jeton', 'un-po', 'signalements')).toEqual({ etat: 'desynchronisee' });
+      expect(gh.repos.replaceAllTopics).toHaveBeenCalledWith({ owner: 'proprio', repo: 'signalements', names: ['carte'] });
+      expect(gh.pulls.update).not.toHaveBeenCalled();
+      expect(gh.git.deleteRef).not.toHaveBeenCalled();
+      expect(gh.issues.update).not.toHaveBeenCalled();
+    });
+
+    it('refuse pour un projet qui n’est pas dans ADA, ou pendant que ADA travaille', async () => {
+      gh.repos.get.mockResolvedValue({ data: depot('autre', 'proprio', ['vue']) });
+      await expect(service.annuler('jeton', 'un-po', 'autre')).rejects.toThrow(/pas dans ADA/);
       agent.verrouActif.mockResolvedValueOnce({ pid: 1 });
       await expect(service.annuler('jeton', 'un-po', 'un-po~mon-poc')).rejects.toBeInstanceOf(ConflictException);
       expect(gh.repos.replaceAllTopics).not.toHaveBeenCalled();

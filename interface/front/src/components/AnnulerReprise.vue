@@ -4,7 +4,8 @@ import { api } from '@/services/api'
 import type { Projet } from '@/stores/projets'
 
 /**
- * Annuler une reprise en attente, ou désynchroniser un projet repris. Rien n'est supprimé :
+ * Annuler une reprise en attente, ou retirer un projet d'ADA (créé par elle ou repris). Rien n'est
+ * supprimé sur GitHub :
  * une confirmation dit exactement ce qui va se passer avant d'agir.
  */
 const props = defineProps<{ projet: Projet }>()
@@ -14,7 +15,7 @@ const confirmation = ref(false)
 const enCours = ref(false)
 const erreur = ref<string | null>(null)
 const enAttente = computed(() => props.projet.reprise !== null)
-const libelle = computed(() => (enAttente.value ? 'Annuler la reprise' : 'Désynchroniser d’ADA'))
+const libelle = computed(() => (enAttente.value ? 'Annuler la reprise' : 'Retirer d’ADA'))
 
 async function confirmer(): Promise<void> {
   enCours.value = true
@@ -51,12 +52,13 @@ async function confirmer(): Promise<void> {
       reprendre plus tard.
     </p>
     <p v-else class="fr-callout__text fr-text--sm">
-      Le projet disparaît d’ADA, mais rien n’est supprimé : les fichiers, les stories et les versions
-      ajoutés par ADA restent dans le projet. Vous pourrez le reprendre plus tard.
+      Le projet disparaît d’ADA, mais rien n’est supprimé sur GitHub : le dépôt, ses stories, ses
+      versions et les fichiers ajoutés par ADA restent. Vous pourrez le faire revenir avec
+      « Reprendre un projet ».
     </p>
     <DsfrAlert v-if="erreur" type="error" small :description="erreur" class="fr-mb-2w" />
     <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--sm">
-      <li><DsfrButton :label="enCours ? 'En cours…' : enAttente ? 'Confirmer l’annulation' : 'Confirmer la désynchronisation'" :disabled="enCours" @click="confirmer" /></li>
+      <li><DsfrButton :label="enCours ? 'En cours…' : enAttente ? 'Confirmer l’annulation' : 'Confirmer le retrait'" :disabled="enCours" @click="confirmer" /></li>
       <li><DsfrButton secondary label="Garder le projet dans ADA" :disabled="enCours" @click="confirmation = false" /></li>
     </ul>
   </div>

@@ -126,7 +126,7 @@ function choisirProjet(nom: string | number | null | undefined): void {
   if (typeof nom === 'string' && nom) projets.choisir(nom)
 }
 
-/** Reprise annulée ou projet désynchronisé : il n'est plus dans ADA, on revient à la liste. */
+/** Reprise annulée ou projet retiré d'ADA : il n'y est plus, on revient à la liste. */
 async function repriseAnnulee(): Promise<void> {
   masquerProjet()
   await projets.charger()
@@ -349,7 +349,7 @@ onUnmounted(() => {
       </div>
       <ProtectionProjet v-if="projets.idCourant && !projets.courant?.reprise" :projet="projets.idCourant" />
 
-      <AnnulerReprise v-if="projets.courant && (projets.courant.reprise || projets.courant.repris)" :key="projets.courant.id" :projet="projets.courant" @fait="repriseAnnulee" />
+      <AnnulerReprise v-if="projets.courant" :key="projets.courant.id" :projet="projets.courant" @fait="repriseAnnulee" />
       <RepriseEnAttente v-if="projets.courant?.reprise" :projet="projets.courant.id" @fusionnee="repriseFusionnee" />
 
       <p v-if="!projets.idCourant" class="atelier__vide">Choisissez un projet dans la barre de gauche.</p>

@@ -97,9 +97,10 @@ describe('Écran de l’atelier', () => {
     wrapper.unmount()
   })
 
-  it('un projet créé par ADA ne propose ni d’annuler une reprise ni de le désynchroniser', async () => {
+  it('un projet créé par ADA peut être retiré d’ADA, mais n’a pas de reprise à annuler', async () => {
     const wrapper = await monter()
-    expect(wrapper.findAll('button').some((b) => /Annuler la reprise|Désynchroniser/.test(b.text()))).toBe(false)
+    expect(bouton(wrapper, 'Retirer d’ADA')).toBeDefined()
+    expect(bouton(wrapper, 'Annuler la reprise')).toBeUndefined()
     wrapper.unmount()
   })
 
