@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import BoutonDicter from '@/components/BoutonDicter.vue'
+import EmpreinteProjet from '@/components/EmpreinteProjet.vue'
 import { MESSAGE_MAX, aLancerOuRelancer, ordonnerALancer, type ResumeStory } from '@/lib/story'
 
 /**
@@ -9,6 +10,8 @@ import { MESSAGE_MAX, aLancerOuRelancer, ordonnerALancer, type ResumeStory } fro
  */
 const props = defineProps<{
   nomProjet: string
+  /** Identifiant du projet : pour lire son empreinte carbone estimée. */
+  projet?: string | null
   stories: ResumeStory[]
   /** Demande en cours : une seule à la fois, on propose d'y aller plutôt que d'en ouvrir une autre. */
   active: ResumeStory | null
@@ -100,6 +103,8 @@ function touche(evenement: KeyboardEvent): void {
         </button>
       </li>
     </ul>
+
+    <EmpreinteProjet v-if="projet" :projet="projet" />
   </section>
 </template>
 

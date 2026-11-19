@@ -54,6 +54,20 @@ describe('AgentService', () => {
     expect(await service.empreinteDemande('poc-empreinte', 2)).toBeNull();
   });
 
+  it('additionne l’empreinte de toutes les demandes d’un projet, et rien pour un projet sans usage', async () => {
+    const usage = (sortieTokens: number) => [JSON.stringify({ type: 'result', subtype: 'success', result: '{"decision":"plan","texte":"Plan."}', modelUsage: { 'claude-opus-5-5': { inputTokens: 10, outputTokens: sortieTokens } } })];
+    sortie = usage(100);
+    await service.analyser(JETON, 'poc-total', 1);
+    await service.derniereTache;
+    sortie = usage(300);
+    await service.analyser(JETON, 'poc-total', 2);
+    await service.derniereTache;
+    const projet = await service.empreinteProjet('poc-total');
+    expect(projet).toMatchObject({ demandes: 2, empreinte: { tokensSortie: 400, tokensEntree: 20 } });
+    expect(projet!.equivalents.streamingHeureG).toBe(64);
+    expect(await service.empreinteProjet('poc-sans-usage')).toBeNull();
+  });
+
   it('refuse de lancer un agent sous l’ancien nom d’un projet renommé sur GitHub', async () => {
     gh.repos.get = vi.fn(async () => ({ data: { name: 'Gladys' } }));
     await expect(service.analyser(JETON, 'leon', 1)).rejects.toThrow(/renommé « Gladys »/);

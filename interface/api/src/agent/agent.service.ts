@@ -146,6 +146,13 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
     return entrees.length ? { empreinte: sommer(entrees), equivalents: EQUIVALENTS } : null;
   }
 
+  /** Empreinte estimée d'un projet : toutes les exécutions de l'agent, toutes demandes confondues. */
+  async empreinteProjet(depot: string) {
+    const entrees = (await lireEmpreintes(this.config.DOSSIER_REGISTRE)).filter((entree) => entree.projet === depot);
+    if (!entrees.length) return null;
+    return { empreinte: sommer(entrees), demandes: new Set(entrees.map((entree) => entree.numero)).size, equivalents: EQUIVALENTS };
+  }
+
   /** « En cours » seulement si un agent tourne vraiment (pas un reste d'exécution interrompue). */
   async activite(depot: string, numero: number): Promise<Activite> {
     const activite = await this.journal.lire(depot, numero);

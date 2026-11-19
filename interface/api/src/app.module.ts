@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AgentController } from './agent/agent.controller.js';
+import { EmpreinteProjetController } from './empreinte/empreinte.controller.js';
 import { AgentService } from './agent/agent.service.js';
 import { ApercuController } from './apercu/apercu.controller.js';
 import { ApercuService } from './apercu/apercu.service.js';
@@ -28,7 +29,7 @@ import { VersionsController } from './versions/versions.controller.js';
 import { VersionsService } from './versions/versions.service.js';
 
 @Module({
-  controllers: [AgentController, DemoController, IndicateursController, ApercuController, AuthController, DiagnosticController, ProjetsController, ProtectionController, RepriseController, StoriesController, VerificationController, VersionController, VersionsController],
+  controllers: [AgentController, DemoController, EmpreinteProjetController, IndicateursController, ApercuController, AuthController, DiagnosticController, ProjetsController, ProtectionController, RepriseController, StoriesController, VerificationController, VersionController, VersionsController],
   providers: [
     { provide: CONFIG, useFactory: () => lireConfig() },
     AgentService,
