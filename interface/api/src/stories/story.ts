@@ -251,8 +251,10 @@ const SECTION_ORIGINE = '### Origine';
 
 const texteCourt = (valeur: unknown, maximum: number) => (typeof valeur === 'string' ? valeur.trim().slice(0, maximum) : '');
 
-/** Ne garde que des stories complètes : 2 à 8, chacune 1 à CRITERES_MAX critères. */
-/** `minimum` : un découpage en propose au moins deux ; en conversation, une seule story pour plus tard suffit. */
+/**
+ * Ne garde que des stories complètes : de `minimum` à 8, chacune 1 à CRITERES_MAX critères. Un
+ * découpage en propose au moins deux ; en conversation, une seule story pour plus tard suffit.
+ */
 export function nettoyerStoriesProposees(brut: unknown, minimum = 2): StoryProposee[] {
   if (!Array.isArray(brut)) return [];
   const stories = brut

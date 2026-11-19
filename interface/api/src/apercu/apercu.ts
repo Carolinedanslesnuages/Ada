@@ -191,7 +191,6 @@ export function genererScriptDemarrage(config: AdaConfig = ADA_PAR_DEFAUT): stri
   ].join('\n');
 }
 
-/** Installation (avec nouvelles tentatives sur connexion lente), préalables, arrière-plan, page affichée. */
 /**
  * Installation dans un dossier déclaré par ada.json. Un dossier absent (ex. un nom de paquet mis
  * par erreur à la place d'un dossier) est signalé et ignoré : il ne doit pas arrêter tout l'aperçu.
@@ -201,6 +200,7 @@ const installerDans = (dossier: string, fonction: string, libelle: string): stri
   `if [ -d ${cheminDossier(dossier)} ]; then (cd ${cheminDossier(dossier)} && ${fonction}); else echo "[apercu] dossier ${dossier} absent : installation ignorée (à corriger dans ada.json, qui attend des dossiers)"; fi`,
 ];
 
+/** Installation (avec nouvelles tentatives sur connexion lente), préalables, arrière-plan, page affichée. */
 export function genererScriptTravail(config: AdaConfig = ADA_PAR_DEFAUT): string {
   const { apercu } = config;
   return [

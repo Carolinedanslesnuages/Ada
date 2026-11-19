@@ -89,14 +89,14 @@ describe('Consignes données à l’agent', () => {
     expect(skillSure('---\nname: dyn\n---\n!`find . -name x`')).toBe(false);
   });
 
-  it('indique à l’agent quand utiliser chaque skill disponible', () => {
+  it('indique à l’agent quand lire chaque skill reliée (son outil Skill ne les voit pas)', () => {
     expect(consigneSkills(['dsfr-skill', 'repo-perimetre'], false)).not.toContain('dsfr-skill');
     const texte = consigneSkills(['dsfr-skill', 'repo-perimetre', 'skill-inconnue']);
     expect(texte).toContain('- dsfr-skill : avant d’écrire ou de modifier un composant ou une page DSFR');
     expect(texte).toContain('- repo-perimetre : avant de livrer');
     expect(texte).toContain('- skill-inconnue');
     expect(consigneSkills([])).toBe('');
-    expect(consigneRealisation(demande, 'story/1-x', null, ['bug-investigate'])).toContain('Skills disponibles (outil Skill)');
+    expect(consigneRealisation(demande, 'story/1-x', null, ['bug-investigate'])).toContain('Méthodes à ta disposition');
   });
 
   it('nomme la branche d’après le numéro et le titre', () => {

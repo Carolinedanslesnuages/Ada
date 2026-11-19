@@ -54,7 +54,6 @@ const schema = z.object({
   DOSSIER_REGISTRE: z.string().default('../registre'),
   /** Dossier de travail des aperçus (clones et conteneurs), hors de tout dépôt git. */
   DOSSIER_APERCUS: z.string().default('../apercus'),
-  /** Topic GitHub qui distingue les dépôts créés par l'atelier. */
   /**
    * Adresse publique des liens de démonstration, `{projet}` et `{port}` remplacés. En ligne :
    * un proxy (domaine générique) renvoie vers le port de chaque démo, ex.

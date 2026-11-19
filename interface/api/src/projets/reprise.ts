@@ -43,11 +43,6 @@ export const FICHIERS_REPRISE = [
 const statut = (e: unknown) => (e as { status?: number }).status;
 
 /**
- * ada.json d'un projet repris, à partir de celui que propose l'analyse (ou du modèle choisi) :
- * aucun fichier à personnaliser, seuls les contrôles ajoutés par la reprise exigés, pas de chart, et
- * l'apparence choisie par le PO. Lève une erreur si la description de l'aperçu est invalide.
- */
-/**
  * Projet sans écran (script, traitement de données…) : l'aperçu sert simplement les fichiers du
  * projet (README, résultats), pour que le projet entre quand même dans ADA. python3 est présent
  * dans les images d'aperçu d'ADA (node:24-bookworm comme python:3.13-slim).
@@ -64,6 +59,11 @@ function completerApercu(apercu: unknown): Record<string, unknown> {
   return sansCommande ? { ...actuel, ...APERCU_SANS_ECRAN } : actuel;
 }
 
+/**
+ * ada.json d'un projet repris, à partir de celui que propose l'analyse (ou du modèle choisi) :
+ * aucun fichier à personnaliser, seuls les contrôles ajoutés par la reprise exigés, pas de chart, et
+ * l'apparence choisie par le PO. Lève une erreur si la description de l'aperçu est invalide.
+ */
 export function adaJsonReprise(brut: unknown, dsfr = false): string {
   const base = typeof brut === 'string' ? (JSON.parse(brut) as unknown) : brut;
   if (!base || typeof base !== 'object' || Array.isArray(base)) throw new Error('ada.json absent');
