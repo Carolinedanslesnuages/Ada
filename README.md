@@ -59,14 +59,18 @@ Toutes trois ont un effet de bord : elles ne se lancent que **sur demande explic
 | ADR-0001 « Choix de la stack » | Garde la trace des choix techniques |
 | Modèles d'issues (story, bug) et de PR | Même format que l'interface web |
 | `GET /__version__` (contrat `repo-version-json`) | Savoir quelle version tourne |
+| Formulaires de story et de signalement, contrôle du titre des PR | Les demandes s'écrivent au même format, les versions se calculent seules |
+| Contrôle « Taille des fichiers » (`taille-fichiers.yml`) | Un fichier, une responsabilité : 400 lignes non vides au plus (600 pour un test) |
+| Protection de `main` (posée par l'interface web) | Rien n'entre sans PR ni contrôles verts |
 
 ## Utiliser
 
 **Avec VS Code** : ouvrir `ada.code-workspace`, puis dans le panneau de l'assistant :
 `/po-projet-nouveau`, `/po-story …`, `/po-bug …`. Guide d'utilisation : [GUIDE-PO.md](GUIDE-PO.md).
 
-**Avec l'interface web** (`interface/`, dépôt séparé) : connexion GitHub, stories et
-signalements à gauche, aperçu du produit à droite.
+**Avec l'interface web** (`interface/`, dans ce dépôt) : connexion GitHub, stories et
+signalements à gauche, aperçu du produit à droite. **Installer et lancer ADA pas à pas :**
+[interface/README.md](interface/README.md#installer-et-lancer-ada-pas-à-pas).
 
 **Ailleurs** : les skills sont dans `skills/po/` ; des liens les exposent dans `.claude/skills/`
 et `.agents/skills/`. Pour les installer pour tous ses projets : lier chaque dossier de
@@ -87,6 +91,8 @@ mécanismes : la CI et la protection de `main` restent le vrai filet.
 node scripts/verifier-skills.mjs
 node scripts/skills-index.mjs --check
 ```
+Après un changement de consigne de l'agent, de modèle ou de skill : banc d'essai,
+[scripts/banc-agent/README.md](scripts/banc-agent/README.md) (il consomme des appels à l'agent : pas dans la CI).
 
 ## Sources
 
