@@ -21,6 +21,10 @@ Il faut : **ce qui se passe**, **ce qui devrait se passer**, **comment le reprod
 Une demande de nouveauté déguisée (« il faudrait aussi… ») → c'est une story : `po-story`.
 
 ## 2. Hypothèses — avant de toucher au code
+D'abord les faits : lire le message d'erreur **en entier** (pile d'appels, fichier, ligne) et regarder
+ce qui a changé récemment (`git log`, `git diff`, dépendance, configuration). Un bug apparu juste après
+une fusion s'explique souvent ainsi. Si le problème traverse plusieurs couches (écran → API → base),
+noter ce qui **entre et sort de chaque couche** pour voir où ça casse, avant de conclure.
 Écrire **deux ou trois hypothèses de cause** distinctes, chacune avec l'indice qui la
 soutient et la vérification qui la départagerait. Plus un **plan B** si aucune ne tient.
 Les vérifier dans l'ordre du moins coûteux, sans modifier le code.
@@ -42,6 +46,8 @@ codes de retour, anti-fuite, accessibilité si un écran a changé).
 ## 6. Livraison
 - Fiche `revues/<branche>.md` (modèle de `po-story`), avec en plus : hypothèses écartées,
   cause retenue, test qui la prouve.
+- Rejouer le scénario **tel que le PO l'a décrit** : c'est la preuve que le bug est corrigé,
+  pas seulement le test écrit. Pas de « devrait marcher » ni « probablement » : constaté, ou pas dit.
 - Commit `fix: <ce qui est corrigé, du point de vue de l'utilisateur>` (`Fixes #<n>`).
 - Proposer de pousser et d'ouvrir la PR ; **ne jamais fusionner soi-même**.
 
