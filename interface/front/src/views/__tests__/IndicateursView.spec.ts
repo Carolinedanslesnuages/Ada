@@ -31,7 +31,14 @@ const EMPREINTE: EmpreinteAda = {
     { projet: 'secret-santa', empreinte: { energieWh: { min: 20, max: 50 }, co2g: { min: 8, max: 20 }, tokensSortie: 2000, tokensEntree: 100000 } },
   ],
   depuis: '2026-11-18T10:00:00Z',
-  equivalents: { streamingHeureG: 64, voitureKmG: 142.25 },
+  equivalents: {
+    streamingHeureG: 64,
+    voitureKmG: 142.25,
+    rechercheWebG: 1.23,
+    tgvAllerRetourParisMarseilleG: 4400,
+    avionAllerRetourParisNewYorkG: 2_060_000,
+    ampouleLedW: 10,
+  },
   hypotheses: { electriciteGCo2ParKwh: 384, modeles: { opus: { totalMilliards: 2000, actifsMilliards: { min: 200, max: 600 }, source: 'EcoLogits, estimation pour Claude 3 Opus' } } },
 }
 
@@ -132,6 +139,8 @@ describe('Mise en forme des indicateurs', () => {
     expect(section.text()).toContain('48 à 115 g CO2e')
     expect(section.text()).toContain('0,75 à 1,8 h de streaming vidéo')
     expect(section.text()).toContain('en voiture thermique')
+    expect(section.text()).toContain('une ampoule LED de 10 W allumée')
+    expect(section.text()).toContain('hypothèse d’ADA')
     expect(section.text()).toContain('gladys')
     expect(section.text()).toContain('EcoLogits')
     expect(section.text()).toContain('Anthropic ne publie ni la taille de ses modèles')

@@ -80,12 +80,23 @@ const TOKENS_PAR_SECONDE = 40;
 /** Électricité aux États-Unis (centres de données d'Anthropic) : Ember 2024, source d'Our World in Data. */
 export const G_CO2_PAR_KWH = 384;
 
-/** Équivalents officiels de l'ADEME (Impact CO2, cycle de vie complet). */
+/**
+ * Équivalents officiels de l'ADEME (Impact CO2, cycle de vie complet, valeurs relues le 2026-11-19),
+ * sauf `ampouleLedW`, hypothèse d'ADA (pas de l'ADEME) : une puissance, pour traduire une énergie.
+ */
 export const EQUIVALENTS = {
   /** Une heure de streaming vidéo (thématique « Usage numérique »). */
   streamingHeureG: 64,
   /** Un kilomètre en voiture thermique (thématique « Transport »). */
   voitureKmG: 142.25,
+  /** Une recherche web (thématique « Usage numérique »). */
+  rechercheWebG: 1.23,
+  /** Un aller-retour Paris–Marseille en TGV (« Cas pratiques »). */
+  tgvAllerRetourParisMarseilleG: 4400,
+  /** Un aller-retour Paris–New York en avion, par personne (« Cas pratiques »). */
+  avionAllerRetourParisNewYorkG: 2_060_000,
+  /** Hypothèse d'ADA : puissance d'une ampoule LED, pour dire « une ampoule allumée pendant… ». */
+  ampouleLedW: 10,
 };
 
 function hypothese(modele: string): HypotheseModele {
