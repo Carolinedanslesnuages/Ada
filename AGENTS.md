@@ -60,4 +60,7 @@ node scripts/verifier-skills.mjs        # invariants des SKILL.md
 node scripts/skills-index.mjs --check   # catalogues à jour (sans --check pour régénérer)
 node scripts/verifier-modele.mjs <id>   # un modèle de catalogue/ passe tous ses contrôles
 ```
+Si tu changes une **consigne de l'agent, le modèle ou une skill**, rejoue le banc d'essai (il coûte des
+appels à l'agent : pas dans la CI) : `scripts/banc-agent/README.md`.
+
 Livraison : branche dédiée, PR, messages Conventional Commits (release-please).
