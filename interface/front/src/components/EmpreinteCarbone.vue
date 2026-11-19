@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { enStreaming, enVoiture, formaterCo2, formaterEnergie, type EmpreinteAda } from '@/lib/empreinte'
+import { enAmpoule, equivalentsParlants, formaterCo2, formaterEnergie, type EmpreinteAda } from '@/lib/empreinte'
 
 /**
  * Empreinte carbone estimée de l'usage d'ADA : en fourchette, avec des équivalents officiels de
@@ -11,9 +11,11 @@ const props = defineProps<{ empreinte: EmpreinteAda }>()
 const ouvert = ref(-1)
 const entetes = ['Projet', 'Émissions estimées', 'Soit']
 const lignes = computed(() =>
-  props.empreinte.parProjet.map(({ projet, empreinte }) => [projet, formaterCo2(empreinte.co2g), enStreaming(empreinte.co2g, props.empreinte.equivalents.streamingHeureG)]),
+  props.empreinte.parProjet.map(({ projet, empreinte }) => [projet, formaterCo2(empreinte.co2g), equivalentsParlants(empreinte.co2g, props.empreinte.equivalents)[0]]),
 )
+const parlants = computed(() => equivalentsParlants(props.empreinte.total.co2g, props.empreinte.equivalents))
 const depuis = computed(() => (props.empreinte.depuis ? new Date(props.empreinte.depuis).toLocaleDateString('fr-FR', { dateStyle: 'long' }) : null))
+const nombreFr = (valeur: number) => valeur.toLocaleString('fr-FR', { maximumFractionDigits: 1 })
 const opus = computed(() => props.empreinte.hypotheses.modeles.opus)
 </script>
 
@@ -27,11 +29,11 @@ const opus = computed(() => props.empreinte.hypotheses.modeles.opus)
       <div class="empreinte__carte">
         <p class="empreinte__valeur">{{ formaterCo2(empreinte.total.co2g) }}</p>
         <p class="fr-mb-1w">
-          soit <strong>{{ enStreaming(empreinte.total.co2g, empreinte.equivalents.streamingHeureG) }}</strong>, ou
-          <strong>{{ enVoiture(empreinte.total.co2g, empreinte.equivalents.voitureKmG) }}</strong>
+          soit <strong>{{ parlants[0] }}</strong>, ou
+          <strong>{{ parlants[1] }}</strong>
         </p>
         <p class="fr-text--sm fr-mb-0">
-          Électricité : {{ formaterEnergie(empreinte.total.energieWh) }}<span v-if="depuis">, depuis le {{ depuis }}</span>.
+          Électricité : {{ formaterEnergie(empreinte.total.energieWh) }}, soit {{ enAmpoule(empreinte.total.energieWh, empreinte.equivalents.ampouleLedW) }}<span v-if="depuis">, depuis le {{ depuis }}</span>.
           Estimation en fourchette : la taille des modèles n’est pas publiée.
         </p>
       </div>
@@ -54,7 +56,14 @@ const opus = computed(() => props.empreinte.hypotheses.modeles.opus)
             <li>Électricité aux États-Unis, où sont les serveurs : {{ empreinte.hypotheses.electriciteGCo2ParKwh }} g CO2e par kWh (Ember 2024, repris par Our World in Data).</li>
             <li>
               Équivalents de l’ADEME (<a href="https://impactco2.fr" target="_blank" rel="noopener">Impact CO2<span class="fr-sr-only"> (nouvelle fenêtre)</span></a>) :
-              {{ empreinte.equivalents.streamingHeureG }} g par heure de streaming vidéo, {{ Math.round(empreinte.equivalents.voitureKmG) }} g par km en voiture thermique.
+              {{ empreinte.equivalents.rechercheWebG }} g par recherche web, {{ empreinte.equivalents.streamingHeureG }} g par heure de streaming vidéo,
+              {{ Math.round(empreinte.equivalents.voitureKmG) }} g par km en voiture thermique,
+              {{ nombreFr(empreinte.equivalents.tgvAllerRetourParisMarseilleG / 1000) }} kg pour un aller-retour Paris–Marseille en TGV,
+              {{ Math.round(empreinte.equivalents.avionAllerRetourParisNewYorkG / 1000) }} kg pour un aller-retour Paris–New York en avion.
+              ADA choisit les deux comparaisons les plus parlantes selon la taille du total.
+            </li>
+            <li>
+              L’ampoule traduit l’électricité consommée, pas le CO2 : c’est une hypothèse d’ADA (ampoule LED de {{ empreinte.equivalents.ampouleLedW }} W), pas un chiffre de l’ADEME.
             </li>
           </ul>
           <p class="fr-text--sm fr-mb-1w"><strong>Limites</strong></p>

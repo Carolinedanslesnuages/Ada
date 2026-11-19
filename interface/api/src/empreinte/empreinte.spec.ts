@@ -36,7 +36,14 @@ describe('Empreinte carbone (méthode EcoLogits, équivalents ADEME)', () => {
   });
 
   it('équivalents officiels de l’ADEME (Impact CO2)', () => {
-    expect(EQUIVALENTS).toEqual({ streamingHeureG: 64, voitureKmG: 142.25 });
+    expect(EQUIVALENTS).toEqual({
+      streamingHeureG: 64,
+      voitureKmG: 142.25,
+      rechercheWebG: 1.23,
+      tgvAllerRetourParisMarseilleG: 4400,
+      avionAllerRetourParisNewYorkG: 2_060_000,
+      ampouleLedW: 10,
+    });
   });
 
   it('journal : une ligne par exécution, sans contenu, relu et additionné', async () => {
