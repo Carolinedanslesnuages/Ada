@@ -8,9 +8,8 @@ import {
 } from '@nestjs/common';
 import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import type { Octokit } from '@octokit/rest';
 import { ApercuService, type Executer } from '../apercu/apercu.service.js';
@@ -19,8 +18,8 @@ import { decrireErreurGithub, traduireErreurGithub } from '../github/erreurs.js'
 import { GithubService } from '../github/github.service.js';
 import { lireAdaConfig, type AdaConfig } from '../ada/ada-config.js';
 import { catalogue, FAMILLES, TYPES, type Modele } from './modeles.js';
-import { personnaliser, validerProjet, type ValeursProjet } from './projet.js';
-import { formaterPrompt, LABEL_LIBRE, MARQUEUR_LANCEMENT, STATUTS, titrePrompt } from '../stories/story.js';
+import { validerProjet } from './projet.js';
+import { creerDepotVide, enregistrerIdee, pousserModele } from './creation-depot.js';
 import { identifiantProjet } from './depot.js';
 import { ProtectionMain, type Protection } from './protection-main.js';
 import { autoriserReleasePlease, imposerSquash, poserLabels } from './reglages-depot.js';
@@ -259,7 +258,7 @@ export class ProjetsService {
         depot = existant;
         await gh.repos.update({ owner, repo: slug, description, private: projet.visibilite === 'prive' });
       } else {
-        depot = await this.creerDepotVide(gh, slug, description, projet.visibilite === 'prive');
+        depot = await creerDepotVide(gh, slug, description, projet.visibilite === 'prive', (message) => this.journal.warn(message));
         await gh.repos.replaceAllTopics({ owner, repo: slug, names: [TOPIC_CREATION] });
       }
       // Réglages AVANT le premier push : ce push déclenche la CI et release-please.
@@ -267,7 +266,7 @@ export class ProjetsService {
       versionsAutomatiques = await autoriserReleasePlease(gh, owner, slug, (message) => this.journal.warn(message));
       // Chart de déploiement : seulement si le PO prévoit de déployer le projet.
       const exclus = configModele.deploiement && !projet.deploye ? [configModele.deploiement.chart] : [];
-      await this.pousserModele(jeton, login, slug, dossierModele, configModele.personnaliser, exclus, {
+      await pousserModele({ executer: this.executer, env: this.apercu.environnementGit(jeton), url: this.urlDepot(login, slug) }, login, dossierModele, configModele.personnaliser, exclus, {
         nom: projet.nom,
         baseline: projet.baseline,
         slug,
@@ -282,7 +281,7 @@ export class ProjetsService {
       if (e instanceof ForbiddenException) throw e;
       traduireErreurGithub(e);
     }
-    const idee = projet.idee ? await this.enregistrerIdee(gh, owner, slug, projet.idee, login) : null;
+    const idee = projet.idee ? await enregistrerIdee(gh, owner, slug, projet.idee, login, (message) => this.journal.warn(message)) : null;
 
     const base = `https://github.com/${owner}/${slug}/settings`;
     return {
@@ -295,27 +294,6 @@ export class ProjetsService {
     };
   }
 
-  /**
-   * L'idée racontée à la création devient la première demande libre du projet, lancée aussitôt (#68) :
-   * l'assistant pose ses questions puis propose l'objectif et les premières stories (découpage),
-   * que le PO valide. Un échec ici ne défait pas la création : le PO pourra « Prompter » son idée.
-   */
-  private async enregistrerIdee(gh: Octokit, owner: string, repo: string, idee: string, login: string): Promise<number | null> {
-    try {
-      const { data } = await gh.issues.create({
-        owner,
-        repo,
-        title: titrePrompt(idee),
-        body: formaterPrompt(idee),
-        labels: [LABEL_LIBRE, STATUTS['en-cours']],
-      });
-      await gh.issues.createComment({ owner, repo, issue_number: data.number, body: `${MARQUEUR_LANCEMENT} par ${login} (idée de départ du projet).` });
-      return data.number;
-    } catch (e) {
-      this.journal.warn(`Idée de départ non enregistrée dans ${owner}/${repo} : ${decrireErreurGithub(e)}`);
-      return null;
-    }
-  }
 
   /**
    * Création d'ADA restée en chemin : topic provisoire, ou (ancienne méthode) dépôt généré depuis
@@ -327,80 +305,10 @@ export class ProjetsService {
     return topics.includes(TOPIC_CREATION) || (depot.template_repository?.name ?? '').startsWith('modele-');
   }
 
-  /** Dépôt vide sur le compte de la personne connectée, privé ou public selon son choix. */
-  private async creerDepotVide(gh: Octokit, slug: string, description: string, prive: boolean): Promise<DepotGithub> {
-    const parametres = { name: slug, description, private: prive, auto_init: false };
-    try {
-      const { data } = await gh.repos.createForAuthenticatedUser(parametres);
-      return data;
-    } catch (e) {
-      if (statut(e) === 404 || statut(e) === 403) {
-        this.journal.warn(`Création de dépôt refusée : ${decrireErreurGithub(e)}`);
-        throw new ForbiddenException(
-          'L’application GitHub d’ADA ne peut pas créer de dépôt sur votre compte. ' +
-            'Installez-la sur votre compte GitHub (page de l’application → Install → votre compte → « All repositories »), ' +
-            'ou, si elle l’est déjà, acceptez les permissions demandées s’il y a une demande en attente.',
-        );
-      }
-      throw e;
-    }
-  }
 
   /** Adresse git du dépôt d'un projet (remplaçable en test par un dépôt local). */
   urlDepot = (owner: string, repo: string) => `https://github.com/${owner}/${repo}.git`;
 
-  /**
-   * Copie du modèle (fichiers suivis par git uniquement : ni node_modules ni secrets locaux),
-   * marqueurs remplacés, un seul commit au nom du PO. Sans différence (reprise), rien n'est poussé.
-   */
-  private async pousserModele(
-    jeton: string,
-    login: string,
-    slug: string,
-    dossierModele: string,
-    aPersonnaliser: string[],
-    exclus: string[],
-    valeurs: ValeursProjet,
-  ): Promise<void> {
-    const travail = await mkdtemp(join(tmpdir(), 'ada-creation-'));
-    const copie = join(travail, 'depot');
-    const env = this.apercu.environnementGit(jeton);
-    const git = (...args: string[]) => this.executer('git', ['-C', copie, ...args], { env });
-    try {
-      await this.executer('git', ['clone', '--quiet', this.urlDepot(login, slug), copie], { env });
-      await git('symbolic-ref', 'HEAD', 'refs/heads/main');
-      await git('rm', '-r', '-q', '--ignore-unmatch', '--', '.');
-      const { stdout } = await this.executer(
-        'git',
-        ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '.'],
-        { cwd: dossierModele },
-      );
-      const fichiers = stdout
-        .split('\0')
-        .filter(Boolean)
-        .filter((fichier) => !exclus.some((dossier) => fichier === dossier || fichier.startsWith(`${dossier.replace(/\/$/, '')}/`)));
-      if (!fichiers.includes('ada.json')) throw new Error(`Modèle incomplet : ${dossierModele}`);
-      for (const fichier of fichiers) {
-        const cible = join(copie, fichier);
-        await mkdir(dirname(cible), { recursive: true });
-        await copyFile(join(dossierModele, fichier), cible);
-        if (aPersonnaliser.includes(fichier)) {
-          await writeFile(cible, personnaliser(await readFile(cible, 'utf8'), valeurs));
-        }
-      }
-      await git('add', '-A');
-      const { stdout: changements } = await git('status', '--porcelain');
-      if (!changements.trim()) return;
-      await git(
-        '-c', `user.name=${login}`,
-        '-c', `user.email=${login}@users.noreply.github.com`,
-        'commit', '--quiet', '-m', `chore: création du projet ${valeurs.nom}`,
-      );
-      await git('push', '--quiet', 'origin', 'main');
-    } finally {
-      await rm(travail, { recursive: true, force: true });
-    }
-  }
 
   /**
    * Labels dont dépendent les formulaires d'issue (ils ne posent un label que s'il existe) et

@@ -34,7 +34,8 @@ pour un changement local.
 ## Conséquences
 - ADA découpée sans changement de comportement (mêmes tests) : `api/src/agent/` (ordonnanceur,
   verrou, file d'attente, journal, une phase par fichier, outils communs, consignes, lecture des
-  réponses), `projets/protection-main.ts`, `projets/reglages-depot.ts`, `stories/resume-story.ts`,
+  réponses), `projets/protection-main.ts`, `projets/reglages-depot.ts`, `projets/creation-depot.ts`,
+  `stories/resume-story.ts`,
   `stories/droits-auteur.ts`, `stories/decoupage.ts`, deux composants sortis de `FilStory.vue`.
 - Les services restent les points d'entrée (contrôleurs, travailleur) et délèguent à de petites
   classes qu'ils construisent eux-mêmes : l'injection de dépendances Nest n'a pas changé.

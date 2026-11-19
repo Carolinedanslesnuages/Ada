@@ -377,18 +377,17 @@ function envoyer(): void {
         </DsfrAccordion>
         <DsfrAccordion id="pourquoi-github" title="Pourquoi les échanges sont-ils enregistrés sur GitHub ?">
           <p class="fr-text--sm fr-mb-1w">
-            Vos réponses, votre accord sur le plan et les questions d’ADA sont des
+            Vos réponses, votre accord sur le plan et les questions d’ADA sont recopiés en
             commentaires {{ designation }}. C’est un choix volontaire :
           </p>
           <ul class="fr-text--sm">
             <li><strong>Traçabilité</strong> : on sait qui a demandé quoi et qui a validé quel plan, quand. Important quand du code est écrit par une IA.</li>
-            <li><strong>ADA s’en sert</strong> : à chaque reprise, elle relit tout l’échange ; rien ne se perd.</li>
             <li><strong>Un développeur peut reprendre</strong> en cas de blocage : tout le contexte est au même endroit.</li>
             <li><strong>L’historique appartient au projet</strong>, pas à ADA : il reste si l’outil change.</li>
           </ul>
           <p class="fr-text--sm fr-mb-0">
-            N’y écrivez donc rien de confidentiel. Vous pouvez modifier ou supprimer vos commentaires
-            sur GitHub ; ADA en tiendra compte à sa prochaine lecture.
+            N’y écrivez donc rien de confidentiel. ADA garde sa propre trace des échanges : ce qui est
+            écrit ou modifié directement sur GitHub ne lui parvient pas. Pour lui répondre, écrivez ici.
           </p>
         </DsfrAccordion>
       </DsfrAccordionsGroup>
