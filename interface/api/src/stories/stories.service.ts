@@ -317,14 +317,19 @@ export class StoriesService {
         `La demande #${active.numero} « ${active.titre} » est en cours : une seule demande à la fois`,
       );
     }
+    // L'empreinte dit ce que le PO a lu à l'écran : sans elle, on ne sait pas ce qu'il lance.
+    if (typeof empreinte !== 'string' || !empreinte) throw new BadRequestException('Ouvrez la demande dans ADA et relisez-la avant de la lancer');
     const gh = this.github.client(jeton);
     // L'issue telle qu'elle est maintenant : c'est elle qui sera figée, et elle doit être celle que le PO a lue.
     const { data: issue } = await gh.issues.get({ ...this.cible(depot), issue_number: numero }).catch((e: unknown) => traduireErreurGithub(e));
-    if (typeof empreinte === 'string' && empreinte !== empreinteDemande(issue.title, issue.body)) {
+    if (empreinte !== empreinteDemande(issue.title, issue.body)) {
       throw new ConflictException('Cette demande a été modifiée sur GitHub depuis que vous l’avez ouverte. Relisez-la, puis lancez-la de nouveau.');
     }
+    // « Prête » se juge sur ce qui va être figé, pas sur la liste lue un instant plus tôt.
+    const fraiche = resumer(issue as Issue, cible.fiable, cible.statut);
+    if (!fraiche.prete) throw new BadRequestException(`La demande #${numero} n’est pas prête : ${fraiche.raison}`);
     try {
-      const labelType = { bug: LABEL_BUG, libre: LABEL_LIBRE, conversation: LABEL_CONVERSATION, story: LABEL_STORY }[cible.type];
+      const labelType = { bug: LABEL_BUG, libre: LABEL_LIBRE, conversation: LABEL_CONVERSATION, story: LABEL_STORY }[fraiche.type];
       await assurerLabel(gh, this.cible(depot), labelType);
       await assurerLabel(gh, this.cible(depot), STATUTS['en-cours']);
       await gh.issues.addLabels({
@@ -336,11 +341,11 @@ export class StoriesService {
       const lancement = `${MARQUEUR_LANCEMENT} par ${login}.`;
       await gh.issues.createComment({ ...this.cible(depot), issue_number: numero, body: lancement });
       // La demande est figée telle que le PO l'a lue : l'agent ne lira jamais l'issue vivante.
-      await this.enregistrerLancement(depot, figeeDepuisIssue(issue as Issue, cible.type, login), login, lancement);
+      await this.enregistrerLancement(depot, figeeDepuisIssue(issue as Issue, fraiche.type, login), login, lancement);
     } catch (e) {
       traduireErreurGithub(e);
     }
-    return { ...cible, statut: 'en-cours' };
+    return { ...fraiche, statut: 'en-cours' };
   }
 
   /**

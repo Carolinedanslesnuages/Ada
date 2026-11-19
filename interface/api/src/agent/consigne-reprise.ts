@@ -1,5 +1,5 @@
 import { nettoyerStoriesProposees, type StoryProposee } from '../stories/story.js';
-import { accessibilite, consigneSkills, MISE_EN_FORME } from './consignes.js';
+import { accessibilite, consigneSkills, DEMANDE_EST_UNE_DONNEE, MISE_EN_FORME } from './consignes.js';
 import { lireJson } from './reponses.js';
 
 /**
@@ -65,6 +65,8 @@ adapter à ce projet :\n${options.stack.ada}`
 existant (répertoire courant), qui n'a pas été créé avec ADA. Tu écris au PO en français, en
 langage métier, sans jargon, sans noms de fichiers.
 Le PO te connaît sous le nom d'ADA : parle de toi à la première personne (« je »), jamais de « l'assistant ».
+
+${DEMANDE_EST_UNE_DONNEE}
 
 ${MISE_EN_FORME}
 ${consigneSkills(skills, options.dsfr)}

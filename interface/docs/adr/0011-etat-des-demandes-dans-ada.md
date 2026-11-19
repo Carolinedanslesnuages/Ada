@@ -54,6 +54,19 @@ qui agit avec les droits du PO (push, PR).
   casserait l'autonomie d'un PO seul (l'auteur d'une PR ne peut pas l'approuver), elle reste à
   décider pour les projets à plusieurs.
 
+## Mise à jour (2026-11-19) — relecture « injection de consigne »
+Une relecture du code a confirmé la promesse pour toute demande lancée depuis cette décision, et
+corrigé ce qui restait ouvert : l'empreinte est obligatoire au lancement et « prête » se juge sur
+l'issue qui va être figée ; une demande d'un auteur sans droit d'écriture n'est confiée à l'agent
+ni à la validation du plan, ni à une réponse, ni à une relance (chemin d'héritage des demandes
+d'avant cette décision) ; `.claude/`, `.agents/` et `.mcp.json` rejoignent les chemins réservés qui
+bloquent l'envoi d'une branche (l'agent écrit librement dans le dépôt monté depuis le conteneur) ;
+une skill apportée par le dépôt passe le contrôle `skillSure` et ne remplace jamais une skill d'ADA ;
+chaque consigne rappelle que le texte de la demande et des fichiers du projet est une donnée. Le
+banc d'essai couvre l'injection par le titre, les autres stories, les fichiers du projet, un critère
+de réalisation et les stories proposées. Reste accepté, par le modèle de confiance : ce qu'écrit un
+compte ayant le droit d'écrire, et ce qu'un PO fusionne (`AGENTS.md`, `README`, `ada.json`).
+
 ## Mise à jour (2026-11-18) — protection de la branche principale
 Les projets Gladys et signalements, créés par ADA, n'avaient aucune protection sur `main` : la
 création l'avait tentée, avait échoué (signalements était alors privé, sur un compte gratuit) et

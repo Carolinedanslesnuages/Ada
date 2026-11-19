@@ -58,14 +58,15 @@ describe('Store des stories', () => {
     expect(store.active?.numero).toBe(2)
   })
 
-  it('lance une story puis relit la liste et la story', async () => {
+  it('lance une story puis relit la liste et la story ; sans demande ouverte, la relit d’abord pour en avoir l’empreinte', async () => {
     const store = useStoriesStore()
     envoyer.mockResolvedValue(resume(2, { statut: 'en-cours' }))
     lire.mockImplementation(async (chemin: string) =>
-      chemin.endsWith('/stories') ? [resume(2, { statut: 'en-cours' })] : detail(2, { statut: 'en-cours' }),
+      chemin.endsWith('/stories') ? [resume(2, { statut: 'en-cours' })] : detail(2, { statut: 'en-cours', empreinte: 'lue-avant-le-lancement' }),
     )
     await store.lancer('mon-poc', 2)
-    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/2/lancer', {})
+    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/2/lancer', { empreinte: 'lue-avant-le-lancement' })
+    expect(lire.mock.invocationCallOrder[0]).toBeLessThan(envoyer.mock.invocationCallOrder[0]!)
     expect(store.liste[0]?.statut).toBe('en-cours')
     expect(store.courante?.statut).toBe('en-cours')
     expect(store.erreurLancement).toBeNull()

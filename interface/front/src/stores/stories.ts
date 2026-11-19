@@ -69,9 +69,10 @@ export const useStoriesStore = defineStore('stories', () => {
 
   async function lancer(projet: string, numero: number): Promise<void> {
     erreurLancement.value = null
-    // Ce que le PO a sous les yeux : ADA refuse de lancer si l'issue a été modifiée sur GitHub depuis.
-    const empreinte = courante.value?.numero === numero ? courante.value.empreinte : undefined
     try {
+      // Ce que le PO a sous les yeux : ADA refuse de lancer sans cette empreinte, ou si l'issue a été modifiée sur GitHub depuis.
+      if (courante.value?.numero !== numero) await ouvrir(projet, numero)
+      const empreinte = courante.value?.empreinte
       await api.envoyer<ResumeStory>(`${chemin(projet)}/${numero}/lancer`, { empreinte })
       await charger(projet, true)
       await ouvrir(projet, numero)

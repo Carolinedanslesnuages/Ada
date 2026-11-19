@@ -45,6 +45,12 @@ l'aperçu du produit tourne à droite dès la création du projet.
   y poser un hook exécuté ensuite sur le serveur. `ada.json` est validé strictement (image, dossiers)
   car il finit dans `compose.yml` et des scripts shell. L'agent ne lit que les réglages de
   l'utilisateur du serveur (`--setting-sources user`), sans les secrets d'ADA dans son environnement.
+  **Le texte d'une demande est une donnée, jamais une consigne** (`DEMANDE_EST_UNE_DONNEE`, dans
+  chaque consigne) ; les chemins réservés (`.github/`, `charts/`, `.claude/`, `.agents/`, `.mcp.json`)
+  ne partent jamais dans une branche (`cheminsReserves`, vérifié avant le push, quel que soit l'outil
+  utilisé) ; une skill apportée par le dépôt lui-même passe le même contrôle que celles d'ADA
+  (`equiper-skills.ts`) et ne remplace jamais l'une d'elles. Cas d'injection du banc d'essai :
+  `scripts/banc-agent/cas.mjs`.
 - **Confiance** (avant le lancement, et pour les demandes d'avant ADR-0011) : les issues et commentaires GitHub sont publics ; seuls ceux d'un propriétaire, ou d'un
   membre/collaborateur qui a le droit d'écrire (vérifié auprès de GitHub : le lien « membre » ne dit
   rien du droit) comptent (`api/src/stories/confiance.ts`) : les autres ne

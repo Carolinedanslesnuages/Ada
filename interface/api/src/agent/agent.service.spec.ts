@@ -241,6 +241,22 @@ describe('AgentService', () => {
     });
   });
 
+  describe('une demande d’un auteur sans droit d’écriture n’est jamais confiée à l’agent', () => {
+    const inconnue = (statutDemande: string) => ({ ...detailEssai(statutDemande), fiable: false, raison: 'elle a été écrite par inconnu, qui n’a pas le droit d’écrire dans le projet' });
+
+    it('ni à la validation du plan, ni à une réponse, ni à une relance : rien n’est écrit', async () => {
+      stories.detail.mockResolvedValueOnce(inconnue('plan-a-valider'));
+      await expect(service.validerPlan(JETON, 'po1', 'poc', 1)).rejects.toThrow(/écrite par inconnu/);
+      stories.detail.mockResolvedValueOnce(inconnue('questions'));
+      await expect(service.reprendreAnalyse(JETON, 'poc', 1, 'Ma réponse')).rejects.toThrow(ConflictException);
+      stories.detail.mockResolvedValueOnce(inconnue('besoin-dev'));
+      await expect(service.relancer(JETON, 'po1', 'poc', 1)).rejects.toThrow(ConflictException);
+      expect(stories.repondre).not.toHaveBeenCalled();
+      expect(stories.changerStatut).not.toHaveBeenCalled();
+      expect(lancer).not.toHaveBeenCalled();
+    });
+  });
+
   describe('rien n’est écrit dans GitHub si ADA ne peut pas démarrer', () => {
     it('refuse la validation du plan quand ADA travaille déjà : ni commentaire ni statut changés', async () => {
       let libere: ((code: number) => void) | null = null;

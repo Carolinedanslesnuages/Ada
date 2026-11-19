@@ -7,7 +7,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import type { Config } from '../config.js';
 import type { GithubService } from '../github/github.service.js';
 import { MARQUEUR_ASSISTANT, StoriesService } from './stories.service.js';
-import { ajouterDecoupage, cocherEnfant, formaterStory, lireParent, lireStory, texteDecoupage } from './story.js';
+import { ajouterDecoupage, cocherEnfant, empreinteDemande, formaterStory, lireParent, lireStory, texteDecoupage } from './story.js';
 
 const config = { GITHUB_PROPRIETAIRE: 'proprio' } as Config;
 
@@ -42,6 +42,9 @@ const issue = (numero: number, extra: Record<string, unknown> = {}) => ({
   user: { login: 'po' },
   ...extra,
 });
+
+/** Ce que le PO a lu à l'écran pour la story n° 2 (telle que `issue(2)` la décrit). */
+const EMPREINTE_2 = empreinteDemande(issue(2).title, issue(2).body);
 
 describe('StoriesService', () => {
   const gh = {
@@ -130,7 +133,7 @@ describe('StoriesService', () => {
     depot([issue(1), issue(2)]);
     gh.issues.get.mockResolvedValue({ data: issue(2) });
     gh.issues.getLabel.mockRejectedValue({ status: 404 });
-    const lancee = await service.lancer('jeton', 'poc', 2, 'po1');
+    const lancee = await service.lancer('jeton', 'poc', 2, 'po1', EMPREINTE_2);
     expect(gh.issues.createLabel).toHaveBeenCalledWith(expect.objectContaining({ name: 'user-story' }));
     expect(gh.issues.createLabel).toHaveBeenCalledWith(expect.objectContaining({ name: 'story:en-cours' }));
     expect(gh.issues.addLabels).toHaveBeenCalledWith(
@@ -145,7 +148,7 @@ describe('StoriesService', () => {
   it('relance une demande mise en attente : elle repasse « en cours », sans le label d’attente', async () => {
     depot([issue(2, { labels: [{ name: 'user-story' }, { name: 'story:en-attente' }] })]);
     gh.issues.get.mockResolvedValue({ data: issue(2) });
-    const relancee = await service.lancer('jeton', 'poc', 2, 'po1');
+    const relancee = await service.lancer('jeton', 'poc', 2, 'po1', EMPREINTE_2);
     expect(gh.issues.addLabels).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 2, labels: ['user-story', 'story:en-cours'] }));
     expect(gh.issues.removeLabel).toHaveBeenCalledWith(expect.objectContaining({ issue_number: 2, name: 'story:en-attente' }));
     expect(relancee.statut).toBe('en-cours');
@@ -154,7 +157,7 @@ describe('StoriesService', () => {
   it('une demande en attente n’empêche pas d’en lancer une autre', async () => {
     depot([issue(1, { labels: [{ name: 'user-story' }, { name: 'story:en-attente' }] }), issue(2)]);
     gh.issues.get.mockResolvedValue({ data: issue(2) });
-    await expect(service.lancer('jeton', 'poc', 2, 'po1')).resolves.toMatchObject({ statut: 'en-cours' });
+    await expect(service.lancer('jeton', 'poc', 2, 'po1', EMPREINTE_2)).resolves.toMatchObject({ statut: 'en-cours' });
   });
 
   it('conversation : le premier message devient une issue « mode-conversation », lancée', async () => {
@@ -174,12 +177,12 @@ describe('StoriesService', () => {
 
   it('une conversation qui attend le PO occupe le projet', async () => {
     depot([issue(1, { labels: [{ name: 'mode-conversation' }, { name: 'story:conversation' }] }), issue(2)]);
-    await expect(service.lancer('jeton', 'poc', 2, 'po1')).rejects.toThrow(/#1 .* est en cours/);
+    await expect(service.lancer('jeton', 'poc', 2, 'po1', EMPREINTE_2)).rejects.toThrow(/#1 .* est en cours/);
   });
 
   it('refuse d’en lancer une deuxième tant qu’une autre est en cours', async () => {
     depot([issue(1, { labels: [{ name: 'user-story' }, { name: 'story:questions' }] }), issue(2)]);
-    await expect(service.lancer('jeton', 'poc', 2, 'po1')).rejects.toThrow(/#1 .* est en cours : une seule demande à la fois/);
+    await expect(service.lancer('jeton', 'poc', 2, 'po1', EMPREINTE_2)).rejects.toThrow(/#1 .* est en cours : une seule demande à la fois/);
     expect(gh.issues.addLabels).not.toHaveBeenCalled();
   });
 
@@ -307,7 +310,7 @@ describe('StoriesService', () => {
     async function lancerPuisIntervenirSurGithub(sur: { corps?: string; labels?: string[]; commentaires?: unknown[] } = {}) {
       depot([issue(2)]);
       gh.issues.get.mockResolvedValue({ data: issue(2) });
-      await service.lancer('jeton', 'poc', 2, 'po1');
+      await service.lancer('jeton', 'poc', 2, 'po1', EMPREINTE_2);
       gh.issues.get.mockResolvedValue({
         data: issue(2, { ...(sur.corps ? { body: sur.corps } : {}), labels: (sur.labels ?? ['user-story', 'story:en-cours']).map((name) => ({ name })) }),
       });
@@ -327,6 +330,25 @@ describe('StoriesService', () => {
       expect(await store.lireStatut('poc', 2)).toBeNull();
     });
 
+    it('refuse de lancer sans empreinte (on ne sait pas ce que le PO a lu), sans rien écrire', async () => {
+      depot([issue(2)]);
+      gh.issues.get.mockResolvedValue({ data: issue(2) });
+      await expect(service.lancer('jeton', 'poc', 2, 'po1')).rejects.toThrow(/Ouvrez la demande dans ADA/);
+      await expect(service.lancer('jeton', 'poc', 2, 'po1', '')).rejects.toBeInstanceOf(BadRequestException);
+      expect(gh.issues.addLabels).not.toHaveBeenCalled();
+      expect(gh.issues.createComment).not.toHaveBeenCalled();
+      expect(await store.lireFigee('poc', 2)).toBeNull();
+    });
+
+    it('juge « prête » sur l’issue qui va être figée, pas sur la liste lue un instant plus tôt', async () => {
+      depot([issue(2)]); // la liste la voit prête (un critère)…
+      const grossie = issue(2, { body: corpsStory(['a', 'b', 'c', 'd', 'e']) }); // … mais elle a grossi, et c'est cette version que le PO a sous les yeux
+      gh.issues.get.mockResolvedValue({ data: grossie });
+      await expect(service.lancer('jeton', 'poc', 2, 'po1', empreinteDemande(grossie.title, grossie.body))).rejects.toThrow(/pas prête : Plus de 4 critères/);
+      expect(gh.issues.addLabels).not.toHaveBeenCalled();
+      expect(await store.lireFigee('poc', 2)).toBeNull();
+    });
+
     it('lance quand la demande est celle que le PO a lue, et fige exactement ce contenu', async () => {
       depot([issue(2)]);
       gh.issues.get.mockResolvedValue({ data: issue(2) });
@@ -338,7 +360,7 @@ describe('StoriesService', () => {
     it('compte les commentaires écrits directement sur GitHub depuis le lancement (ADA ne les lit pas)', async () => {
       depot([issue(2)]);
       gh.issues.get.mockResolvedValue({ data: issue(2) });
-      await service.lancer('jeton', 'poc', 2, 'po1');
+      await service.lancer('jeton', 'poc', 2, 'po1', EMPREINTE_2);
       await service.commenterAssistant('jeton', 'poc', 2, 'Questions d’ADA', 'Quelle date ?');
       // Sur GitHub : le lancement et la question d'ADA (copies du journal), plus 2 commentaires écrits à la main.
       gh.issues.get.mockResolvedValue({ data: issue(2, { comments: 4, labels: [{ name: 'user-story' }, { name: 'story:en-cours' }] }) });
@@ -350,7 +372,7 @@ describe('StoriesService', () => {
     it('fige la demande, le statut et le journal au lancement', async () => {
       depot([issue(2)]);
       gh.issues.get.mockResolvedValue({ data: issue(2) });
-      await service.lancer('jeton', 'poc', 2, 'po1');
+      await service.lancer('jeton', 'poc', 2, 'po1', EMPREINTE_2);
       expect(await store.lireFigee('poc', 2)).toMatchObject({ numero: 2, titre: 'Story 2', type: 'story', lanceePar: 'po1', contenu: { besoin: 'voir ma journée', criteres: ['un critère'] } });
       expect(await store.lireStatut('poc', 2)).toBe('en-cours');
       expect((await store.messages('poc', 2)).map((message) => message.texte)).toEqual(['▶️ Lancée depuis ADA par po1.']);
