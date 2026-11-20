@@ -121,7 +121,8 @@ function referentielRgaa(index: string | null): string {
   return `
 
 Référentiel RGAA complet (DINUM) — tu dois respecter TOUS ces critères. Pour les tests détaillés
-d'un thème, ouvre docs/accessibilite/rgaa-4.1.2/<thème>.md dans le projet s'il existe.
+d'un thème, ouvre ressources/accessibilite/rgaa-4.1.2/<thème>.md dans le projet
+(docs/accessibilite/rgaa-4.1.2/ dans les projets plus anciens) s'il existe.
 
 ${index}`;
 }

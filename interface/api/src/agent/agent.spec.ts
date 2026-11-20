@@ -54,7 +54,7 @@ describe('Consignes données à l’agent', () => {
     for (const consigne of [consigneAnalyse(demande, index), consigneRealisation(demande, 'story/1-x', index)]) {
       expect(consigne).toContain('tu dois respecter TOUS ces critères');
       expect(consigne).toContain('**11.1** Chaque champ de formulaire a-t-il une étiquette ?');
-      expect(consigne).toContain('docs/accessibilite/rgaa-4.1.2/');
+      expect(consigne).toContain('ressources/accessibilite/rgaa-4.1.2/');
     }
     expect(consigneAnalyse(demande)).not.toContain('Référentiel RGAA complet');
   });
