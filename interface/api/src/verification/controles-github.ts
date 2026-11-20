@@ -1,5 +1,5 @@
 import type { Octokit } from '@octokit/rest';
-import { estNonLance, etatControles, executionDepuisLien, type CheckRun, type Controle } from './verification.js';
+import { derniereExecution, estNonLance, etatControles, executionDepuisLien, type CheckRun, type Controle } from './verification.js';
 
 /**
  * Contrôles exigés d'un commit, en distinguant un vrai échec d'un contrôle que GitHub a refusé de
@@ -11,7 +11,7 @@ export async function lireControles(gh: Octokit, owner: string, repo: string, sh
   const controles = etatControles(runs, requis);
   return Promise.all(
     controles.map(async (controle) => {
-      const run = runs.filter((r) => r.name === controle.nom).at(-1);
+      const run = derniereExecution(runs, controle.nom);
       if (controle.etat !== 'echec' || !run?.id) return controle;
       const { data: annotations } = await gh.checks.listAnnotations({ owner, repo, check_run_id: run.id }).catch(() => ({ data: [] }));
       return estNonLance(annotations.map((annotation) => annotation.message ?? '')) ? { ...controle, etat: 'non-lance' as const } : controle;

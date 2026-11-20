@@ -18,12 +18,23 @@ export interface Verification {
   raison: string | null;
 }
 
-export type CheckRun = { id?: number; name: string; status: string; conclusion: string | null; html_url?: string | null };
+export type CheckRun = { id?: number; name: string; status: string; conclusion: string | null; html_url?: string | null; started_at?: string | null };
+
+/**
+ * La plus récente exécution d'un contrôle. GitHub renvoie les « check runs » du plus récent au plus
+ * ancien, et un contrôle relancé en a plusieurs : on compare la date de démarrage, puis l'identifiant.
+ */
+export function derniereExecution(runs: CheckRun[], nom: string): CheckRun | undefined {
+  return runs
+    .filter((run) => run.name === nom)
+    .sort((a, b) => (a.started_at ?? '').localeCompare(b.started_at ?? '') || (a.id ?? 0) - (b.id ?? 0))
+    .at(-1);
+}
 
 /** État des contrôles exigés, à partir des « check runs » GitHub du dernier commit de la PR. */
 export function etatControles(runs: CheckRun[], requis: string[] = ADA_PAR_DEFAUT.controlesRequis): Controle[] {
   return requis.map((nom) => {
-    const run = runs.filter((r) => r.name === nom).at(-1);
+    const run = derniereExecution(runs, nom);
     if (!run) return { nom, etat: 'en-attente', lien: null };
     if (run.status !== 'completed') return { nom, etat: 'en-cours', lien: run.html_url ?? null };
     const ok = run.conclusion === 'success';

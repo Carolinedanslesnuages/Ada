@@ -13,8 +13,14 @@ describe('Contrôles d’une pull request', () => {
     ]);
   });
 
-  it('retient la dernière exécution d’un contrôle relancé', () => {
-    expect(etatControles([run('API', 'completed', 'failure'), run('API', 'completed', 'success')], ['API'])[0]!.etat).toBe('reussi');
+  it('retient la plus récente exécution d’un contrôle relancé, quel que soit l’ordre de GitHub', () => {
+    const ancienne = { ...run('API', 'completed', 'failure'), id: 1, started_at: '2026-11-20T15:50:47Z' };
+    const relance = { ...run('API', 'completed', 'success'), id: 2, started_at: '2026-11-20T15:57:27Z' };
+    // GitHub liste la plus récente d'abord : c'est l'ordre réel qui faisait garder l'échec.
+    expect(etatControles([relance, ancienne], ['API'])[0]!.etat).toBe('reussi');
+    expect(etatControles([ancienne, relance], ['API'])[0]!.etat).toBe('reussi');
+    // Sans date (anciens tests, faux GitHub) : l'identifiant départage.
+    expect(etatControles([{ ...run('API', 'completed', 'failure'), id: 1 }, { ...run('API', 'completed', 'success'), id: 2 }], ['API'])[0]!.etat).toBe('reussi');
   });
 });
 
