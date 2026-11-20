@@ -80,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        modele: [vue-nest-dsfr, vue-node, vue-fastapi, formulaire, tableau-de-bord, api-nest, api-fastapi, traitement-python, django, vitepress, nuxt, carte, quiz, composant, pwa, extension, maquette]
+        modele: [vue-nest-dsfr, vue-node, vue-node-sans-dsfr, vue-fastapi, formulaire, tableau-de-bord, api-nest, api-fastapi, traitement-python, django, vitepress, nuxt, carte, quiz, composant, pwa, extension, maquette]
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
