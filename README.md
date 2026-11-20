@@ -1,6 +1,6 @@
 # ADA — Atelier de Développement Assisté
 
-<img src="docs/logo/ada-logo-complet.svg" alt="ADA — Atelier de Développement Assisté" width="420">
+![ADA — Atelier de Développement Assisté](docs/logo/ada-logo-complet.svg)
 
 > [!IMPORTANT]
 > **ADA n'est pas un outil officiel.** C'est un POC réalisé à l'initiative du propriétaire de ce
