@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/Carolinedanslesnuages/Ada/compare/v0.3.1...v0.4.0) (2026-11-20)
+
+
+### Features
+
+* **catalogue:** modèle Vue 3 + Node.js sans DSFR ([#118](https://github.com/Carolinedanslesnuages/Ada/issues/118)) ([cb7fc43](https://github.com/Carolinedanslesnuages/Ada/commit/cb7fc4385cf4aff57972cb11e9b6177db82d4c1d))
+
+
+### Bug Fixes
+
+* l'anti-fuite des projets « formulaire » et « vue-node » ignore le jeton d'exemple cité par les skills ([#123](https://github.com/Carolinedanslesnuages/Ada/issues/123)) ([777cc17](https://github.com/Carolinedanslesnuages/Ada/commit/777cc173020dfe3b1c780df8b925debc7c8ee277))
+
 ## [0.3.1](https://github.com/Carolinedanslesnuages/Ada/compare/v0.3.0...v0.3.1) (2026-11-20)
 
 
