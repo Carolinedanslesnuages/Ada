@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/Carolinedanslesnuages/Ada/compare/v0.3.0...v0.3.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* ADA lit la plus récente exécution d'un contrôle GitHub relancé, pas la plus ancienne ([#122](https://github.com/Carolinedanslesnuages/Ada/issues/122)) ([155dc4c](https://github.com/Carolinedanslesnuages/Ada/commit/155dc4c1e42a03d9dc3a5c745c213971d2c38383))
+* le référentiel RGAA d'un projet va dans ressources/, plus dans docs/ ([#119](https://github.com/Carolinedanslesnuages/Ada/issues/119)) ([dc0d0e1](https://github.com/Carolinedanslesnuages/Ada/commit/dc0d0e1a12b9478653ec52d4340972a7e8354933))
+
 ## [0.3.0](https://github.com/Carolinedanslesnuages/ada/compare/v0.2.0...v0.3.0) (2026-11-19)
 
 
