@@ -28,7 +28,7 @@ Objectif : __OBJECTIF__
 
 Vérifié automatiquement : `npm run build && npm run verifier:accessibilite` passe axe-core sur
 chaque page construite (la CI échoue sinon). Le reste se vérifie à la main et se note dans la
-fiche de relecture. Référentiel complet : `docs/accessibilite/rgaa-4.1.2/README.md`.
+fiche de relecture. Référentiel complet : `ressources/accessibilite/rgaa-4.1.2/README.md`.
 
 ## Commandes
 | Action | Commande |
