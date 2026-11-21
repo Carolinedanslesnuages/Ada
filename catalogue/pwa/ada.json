@@ -11,11 +11,13 @@
     "vite.config.ts",
     "src/services/stockage.ts",
     "src/router/index.ts",
-    "src/views/RelevesView.vue", "src/stores/__tests__/releves.spec.ts"
+    "src/views/RelevesView.vue",
+    "src/stores/__tests__/releves.spec.ts"
   ],
   "controlesRequis": [
     "Anti-fuite (gitleaks)",
     "Application mobile (lint, types, tests dont accessibilité, compilation)",
+    "Dépendances (paquet réel, version exacte, licence)",
     "Titre de PR (Conventional Commits, semver)",
     "Taille des fichiers (une responsabilité par fichier)"
   ],

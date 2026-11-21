@@ -6,7 +6,8 @@
 // dossier jetable. Les chemins /app du conteneur deviennent ce dossier.
 // Vérifie d'abord que chaque fichier contenant un repère (__SLUG__, __NOM_PROJET__…) est listé dans
 // « personnaliser » : sinon le repère resterait tel quel dans le projet créé (tests faux).
-// Vérifie aussi qu'aucun fichier ne recopie à l'identique le socle commun (catalogue/socle/).
+// Vérifie aussi qu'aucun fichier ne recopie à l'identique le socle commun (catalogue/socle/), et que
+// les dépendances npm sont en version exacte.
 // Usage : node scripts/verifier-modele.mjs <modèle>      (ex. : vue-nest-dsfr, maquette)
 import { execFileSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -42,6 +43,24 @@ if (doublons.length) {
   process.exit(1)
 }
 console.log(`✔ Aucun doublon du socle commun`)
+// Dépendances npm en version exacte (contrôle « Dépendances » des projets), et « npm install »
+// qui continue d'écrire des versions exactes (.npmrc).
+const VERSION_EXACTE = /^\d+\.\d+\.\d+(-[\w.]+)?$/
+const libres = []
+for (const sousDossier of ada.apercu?.npm ?? []) {
+  const paquet = JSON.parse(readFileSync(join(dossier, sousDossier, 'package.json'), 'utf8'))
+  const dependances = { ...paquet.dependencies, ...paquet.devDependencies, ...paquet.optionalDependencies }
+  for (const [nom, version] of Object.entries(dependances)) {
+    if (!VERSION_EXACTE.test(version)) libres.push(`${join(sousDossier, 'package.json')} : ${nom}@${version}`)
+  }
+  const npmrc = join(dossier, sousDossier, '.npmrc')
+  if (!existsSync(npmrc) || !/^save-exact=true$/m.test(readFileSync(npmrc, 'utf8'))) libres.push(`${join(sousDossier, '.npmrc')} : save-exact=true manquant`)
+}
+if (libres.length) {
+  console.error(`✘ Versions de dépendances non exactes :\n  ${libres.join('\n  ')}`)
+  process.exit(1)
+}
+console.log(`✔ Dépendances en version exacte`)
 // Les contrôles tournent sur le projet tel qu'un PO le reçoit : socle commun, puis le modèle
 // par-dessus (comme à la création), dans un dossier jetable.
 const projet = mkdtempSync(join(tmpdir(), `verifier-${modele}-`))

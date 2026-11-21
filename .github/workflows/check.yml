@@ -29,15 +29,15 @@ jobs:
         run: |
           grep -Eq 'uses: dnum-mi/fabnum-cicd/\.github/workflows/release-app\.yml@[0-9a-f]{40} # v[0-9.]+$' .github/workflows/release-please.yml
           diff -u .github/workflows/release-please.yml catalogue/socle/.github/workflows/release-please.yml
-      - name: Contrôles communs des projets (Constance, épinglée à un SHA), exigés par chaque modèle
+      - name: Contrôles communs des projets (Constance et Madeleine, épinglées à un SHA), exigés par chaque modèle
         run: |
-          for workflow in titre-pr taille-fichiers anti-fuite; do
-            grep -Eq 'uses: Carolinedanslesnuages/constance/[a-z-]+@[0-9a-f]{40} # v[0-9.]+$' "catalogue/socle/.github/workflows/$workflow.yml" \
-              || { echo "catalogue/socle/.github/workflows/$workflow.yml : Constance doit être épinglée à un SHA"; exit 1; }
+          for workflow in titre-pr taille-fichiers anti-fuite dependances; do
+            grep -Eq 'uses: Carolinedanslesnuages/(constance/[a-z-]+|madeleine)@[0-9a-f]{40} # v[0-9.]+$' "catalogue/socle/.github/workflows/$workflow.yml" \
+              || { echo "catalogue/socle/.github/workflows/$workflow.yml : l'action doit être épinglée à un SHA"; exit 1; }
           done
           for modele in catalogue/*/; do
             [ "$modele" = catalogue/socle/ ] && continue
-            for controle in 'Anti-fuite (gitleaks)' 'Titre de PR (Conventional Commits, semver)' 'Taille des fichiers (une responsabilité par fichier)'; do
+            for controle in 'Anti-fuite (gitleaks)' 'Dépendances (paquet réel, version exacte, licence)' 'Titre de PR (Conventional Commits, semver)' 'Taille des fichiers (une responsabilité par fichier)'; do
               grep -qF "\"$controle\"" "$modele/ada.json" || { echo "contrôle « $controle » non exigé dans $modele/ada.json"; exit 1; }
             done
           done

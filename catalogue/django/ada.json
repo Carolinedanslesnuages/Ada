@@ -16,6 +16,7 @@
   "controlesRequis": [
     "Anti-fuite (gitleaks)",
     "Application (lint, types, tests)",
+    "Dépendances (paquet réel, version exacte, licence)",
     "Titre de PR (Conventional Commits, semver)",
     "Taille des fichiers (une responsabilité par fichier)"
   ],
