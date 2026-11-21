@@ -49,10 +49,17 @@ export function lireReglages() {
 
 export const lireIndexRgaa = () => readFileSync(join(RACINE, 'skills/po/po-story/references/rgaa-4.1.2/README.md'), 'utf8')
 
-/** Copie jetable d'un modèle du catalogue (sans node_modules), avec les skills reliées comme le fait l'API, et les fichiers du cas (piégés, par exemple). */
+/** Copie le socle commun puis le modèle par-dessus (sans node_modules), comme à la création d'un projet. */
+export function copierModele(modele, dossier) {
+  for (const source of ['socle', modele]) {
+    cpSync(join(RACINE, 'catalogue', source), dossier, { recursive: true, filter: (chemin) => !chemin.includes('node_modules') })
+  }
+}
+
+/** Copie jetable d'un modèle du catalogue, avec les skills reliées comme le fait l'API, et les fichiers du cas (piégés, par exemple). */
 export function projetJetable(modele, skills, fichiers = {}) {
   const dossier = join(mkdtempSync(join(tmpdir(), 'banc-ada-')), 'projet')
-  cpSync(join(RACINE, 'catalogue', modele), dossier, { recursive: true, filter: (source) => !source.includes('node_modules') })
+  copierModele(modele, dossier)
   equiperSkills(dossier, skills)
   ecrireFichiers(dossier, fichiers)
   return dossier

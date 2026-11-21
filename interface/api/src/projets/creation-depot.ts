@@ -1,6 +1,6 @@
 /** Étapes de la création d'un projet sur GitHub : dépôt vide, copie du modèle poussée, idée de départ. */
 import { ForbiddenException } from '@nestjs/common';
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { Octokit } from '@octokit/rest';
@@ -54,15 +54,44 @@ export async function creerDepotVide(gh: Octokit, slug: string, description: str
   }
 }
 
+/** Fichiers suivis par git d'un dossier du catalogue : ni node_modules ni secrets locaux. */
+async function fichiersSuivis(executer: Executer, dossier: string): Promise<string[]> {
+  const { stdout } = await executer('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '.'], { cwd: dossier });
+  return stdout.split('\0').filter(Boolean);
+}
+
 /**
- * Copie du modèle (fichiers suivis par git uniquement : ni node_modules ni secrets locaux),
- * marqueurs remplacés, skills `po-` d'ADA ajoutées, un seul commit au nom du PO. Sans différence
- * (création interrompue puis rejouée), rien n'est poussé.
+ * Fichiers à copier, chemin dans le projet → fichier source : le socle commun d'abord
+ * (`catalogue/socle/`, s'il existe), puis le modèle, qui le remplace fichier par fichier.
+ */
+export async function fichiersDuProjet(executer: Executer, dossiers: DossiersCreation, exclus: string[]): Promise<Map<string, string>> {
+  const sources = new Map<string, string>();
+  for (const dossier of [dossiers.socle, dossiers.modele]) {
+    if (!dossier || !(await existe(dossier))) continue;
+    for (const fichier of await fichiersSuivis(executer, dossier)) sources.set(fichier, join(dossier, fichier));
+  }
+  const estExclu = (fichier: string) => exclus.some((dossier) => fichier === dossier || fichier.startsWith(`${dossier.replace(/\/$/, '')}/`));
+  for (const fichier of sources.keys()) if (estExclu(fichier)) sources.delete(fichier);
+  return sources;
+}
+
+const existe = (chemin: string) => access(chemin).then(() => true, () => false);
+
+/** Dossiers copiés à la création : le socle commun (facultatif) et le modèle choisi. */
+export interface DossiersCreation {
+  socle: string | null;
+  modele: string;
+}
+
+/**
+ * Copie du socle commun puis du modèle (voir `fichiersDuProjet`), marqueurs remplacés, skills
+ * `po-` d'ADA ajoutées, un seul commit au nom du PO. Sans différence (création interrompue puis
+ * rejouée), rien n'est poussé.
  */
 export async function pousserModele(
   outils: { executer: Executer; env: NodeJS.ProcessEnv; url: string },
   login: string,
-  dossierModele: string,
+  dossiers: DossiersCreation,
   aPersonnaliser: string[],
   exclus: string[],
   valeurs: ValeursProjet,
@@ -76,20 +105,12 @@ export async function pousserModele(
     await executer('git', ['clone', '--quiet', outils.url, copie], { env });
     await git('symbolic-ref', 'HEAD', 'refs/heads/main');
     await git('rm', '-r', '-q', '--ignore-unmatch', '--', '.');
-    const { stdout } = await executer(
-      'git',
-      ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '.'],
-      { cwd: dossierModele },
-    );
-    const fichiers = stdout
-      .split('\0')
-      .filter(Boolean)
-      .filter((fichier) => !exclus.some((dossier) => fichier === dossier || fichier.startsWith(`${dossier.replace(/\/$/, '')}/`)));
-    if (!fichiers.includes('ada.json')) throw new Error(`Modèle incomplet : ${dossierModele}`);
-    for (const fichier of fichiers) {
+    const fichiers = await fichiersDuProjet(executer, dossiers, exclus);
+    if (fichiers.get('ada.json') !== join(dossiers.modele, 'ada.json')) throw new Error(`Modèle incomplet : ${dossiers.modele}`);
+    for (const [fichier, source] of fichiers) {
       const cible = join(copie, fichier);
       await mkdir(dirname(cible), { recursive: true });
-      await copyFile(join(dossierModele, fichier), cible);
+      await copyFile(source, cible);
       if (aPersonnaliser.includes(fichier)) {
         await writeFile(cible, personnaliser(await readFile(cible, 'utf8'), valeurs));
       }

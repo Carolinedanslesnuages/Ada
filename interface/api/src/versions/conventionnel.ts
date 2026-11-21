@@ -3,7 +3,7 @@
  * titre d'une PR (fusion en squash) et décide de la prochaine version (semver, via release-please) :
  * `fix` → correctif (0.0.x), `feat` → fonctionnalité (0.x.0), `!` ou `BREAKING CHANGE` →
  * changement incompatible (x.0.0 ; avant 1.0.0, 0.x.0). Les autres types ne créent pas de version.
- * Même règle que le contrôle « Titre de PR » de la CI (catalogue/<modèle>/.github/workflows/titre-pr.yml).
+ * Même règle que le contrôle « Titre de PR » de la CI (catalogue/socle/.github/workflows/titre-pr.yml, action Constance).
  */
 export const TYPES_CONVENTIONNELS = ['feat', 'fix', 'perf', 'refactor', 'docs', 'test', 'build', 'ci', 'chore', 'style', 'revert'] as const;
 

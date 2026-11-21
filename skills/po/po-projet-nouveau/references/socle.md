@@ -1,5 +1,8 @@
 # Socle documentaire et GitHub — toutes les stacks
 
+Dans ADA, les fichiers communs (modèles d'issues, workflows communs, `CLAUDE.md`, référentiel
+RGAA…) vivent une seule fois dans `catalogue/socle/`, copié avant le modèle.
+
 ## 1. `AGENTS.md` (source) et `CLAUDE.md` (import)
 
 Les consignes du projet vivent dans `AGENTS.md`, lu par Codex, OpenCode, Cursor, Copilot,

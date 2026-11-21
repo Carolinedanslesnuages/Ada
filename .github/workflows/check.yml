@@ -25,18 +25,24 @@ jobs:
         run: |
           node scripts/rgaa-generer.mjs ressources/rgaa/4.1.2/criteres.json "$RUNNER_TEMP/rgaa" 4.1.2
           diff -r "$RUNNER_TEMP/rgaa" skills/po/po-story/references/rgaa-4.1.2
-      - name: Versions par le workflow commun fabnum-cicd, épinglé à un SHA, identique dans ADA et chaque modèle
+      - name: Versions par le workflow commun fabnum-cicd, épinglé à un SHA, identique dans ADA et le socle des modèles
         run: |
           grep -Eq 'uses: dnum-mi/fabnum-cicd/\.github/workflows/release-app\.yml@[0-9a-f]{40} # v[0-9.]+$' .github/workflows/release-please.yml
-          for modele in catalogue/*/; do
-            diff -u .github/workflows/release-please.yml "$modele.github/workflows/release-please.yml"
-          done
-      - name: Contrôle « un fichier, une responsabilité » identique dans ADA et chaque modèle
+          diff -u .github/workflows/release-please.yml catalogue/socle/.github/workflows/release-please.yml
+      - name: Contrôles communs des projets (Constance, épinglée à un SHA), exigés par chaque modèle
         run: |
-          for modele in catalogue/*/; do
-            diff -u .github/workflows/taille-fichiers.yml "$modele.github/workflows/taille-fichiers.yml"
-            grep -q '"Taille des fichiers (une responsabilité par fichier)"' "$modele/ada.json" || { echo "contrôle non exigé dans $modele/ada.json"; exit 1; }
+          for workflow in titre-pr taille-fichiers anti-fuite; do
+            grep -Eq 'uses: Carolinedanslesnuages/constance/[a-z-]+@[0-9a-f]{40} # v[0-9.]+$' "catalogue/socle/.github/workflows/$workflow.yml" \
+              || { echo "catalogue/socle/.github/workflows/$workflow.yml : Constance doit être épinglée à un SHA"; exit 1; }
           done
+          for modele in catalogue/*/; do
+            [ "$modele" = catalogue/socle/ ] && continue
+            for controle in 'Anti-fuite (gitleaks)' 'Titre de PR (Conventional Commits, semver)' 'Taille des fichiers (une responsabilité par fichier)'; do
+              grep -qF "\"$controle\"" "$modele/ada.json" || { echo "contrôle « $controle » non exigé dans $modele/ada.json"; exit 1; }
+            done
+          done
+      - name: Référentiel RGAA du socle identique à celui de la skill po-story
+        run: diff -r skills/po/po-story/references/rgaa-4.1.2 catalogue/socle/ressources/accessibilite/rgaa-4.1.2
       - name: Liens .claude/skills et .agents/skills vers chaque skill
         run: |
           for s in skills/po/*/; do

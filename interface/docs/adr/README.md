@@ -14,3 +14,4 @@
 | [0010](0010-reprise-et-proprietaire-par-projet.md) | Reprise d'un projet existant : un propriétaire par projet, une PR de reprise | Accepted | 2026-11-17 |
 | [0011](0011-etat-des-demandes-dans-ada.md) | L'état et la conversation d'une demande vivent dans ADA ; GitHub en reçoit une copie | Accepted | 2026-11-18 |
 | [0012](0012-un-fichier-une-responsabilite.md) | Un fichier, une responsabilité, vérifié en CI dans ADA et dans chaque projet | Accepted | 2026-11-19 |
+| [0013](0013-socle-commun-des-modeles.md) | Un socle commun aux modèles, des contrôles communs fournis par Constance | Accepted | 2026-11-21 |

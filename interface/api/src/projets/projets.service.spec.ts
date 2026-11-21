@@ -49,6 +49,10 @@ const ecrire = (fichier: string, contenu: string) => {
 const preparerCatalogue = () => {
   rmSync(racine, { recursive: true, force: true });
   ecrire(join(dossierCatalogue, '.gitignore'), 'node_modules/\n');
+  // Socle commun : copié avant le modèle, qui peut en remplacer un fichier.
+  ecrire(join(dossierCatalogue, 'socle', 'CLAUDE.md'), '@AGENTS.md');
+  ecrire(join(dossierCatalogue, 'socle', 'version.txt'), 'version du socle');
+  ecrire(join(dossierCatalogue, 'vue-nest-dsfr', 'version.txt'), 'version du modèle');
   ecrire(join(dossierCatalogue, 'vue-nest-dsfr', 'ada.json'), JSON.stringify({ ...ADA_PAR_DEFAUT, personnaliser: ['PROJET.md'] }));
   ecrire(join(dossierCatalogue, 'vue-nest-dsfr', 'PROJET.md'), '# __NOM_PROJET__\n__OBJECTIF__');
   ecrire(join(dossierCatalogue, 'vue-nest-dsfr', 'front', 'src', 'App.vue'), 'sans marqueur __NOM_PROJET__');
@@ -208,7 +212,9 @@ describe('ProjetsService', () => {
     expect(gh.repos.createForAuthenticatedUser).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'l-annuaire', private: true, auto_init: false }),
     );
-    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'PROJET.md', 'ada.json', 'front/src/App.vue']);
+    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'CLAUDE.md', 'PROJET.md', 'ada.json', 'front/src/App.vue', 'version.txt']);
+    expect(lirePousse(distant, 'CLAUDE.md')).toBe('@AGENTS.md');
+    expect(lirePousse(distant, 'version.txt')).toBe('version du modèle');
     expect(lirePousse(distant, 'PROJET.md')).toBe('# L’annuaire\nTrouver un collègue et son bureau.');
     // Les skills po- d'ADA sont livrées avec le projet : dossier commun, et lien relatif pour Claude Code.
     expect(lirePousse(distant, '.agents/skills/po-bug/references/methode.md')).toBe('méthode');
@@ -325,7 +331,9 @@ describe('ProjetsService', () => {
     gh.repos.get.mockResolvedValue({ data: { ...depot('l-annuaire', []), template_repository: { name: 'modele-vue-nest-dsfr' } } });
 
     await service.creer('jeton', 'proprio', projetValide);
-    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'PROJET.md', 'ada.json', 'front/src/App.vue']);
+    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'CLAUDE.md', 'PROJET.md', 'ada.json', 'front/src/App.vue', 'version.txt']);
+    expect(lirePousse(distant, 'CLAUDE.md')).toBe('@AGENTS.md');
+    expect(lirePousse(distant, 'version.txt')).toBe('version du modèle');
     expect(git(distant, 'rev-list', '--count', 'main').trim()).toBe('2');
   });
 
@@ -371,13 +379,13 @@ describe('ProjetsService', () => {
   it('n’ajoute le chart de déploiement que si le PO prévoit de déployer le projet', async () => {
     preparerCreation();
     await service.creer('jeton', 'proprio', { ...projetValide, modele: 'vue-node' });
-    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'Dockerfile', 'ada.json']);
+    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'CLAUDE.md', 'Dockerfile', 'ada.json', 'version.txt']);
   });
 
   it('projet déployé : chart Helm ajouté et personnalisé', async () => {
     preparerCreation();
     await service.creer('jeton', 'proprio', { ...projetValide, modele: 'vue-node', deploye: true });
-    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'Dockerfile', 'ada.json', 'charts/app/Chart.yaml', 'charts/app/templates/deployment.yaml']);
+    expect(fichiersPousses(distant)).toEqual([...SKILLS_LIVREES, 'CLAUDE.md', 'Dockerfile', 'ada.json', 'charts/app/Chart.yaml', 'charts/app/templates/deployment.yaml', 'version.txt']);
     expect(lirePousse(distant, 'charts/app/Chart.yaml')).toBe('name: l-annuaire');
   });
 

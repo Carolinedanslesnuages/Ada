@@ -20,4 +20,6 @@ export default defineNuxtConfig({
   // Le DSFR contient des media queries réservées à Internet Explorer que le minificateur refuse.
   vite: { css: { lightningcss: { errorRecovery: true } } },
   modules: ['@nuxt/test-utils/module'],
+  // La route de version est générée avec les pages, comme un fichier (contrat repo-version-json).
+  nitro: { prerender: { routes: ['/__version__'] } },
 })

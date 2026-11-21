@@ -123,6 +123,11 @@ export class ProjetsService {
       : resolve(import.meta.dirname, '..', '..', '..', '..', 'catalogue');
   }
 
+  /** Socle commun à tous les modèles (`catalogue/socle/`) : copié avant le modèle, qui le complète. */
+  get dossierSocle(): string {
+    return join(this.dossierCatalogue, 'socle');
+  }
+
   /** Dossier `skills/po/` d'ADA : les skills livrées dans chaque projet créé. */
   get dossierSkillsPo(): string {
     return this.config.SKILLS_PO
@@ -273,7 +278,7 @@ export class ProjetsService {
       versionsAutomatiques = await autoriserReleasePlease(gh, owner, slug, (message) => this.journal.warn(message));
       // Chart de déploiement : seulement si le PO prévoit de déployer le projet.
       const exclus = configModele.deploiement && !projet.deploye ? [configModele.deploiement.chart] : [];
-      await pousserModele({ executer: this.executer, env: this.apercu.environnementGit(jeton), url: this.urlDepot(login, slug) }, login, dossierModele, configModele.personnaliser, exclus, {
+      await pousserModele({ executer: this.executer, env: this.apercu.environnementGit(jeton), url: this.urlDepot(login, slug) }, login, { socle: this.dossierSocle, modele: dossierModele }, configModele.personnaliser, exclus, {
         nom: projet.nom,
         baseline: projet.baseline,
         slug,

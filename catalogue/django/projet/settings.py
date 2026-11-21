@@ -95,3 +95,6 @@ STATIC_ROOT = RACINE / "staticfiles"
 
 # Compte de l'aperçu d'ADA (créé par `python manage.py compte_apercu`, jamais commité).
 FICHIER_COMPTE_APERCU = RACINE / ".apercu" / "compte.txt"
+
+# Fichier de version produit dans l'image Docker (contrat repo-version-json) ; absent en local.
+VERSION_JSON = Path(os.environ.get("VERSION_JSON", "/app/version.json"))

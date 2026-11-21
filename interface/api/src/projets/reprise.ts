@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Octokit } from '@octokit/rest';
 import { lireAdaConfig, type AdaConfig } from '../ada/ada-config.js';
+import type { DossiersCreation } from './creation-depot.js';
 
 /**
  * Reprise d'un projet existant (#37, ADR-0010) : règles et écritures GitHub partagées par
@@ -20,7 +21,7 @@ export const TITRE_REPRISE = 'chore: reprise du projet par ADA';
  */
 export const CONTROLE_TITRE = 'Titre de PR (Conventional Commits, semver)';
 export const CONTROLE_TAILLE = 'Taille des fichiers (une responsabilité par fichier)';
-/** Modèle dont viennent les fichiers communs (identiques dans tous les modèles, vérifié en CI). */
+/** Modèle pris à défaut de stack indiquée ; les fichiers communs viennent du socle (`catalogue/socle/`). */
 export const MODELE_REFERENCE = 'vue-node';
 
 /**
@@ -107,11 +108,13 @@ async function existe(gh: Octokit, owner: string, repo: string, path: string): P
 }
 
 /** Fichiers communs absents de main (lus dans `dossierModele`), plus ada.json (toujours proposé). */
-export async function fichiersAApporter(gh: Octokit, owner: string, repo: string, dossierModele: string, adaJson: string): Promise<Map<string, string>> {
+export async function fichiersAApporter(gh: Octokit, owner: string, repo: string, dossiers: DossiersCreation, adaJson: string): Promise<Map<string, string>> {
   const fichiers = new Map<string, string>();
   for (const chemin of FICHIERS_REPRISE) {
     if (await existe(gh, owner, repo, chemin)) continue;
-    fichiers.set(chemin, await readFile(join(dossierModele, chemin), 'utf8'));
+    // Le modèle de la stack indiquée l'emporte (formulaires propres à une API…), sinon le socle commun.
+    const lu = await readFile(join(dossiers.modele, chemin), 'utf8').catch(() => (dossiers.socle ? readFile(join(dossiers.socle, chemin), 'utf8') : Promise.reject(new Error(`${chemin} introuvable`))));
+    fichiers.set(chemin, lu);
   }
   fichiers.set('ada.json', adaJson);
   return fichiers;
