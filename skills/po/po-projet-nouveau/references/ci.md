@@ -27,20 +27,22 @@ jobs:
 
 Règles pour les jobs de la stack :
 - `npm ci` (jamais `npm install`) ; Node 24 via `actions/setup-node@v7.1.0` avec cache npm.
+- Dépendances en **version exacte** : un `.npmrc` (`save-exact=true`) dans chaque dossier qui a un `package.json`.
 - **Lint sans `--fix`** en CI (un script `lint` qui corrige masquerait l'erreur).
 - Aucun service externe ni secret : les tests tournent sans base de données réelle.
 
 ## Contrôles communs — copiés tels quels depuis le socle d'ADA
 
-Les trois workflows de `catalogue/socle/.github/workflows/` d'ADA, sans les modifier. Ils
-utilisent les actions de [Constance](https://github.com/Carolinedanslesnuages/constance),
-épinglées à un SHA :
+Les workflows communs de `catalogue/socle/.github/workflows/` d'ADA, sans les modifier, avec
+`madeleine.json`. Ils utilisent les actions de [Constance](https://github.com/Carolinedanslesnuages/constance)
+et de Madeleine, épinglées à un SHA :
 
 | Fichier | Contrôle requis | Ce qu'il vérifie |
 |---|---|---|
 | `anti-fuite.yml` | « Anti-fuite (gitleaks) » | aucun secret dans les commits (gitleaks, binaire vérifié par empreinte) ; faux positifs dans `.gitleaks.toml` |
 | `titre-pr.yml` | « Titre de PR (Conventional Commits, semver) » | le titre de la PR, qui devient le commit de `main` |
 | `taille-fichiers.yml` | « Taille des fichiers (une responsabilité par fichier) » | au plus 400 lignes non vides par fichier de code, 600 par test ; un fichier déjà plus long est toléré tant qu'il ne grossit pas |
+| `dependances.yml` | « Dépendances (paquet réel, version exacte, licence) » | chaque dépendance npm ajoutée ou modifiée : paquet existant, version exacte et publiée depuis 14 jours, licence acceptée, pas dépréciée ([Madeleine](https://github.com/Carolinedanslesnuages/madeleine)) ; exceptions dans `madeleine.json` |
 
 Découper par responsabilité, jamais une fonction par fichier.
 

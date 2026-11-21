@@ -21,6 +21,7 @@
     "Anti-fuite (gitleaks)",
     "API (lint, types, tests)",
     "Front (lint, types, tests dont accessibilité, compilation)",
+    "Dépendances (paquet réel, version exacte, licence)",
     "Titre de PR (Conventional Commits, semver)",
     "Taille des fichiers (une responsabilité par fichier)"
   ],

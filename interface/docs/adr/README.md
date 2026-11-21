@@ -15,3 +15,4 @@
 | [0011](0011-etat-des-demandes-dans-ada.md) | L'état et la conversation d'une demande vivent dans ADA ; GitHub en reçoit une copie | Accepted | 2026-11-18 |
 | [0012](0012-un-fichier-une-responsabilite.md) | Un fichier, une responsabilité, vérifié en CI dans ADA et dans chaque projet | Accepted | 2026-11-19 |
 | [0013](0013-socle-commun-des-modeles.md) | Un socle commun aux modèles, des contrôles communs fournis par Constance | Accepted | 2026-11-21 |
+| [0014](0014-dependances-en-version-exacte.md) | Dépendances des projets en version exacte, vérifiées par Madeleine | Accepted | 2026-11-22 |
