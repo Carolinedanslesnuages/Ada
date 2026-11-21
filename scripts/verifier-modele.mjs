@@ -5,6 +5,7 @@
 // tests dont accessibilité, compilation). Les chemins /app du conteneur deviennent le dossier du modèle.
 // Vérifie d'abord que chaque fichier contenant un repère (__SLUG__, __NOM_PROJET__…) est listé dans
 // « personnaliser » : sinon le repère resterait tel quel dans le projet créé (tests faux).
+// Vérifie aussi qu'aucun fichier ne recopie à l'identique le socle commun (catalogue/socle/).
 // Usage : node scripts/verifier-modele.mjs <modèle>      (ex. : vue-nest-dsfr, maquette)
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
@@ -28,6 +29,17 @@ if (oublies.length) {
   process.exit(1)
 }
 console.log(`✔ Fichiers à personnaliser : complets`)
+// Le socle commun (catalogue/socle/) est copié avant le modèle : un modèle ne le recopie pas à
+// l'identique (deux copies finissent par diverger), il ne fait que le remplacer quand il diffère.
+const socle = resolve('catalogue', 'socle')
+const doublons = suivis
+  .map((fichier) => relative(dossier, resolve(fichier)))
+  .filter((fichier) => existsSync(join(socle, fichier)) && readFileSync(join(socle, fichier)).equals(readFileSync(join(dossier, fichier))))
+if (doublons.length) {
+  console.error(`✘ Fichiers identiques au socle commun : supprimez-les du modèle (le socle les apporte) :\n  ${doublons.join('\n  ')}`)
+  process.exit(1)
+}
+console.log(`✔ Aucun doublon du socle commun`)
 const venv = join(dossier, '.venv-verification')
 const env = (ada.apercu?.pip ?? []).length ? { ...process.env, VIRTUAL_ENV: venv, PATH: `${join(venv, 'bin')}:${process.env.PATH}` } : process.env
 const executer = (titre, commande, cwd = dossier) => {

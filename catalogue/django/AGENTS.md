@@ -31,6 +31,9 @@ chaque champ de formulaire avec une étiquette visible liée, erreurs écrites e
 utilisable au clavier, jamais d'information par la couleur seule, tableaux avec titre et
 en-têtes. L'administration de Django suit ces règles : ne pas la dégrader.
 
+**Référentiel complet** (DINUM, RGAA 4.1.2, 106 critères et leurs tests) :
+`ressources/accessibilite/rgaa-4.1.2/README.md` pour l'index, puis le fichier du thème concerné.
+
 ## Commandes
 | Action | Commande |
 |---|---|

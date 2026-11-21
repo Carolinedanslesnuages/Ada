@@ -6,12 +6,16 @@ import type { Octokit } from '@octokit/rest';
 import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
 import { adaJsonReprise, APERCU_SANS_ECRAN, BRANCHE_REPRISE, corpsReprise, fichiersAApporter, FICHIERS_REPRISE, ouvrirPrReprise, TITRE_REPRISE } from './reprise.js';
 
-const modele = mkdtempSync(join(tmpdir(), 'ada-test-reprise-'));
-for (const fichier of FICHIERS_REPRISE) {
-  mkdirSync(dirname(join(modele, fichier)), { recursive: true });
-  writeFileSync(join(modele, fichier), `contenu de ${fichier}`);
-}
-afterAll(() => rmSync(modele, { recursive: true, force: true }));
+const catalogue = mkdtempSync(join(tmpdir(), 'ada-test-reprise-'));
+const ecrire = (chemin: string, contenu: string) => {
+  mkdirSync(dirname(chemin), { recursive: true });
+  writeFileSync(chemin, contenu);
+};
+// Le socle porte les fichiers communs ; le modèle n'en remplace qu'un (formulaire propre à une API).
+const dossiers = { socle: join(catalogue, 'socle'), modele: join(catalogue, 'api-nest') };
+for (const fichier of FICHIERS_REPRISE) ecrire(join(dossiers.socle, fichier), `socle : ${fichier}`);
+ecrire(join(dossiers.modele, '.github/ISSUE_TEMPLATE/user-story.yml'), 'modèle : story d’API');
+afterAll(() => rmSync(catalogue, { recursive: true, force: true }));
 const absent = () => Object.assign(new Error('absent'), { status: 404 });
 
 describe('reprise : règles et écritures GitHub (#37)', () => {
@@ -39,9 +43,11 @@ describe('reprise : règles et écritures GitHub (#37)', () => {
       if (path === '.github/ISSUE_TEMPLATE/bug.yml') return { data: {} };
       throw absent();
     });
-    const fichiers = await fichiersAApporter(octokit, 'un-po', 'mon-poc', modele, '{}');
+    const fichiers = await fichiersAApporter(octokit, 'un-po', 'mon-poc', dossiers, '{}');
     expect([...fichiers.keys()]).not.toContain('.github/ISSUE_TEMPLATE/bug.yml');
     expect([...fichiers.keys()]).toEqual(expect.arrayContaining(['.github/ISSUE_TEMPLATE/user-story.yml', '.github/workflows/titre-pr.yml', '.github/workflows/taille-fichiers.yml', 'ada.json']));
+    expect(fichiers.get('.github/ISSUE_TEMPLATE/user-story.yml')).toBe('modèle : story d’API');
+    expect(fichiers.get('.github/workflows/titre-pr.yml')).toBe('socle : .github/workflows/titre-pr.yml');
   });
 
   it('un commit au nom du PO sur ada/reprise, puis une PR vers main, sans toucher main', async () => {

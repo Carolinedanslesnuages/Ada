@@ -8,11 +8,11 @@
 //   --a-blanc     construit les consignes sans appeler l'agent ni Docker (aucun coût)
 // Demande Docker. Une exécution dure environ une minute (jusqu'à plusieurs pour un écran complexe).
 import { execFileSync } from 'node:child_process'
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { CAS_REALISATION } from './cas.mjs'
-import { RACINE, chargerApi, ecrireFichiers, equiperSkills, lancerAgent, lireIndexRgaa, lireReglages, moyenne } from './commun.mjs'
+import { RACINE, chargerApi, copierModele, ecrireFichiers, equiperSkills, lancerAgent, lireIndexRgaa, lireReglages, moyenne } from './commun.mjs'
 
 const api = await chargerApi()
 const { consigneRealisation, lireResultat, brancheDe, cheminsReserves } = api.agent
@@ -42,7 +42,7 @@ const racine = mkdtempSync(join(tmpdir(), 'banc-ada-real-'))
 const depot = join(racine, 'depot')
 const compose = join(racine, 'compose.yml')
 const nomCompose = `banc-ada-${Date.now().toString(36)}`
-cpSync(join(RACINE, 'catalogue/pwa'), depot, { recursive: true, filter: (source) => !source.includes('node_modules') })
+copierModele('pwa', depot)
 writeFileSync(join(racine, 'demarrer.sh'), `#!/usr/bin/env bash
 set -euo pipefail
 mkdir -p /app/node_modules /home/node/.npm

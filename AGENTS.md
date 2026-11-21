@@ -21,6 +21,7 @@ skills/<groupe>/index.json         catalogue GÉNÉRÉ : node scripts/skills-ind
 .claude/skills/<skill>             lien vers skills/po/<skill> (Claude Code)
 .agents/skills/<skill>             lien vers skills/po/<skill> (Codex, OpenCode, Cursor, Copilot, Gemini CLI)
 scripts/                           vérification des skills, des modèles et génération des catalogues
+catalogue/socle/                   fichiers communs à tous les projets, copiés AVANT le modèle (ADR-0013)
 catalogue/<modele>/                modèles de projet (copiés à la création d'un projet, décrits par ada.json)
 projets/                           projets des PO (un dépôt git chacun, hors de ce dépôt)
 interface/                         interface web PO (API NestJS, front Vue ; même dépôt)

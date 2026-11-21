@@ -49,7 +49,7 @@ export async function phaseReprise(outils: OutilsPhase, projets: ProjetsService,
   await outils.noter(depot, numero, 'Ouvre la pull request de reprise');
   const { owner, repo } = lireIdentifiant(depot, outils.config.GITHUB_PROPRIETAIRE);
   const gh = outils.github.client(jeton);
-  const fichiers = await fichiersAApporter(gh, owner, repo, dossierModele, adaJson);
+  const fichiers = await fichiersAApporter(gh, owner, repo, { socle: projets.dossierSocle, modele: dossierModele }, adaJson);
   const analyseUrl = `https://github.com/${owner}/${repo}/issues/${numero}`;
   const pr = await ouvrirPrReprise(gh, { owner, repo, login }, fichiers, corpsReprise({ stack: stack?.libelle ?? null, fichiers: [...fichiers.keys()], login, dsfr, analyse: analyseUrl }));
   const suite = `**Pull request de reprise** : ${pr}\nFusionnez-la sur GitHub : le projet apparaîtra alors dans ADA.`;

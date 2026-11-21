@@ -72,7 +72,7 @@ Toute autre exception : **interdite sans développeur**. Un vrai secret ne s'ajo
 
 ## 4. Anti-fuite en CI
 
-Le job `secrets` de `references/ci.md` (binaire gitleaks épinglé et vérifié par empreinte).
+Le workflow `anti-fuite.yml` de `references/ci.md` (Constance : binaire gitleaks épinglé et vérifié par empreinte).
 C'est lui qui fait foi : un poste sans pre-commit ne contourne pas la CI.
 
 ## Interdits

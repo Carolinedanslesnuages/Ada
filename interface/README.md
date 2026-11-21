@@ -140,7 +140,8 @@ clé, jamais dans le dépôt), puis lance `claude`. Le nom du modèle va dans `A
 
 Aucun dépôt modèle à créer sur GitHub : les modèles de projet vivent dans ce dépôt, dans
 `catalogue/<modèle>/` (voir `docs/adr/0006`). Un type de projet n'est proposé à l'utilisateur que si son
-dossier est livré avec son `ada.json`.
+dossier est livré avec son `ada.json`. Les fichiers communs à tous les projets sont dans
+`catalogue/socle/`, copié avant le modèle (voir `docs/adr/0013`).
 
 En cas de doute, une fois connecté : `http://localhost:5180/api/diagnostic` montre
 l'installation (`all` / `selected`), les permissions accordées et les modèles disponibles,

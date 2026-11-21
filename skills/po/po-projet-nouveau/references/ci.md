@@ -22,21 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  secrets:
-    name: Anti-fuite (gitleaks)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7.0.1
-        with:
-          fetch-depth: 0
-      - name: gitleaks 8.30.1 (binaire vérifié)
-        run: |
-          curl -sSfL -o gitleaks.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
-          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tgz" | sha256sum -c -
-          tar -xzf gitleaks.tgz gitleaks
-          ./gitleaks git --redact --verbose .
-
-  # + les jobs de la stack (section « CI » du fichier de stack)
+  # les jobs de la stack (section « CI » du fichier de stack)
 ```
 
 Règles pour les jobs de la stack :
@@ -44,15 +30,21 @@ Règles pour les jobs de la stack :
 - **Lint sans `--fix`** en CI (un script `lint` qui corrige masquerait l'erreur).
 - Aucun service externe ni secret : les tests tournent sans base de données réelle.
 
-## `.github/workflows/taille-fichiers.yml` — un fichier, une responsabilité
+## Contrôles communs — copiés tels quels depuis le socle d'ADA
 
-Copié **tel quel** depuis ADA (`.github/workflows/taille-fichiers.yml`, identique dans chaque
-modèle) ; contrôle requis « Taille des fichiers (une responsabilité par fichier) ». Sur chaque PR,
-un fichier de code ajouté ou modifié ne dépasse pas 400 lignes non vides (600 pour un test) ; un
-fichier déjà plus long est toléré tant qu'il ne grossit pas. Découper par responsabilité, jamais
-une fonction par fichier.
+Les trois workflows de `catalogue/socle/.github/workflows/` d'ADA, sans les modifier. Ils
+utilisent les actions de [Constance](https://github.com/Carolinedanslesnuages/constance),
+épinglées à un SHA :
 
-Valider le fichier avant de commiter (si Docker est disponible) :
+| Fichier | Contrôle requis | Ce qu'il vérifie |
+|---|---|---|
+| `anti-fuite.yml` | « Anti-fuite (gitleaks) » | aucun secret dans les commits (gitleaks, binaire vérifié par empreinte) ; faux positifs dans `.gitleaks.toml` |
+| `titre-pr.yml` | « Titre de PR (Conventional Commits, semver) » | le titre de la PR, qui devient le commit de `main` |
+| `taille-fichiers.yml` | « Taille des fichiers (une responsabilité par fichier) » | au plus 400 lignes non vides par fichier de code, 600 par test ; un fichier déjà plus long est toléré tant qu'il ne grossit pas |
+
+Découper par responsabilité, jamais une fonction par fichier.
+
+Valider les fichiers avant de commiter (si Docker est disponible) :
 `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12`
 
 ## Protection de `main` — à dire au PO quand le dépôt est sur GitHub
