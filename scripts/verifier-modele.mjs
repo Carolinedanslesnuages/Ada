@@ -2,14 +2,16 @@
 // Vérifie un modèle du catalogue comme le ferait son propre projet : installation des dépendances
 // (npm ci ; pour Python : environnement virtuel .venv-verification et pip) dans chaque dossier
 // déclaré par ada.json, puis chacun de ses contrôles (lint, types,
-// tests dont accessibilité, compilation). Les chemins /app du conteneur deviennent le dossier du modèle.
+// tests dont accessibilité, compilation), sur le projet assemblé (socle commun puis modèle) dans un
+// dossier jetable. Les chemins /app du conteneur deviennent ce dossier.
 // Vérifie d'abord que chaque fichier contenant un repère (__SLUG__, __NOM_PROJET__…) est listé dans
 // « personnaliser » : sinon le repère resterait tel quel dans le projet créé (tests faux).
 // Vérifie aussi qu'aucun fichier ne recopie à l'identique le socle commun (catalogue/socle/).
 // Usage : node scripts/verifier-modele.mjs <modèle>      (ex. : vue-nest-dsfr, maquette)
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join, relative, resolve } from 'node:path'
 
 const modele = process.argv[2]
 const dossier = resolve('catalogue', modele ?? '')
@@ -40,23 +42,37 @@ if (doublons.length) {
   process.exit(1)
 }
 console.log(`✔ Aucun doublon du socle commun`)
-const venv = join(dossier, '.venv-verification')
+// Les contrôles tournent sur le projet tel qu'un PO le reçoit : socle commun, puis le modèle
+// par-dessus (comme à la création), dans un dossier jetable.
+const projet = mkdtempSync(join(tmpdir(), `verifier-${modele}-`))
+const fichiersDe = (source) => execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '.'], { cwd: source, encoding: 'utf8' }).split('\0').filter(Boolean)
+for (const source of [socle, dossier]) {
+  for (const fichier of fichiersDe(source)) {
+    mkdirSync(dirname(join(projet, fichier)), { recursive: true })
+    copyFileSync(join(source, fichier), join(projet, fichier))
+  }
+}
+const venv = join(projet, '.venv-verification')
 const env = (ada.apercu?.pip ?? []).length ? { ...process.env, VIRTUAL_ENV: venv, PATH: `${join(venv, 'bin')}:${process.env.PATH}` } : process.env
-const executer = (titre, commande, cwd = dossier) => {
+const executer = (titre, commande, cwd = projet) => {
   console.log(`\n▶ ${titre}`)
   execFileSync('bash', ['-euo', 'pipefail', '-c', commande], { cwd, stdio: 'inherit', env })
 }
-if ((ada.apercu?.pip ?? []).length && !existsSync(join(venv, 'bin', 'python'))) {
-  executer('environnement Python', `python3 -m venv ${JSON.stringify(venv)}`)
+try {
+  if ((ada.apercu?.pip ?? []).length) executer('environnement Python', `python3 -m venv ${JSON.stringify(venv)}`)
+  for (const sousDossier of ada.apercu?.pip ?? []) {
+    const fichier = existsSync(join(projet, sousDossier, 'requirements-dev.txt')) ? 'requirements-dev.txt' : 'requirements.txt'
+    executer(`installation Python (${sousDossier})`, `pip install --quiet --disable-pip-version-check -r ${fichier}`, join(projet, sousDossier))
+  }
+  for (const sousDossier of ada.apercu?.npm ?? []) {
+    executer(`installation (${sousDossier})`, 'npm ci --no-audit --no-fund', join(projet, sousDossier))
+  }
+  for (const controle of ada.controles) {
+    executer(controle, controle.replaceAll('/app', projet))
+  }
+} catch {
+  console.error(`\n✘ Modèle ${modele} : un contrôle échoue (projet assemblé conservé pour enquête : ${projet})`)
+  process.exit(1)
 }
-for (const sousDossier of ada.apercu?.pip ?? []) {
-  const fichier = existsSync(join(dossier, sousDossier, 'requirements-dev.txt')) ? 'requirements-dev.txt' : 'requirements.txt'
-  executer(`installation Python (${sousDossier})`, `pip install --quiet --disable-pip-version-check -r ${fichier}`, join(dossier, sousDossier))
-}
-for (const sousDossier of ada.apercu?.npm ?? []) {
-  executer(`installation (${sousDossier})`, 'npm ci --no-audit --no-fund', join(dossier, sousDossier))
-}
-for (const controle of ada.controles) {
-  executer(controle, controle.replaceAll('/app', dossier))
-}
+rmSync(projet, { recursive: true, force: true })
 console.log(`\n✔ Modèle ${modele} : tous les contrôles passent`)
