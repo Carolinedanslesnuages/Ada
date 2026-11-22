@@ -7,10 +7,14 @@
 <style>
 body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 48rem; padding: 0 1rem; color: #161616; }
 a { color: #000091; }
+/* Lien d'évitement (RGAA 12.7) : premier élément atteint au clavier, visible quand il a le focus. */
+.evitement { position: absolute; left: -999rem; }
+.evitement:focus { position: static; display: inline-block; margin-bottom: 1rem; }
 </style>
 </head>
 <body>
-<main>
+<a class="evitement" href="#contenu">Aller au contenu</a>
+<main id="contenu" tabindex="-1">
 <h1>__NOM_PROJET__</h1>
 <p>__OBJECTIF__</p>
 <p><a href="{% url 'admin:index' %}">Ouvrir l’administration</a> : listes, fiches, recherche et droits.</p>

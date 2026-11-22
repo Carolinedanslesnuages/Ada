@@ -32,3 +32,23 @@ jobs:
         run: npm run build
       - name: Accessibilité de chaque page construite (axe-core)
         run: npm run verifier:accessibilite
+
+  accessibilite:
+    name: Accessibilité RGAA (pages construites)
+    # Ubuntu 24.04 : le Playwright d'Emmanuelle ne prend pas encore en charge Ubuntu 26.04.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build
+      # Lien d'évitement, focus visible, 320 px, zoom, espacement du texte, axe-core : chaque constat
+      # rangé par critère du RGAA. Défauts connus et justifiés : .emmanuelle-reference.json.
+      - uses: Carolinedanslesnuages/emmanuelle@f7aba12b7a19e2a96f8ae2936539676beccfdc13 # v1.0.0
+        with:
+          dossier: site/.vitepress/dist
+          pages: "/ /guide/demarrer.html /guide/ecrire-une-page.html"

@@ -17,6 +17,9 @@ class AccueilTests(TestCase):
         self.assertIn('<html lang="fr">', page)
         self.assertEqual(page.count("<h1>"), 1)
         self.assertIn('href="/admin/"', page)
+        # Lien d'évitement (RGAA 12.7) : avant le contenu, vers la zone principale.
+        self.assertLess(page.index('href="#contenu"'), page.index("<main"))
+        self.assertIn('<main id="contenu"', page)
 
     def test_administration_demande_une_connexion(self) -> None:
         reponse = self.client.get("/admin/")

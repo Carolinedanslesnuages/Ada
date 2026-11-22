@@ -30,3 +30,27 @@ jobs:
       - name: Migrations à jour (aucun modèle modifié sans migration)
         run: python manage.py makemigrations --check --dry-run
       - run: python manage.py test
+
+  accessibilite:
+    name: Accessibilité RGAA (pages construites)
+    # Ubuntu 24.04 : le Playwright d'Emmanuelle ne prend pas encore en charge Ubuntu 26.04.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements.txt
+      # Pages rendues par le serveur : l'application tourne le temps de la vérification.
+      - name: Application lancée
+        run: |
+          python manage.py migrate --verbosity 0
+          python manage.py runserver 8000 > /dev/null 2>&1 &
+          for _ in $(seq 1 30); do curl -sf http://localhost:8000/ > /dev/null && exit 0; sleep 1; done
+          exit 1
+      # Lien d'évitement, focus visible, 320 px, zoom, espacement du texte, axe-core : chaque constat
+      # rangé par critère du RGAA. Défauts connus et justifiés : .emmanuelle-reference.json.
+      - uses: Carolinedanslesnuages/emmanuelle@f7aba12b7a19e2a96f8ae2936539676beccfdc13 # v1.0.0
+        with:
+          url: http://localhost:8000
+          pages: "/ /admin/login/"

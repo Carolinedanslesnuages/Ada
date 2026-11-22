@@ -34,7 +34,7 @@ const lignes = computed(() =>
 
 <template>
   <h1>Réponses</h1>
-  <DsfrAlert v-if="erreur" type="error" title="Réponses indisponibles" :description="erreur" />
+  <DsfrAlert v-if="erreur" type="error" title="Réponses indisponibles" title-tag="h2" :description="erreur" />
   <p v-else-if="reponses === null" role="status">Chargement des réponses…</p>
   <template v-else>
     <p role="status">{{ reponses.length }} réponse(s) reçue(s).</p>

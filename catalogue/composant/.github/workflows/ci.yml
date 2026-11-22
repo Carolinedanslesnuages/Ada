@@ -29,3 +29,28 @@ jobs:
       - run: npm run type-check
       - run: npm run test:unit -- --run
       - run: npm run build-only
+
+  accessibilite:
+    name: Accessibilité RGAA (pages construites)
+    # Ubuntu 24.04 : le Playwright d'Emmanuelle ne prend pas encore en charge Ubuntu 26.04.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      # Pas de page dans le fichier construit : on vérifie la page de démonstration (index.html).
+      - name: Page de démonstration
+        run: |
+          npx vite --port 5173 --strictPort > /dev/null 2>&1 &
+          for _ in $(seq 1 30); do curl -sf http://localhost:5173/ > /dev/null && exit 0; sleep 1; done
+          exit 1
+      # Lien d'évitement, focus visible, 320 px, zoom, espacement du texte, axe-core : chaque constat
+      # rangé par critère du RGAA. Défauts connus et justifiés : .emmanuelle-reference.json.
+      - uses: Carolinedanslesnuages/emmanuelle@f7aba12b7a19e2a96f8ae2936539676beccfdc13 # v1.0.0
+        with:
+          url: http://localhost:5173
+          pages: "/"
