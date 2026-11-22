@@ -6,6 +6,11 @@ import { useSessionStore } from '@/stores/session'
 const session = useSessionStore()
 const router = useRouter()
 const logoText = ['République', 'Française']
+// Liens d'évitement (RGAA 12.7) : premiers éléments atteints au clavier.
+const liensEvitement = [
+  { id: 'contenu', text: 'Contenu' },
+  { id: 'pied-de-page', text: 'Pied de page' },
+]
 
 async function deconnecter(): Promise<void> {
   await session.deconnecter()
@@ -24,6 +29,7 @@ const liensRapides = computed(() =>
 </script>
 
 <template>
+  <DsfrSkipLinks :links="liensEvitement" />
   <DsfrHeader
     service-title="Atelier de Développement Assisté"
     :logo-text="logoText"
@@ -33,8 +39,8 @@ const liensRapides = computed(() =>
     home-to="/"
     :quick-links="liensRapides"
   />
-  <main id="contenu" class="fr-container--fluid fr-px-4w fr-my-4w">
+  <main id="contenu" class="fr-container--fluid fr-px-4w fr-my-4w" tabindex="-1">
     <RouterView />
   </main>
-  <DsfrFooter :logo-text="logoText" />
+  <DsfrFooter id="pied-de-page" :logo-text="logoText" />
 </template>

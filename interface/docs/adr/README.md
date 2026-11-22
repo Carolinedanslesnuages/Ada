@@ -17,3 +17,4 @@
 | [0013](0013-socle-commun-des-modeles.md) | Un socle commun aux modèles, des contrôles communs fournis par Constance | Accepted | 2026-11-21 |
 | [0014](0014-dependances-en-version-exacte.md) | Dépendances des projets en version exacte, vérifiées par Madeleine | Accepted | 2026-11-22 |
 | [0015](0015-accessibilite-des-pages-construites.md) | Accessibilité des pages construites, vérifiée par Emmanuelle | Accepted | 2026-11-22 |
+| [0016](0016-ada-utilise-les-controles-de-ses-projets.md) | ADA passe les mêmes contrôles que ses projets | Accepted | 2026-11-22 |
