@@ -11,7 +11,9 @@ n'importe quel agent de code.
 
 `AGENTS.md` contient : l'objectif du projet (une phrase), les sections « Conventions » et
 « Commandes » du fichier de stack, la règle des messages de commit (`release-please.md`), la
-règle Pinia si la stack contient Vue, la section **« Accessibilité (RGAA) — les bases, toujours »**
+règle Pinia si le projet est une application Vue à plusieurs écrans (pas pour un composant à
+intégrer, une documentation VitePress ni un site d'information Nuxt : aucune donnée n'y est
+partagée entre écrans), la section **« Accessibilité (RGAA) — les bases, toujours »**
 (reprendre celle du modèle `catalogue/vue-nest-dsfr/` d'ADA), et : « Aucune donnée réelle, aucun
 secret dans le dépôt ».
 
