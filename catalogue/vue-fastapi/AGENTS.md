@@ -66,7 +66,7 @@ alternative, un champ sans étiquette, un clic sans clavier… et chaque écran 
 En CI, le contrôle **« Accessibilité RGAA (pages construites) »** ouvre les pages dans un vrai
 navigateur : lien d'évitement, focus visible, affichage à 320 px et zoomé, espacement du texte, et
 axe-core, chaque constat rangé par critère du RGAA. Une nouvelle page s'ajoute à la liste `pages:`
-de ce contrôle (`.github/workflows/ci.yml`) quand le site la sert comme un fichier. Un défaut
+de ce contrôle (`.github/workflows/ci.yml`), avec son adresse (ex. `/reservations`). Un défaut
 accepté en connaissance de cause s'inscrit dans `.emmanuelle-reference.json`, jamais pour faire
 passer une PR : on le corrige.
 
