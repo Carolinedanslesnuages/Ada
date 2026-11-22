@@ -31,3 +31,9 @@ un saut de niveau de titre, et un site de documentation qui défile à 320 px.
 - **Négatives** : un job de plus par PR (installation de Chromium) ; tourne sur Ubuntu 24.04 tant
   que le Playwright d'Emmanuelle ne gère pas 26.04.
 - **À surveiller** : les défauts connus, à faire disparaître (Emmanuelle signale ceux corrigés).
+
+## Mise à jour — Emmanuelle v1.1.0 (2026-11-22)
+- Les applications monopages sont servies avec `monopage: "true"` : chaque adresse de `pages:`
+  est vérifiée, plus seulement l'accueil (formulaire : `/` et `/reponses`).
+- Le lien d'évitement masqué de VitePress n'est plus compté comme du texte coupé : sa référence
+  de défauts connus est supprimée.

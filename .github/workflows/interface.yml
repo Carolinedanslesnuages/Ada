@@ -73,7 +73,7 @@ jobs:
           node interface/front/scripts/servir-sans-session.mjs 4173 > /dev/null 2>&1 &
           for _ in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ > /dev/null && exit 0; sleep 1; done
           exit 1
-      - uses: Carolinedanslesnuages/emmanuelle@f7aba12b7a19e2a96f8ae2936539676beccfdc13 # v1.0.0
+      - uses: Carolinedanslesnuages/emmanuelle@dd6ac2e0319b7f8b13c61d1af6b2c810dee0f485 # v1.1.0
         with:
           url: http://127.0.0.1:4173
           pages: "/connexion"

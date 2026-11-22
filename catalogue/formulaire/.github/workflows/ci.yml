@@ -90,7 +90,9 @@ jobs:
         working-directory: front
       # Lien d'évitement, focus visible, 320 px, zoom, espacement du texte, axe-core : chaque constat
       # rangé par critère du RGAA. Défauts connus et justifiés : .emmanuelle-reference.json.
-      - uses: Carolinedanslesnuages/emmanuelle@f7aba12b7a19e2a96f8ae2936539676beccfdc13 # v1.0.0
+      - uses: Carolinedanslesnuages/emmanuelle@dd6ac2e0319b7f8b13c61d1af6b2c810dee0f485 # v1.1.0
         with:
           dossier: front/dist
-          pages: "/"
+          pages: "/ /reponses"
+          # Application monopage : chaque adresse de la liste reçoit index.html, comme chez l'hébergeur.
+          monopage: "true"
