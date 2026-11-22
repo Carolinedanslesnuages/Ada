@@ -67,6 +67,13 @@ alternative, un champ sans étiquette, un clic sans clavier… et chaque écran 
 (`violationsAccessibilite`). Ces outils couvrent environ un tiers du RGAA : le reste se vérifie
 à la main et se note dans la fiche de relecture (« à vérifier par un humain »).
 
+En CI, le contrôle **« Accessibilité RGAA (pages construites) »** ouvre les pages dans un vrai
+navigateur : lien d'évitement, focus visible, affichage à 320 px et zoomé, espacement du texte, et
+axe-core, chaque constat rangé par critère du RGAA. Une nouvelle page s'ajoute à la liste `pages:`
+de ce contrôle (`.github/workflows/ci.yml`) quand le site la sert comme un fichier. Un défaut
+accepté en connaissance de cause s'inscrit dans `.emmanuelle-reference.json`, jamais pour faire
+passer une PR : on le corrige.
+
 ## Commandes
 | Action | Commande |
 |---|---|

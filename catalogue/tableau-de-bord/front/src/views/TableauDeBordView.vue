@@ -13,7 +13,7 @@ onMounted(() => magasin.charger())
 <template>
   <h1>__NOM_PROJET__</h1>
   <p>Les indicateurs sont calculés à partir des mesures enregistrées (données fictives dans l’aperçu).</p>
-  <DsfrAlert v-if="erreur" type="error" title="Indicateurs indisponibles" :description="erreur" />
+  <DsfrAlert v-if="erreur" type="error" title="Indicateurs indisponibles" title-tag="h2" :description="erreur" />
   <p v-else-if="!tableau" role="status">Chargement des indicateurs…</p>
   <template v-else>
     <h2 class="fr-h4">Chiffres clés</h2>

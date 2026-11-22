@@ -14,6 +14,7 @@
   "controlesRequis": [
     "Anti-fuite (gitleaks)",
     "Site (lint, types, tests dont accessibilité, génération, accessibilité des pages)",
+    "Accessibilité RGAA (pages construites)",
     "Dépendances (paquet réel, version exacte, licence)",
     "Titre de PR (Conventional Commits, semver)",
     "Taille des fichiers (une responsabilité par fichier)"

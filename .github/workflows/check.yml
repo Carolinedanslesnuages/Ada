@@ -41,6 +41,14 @@ jobs:
               grep -qF "\"$controle\"" "$modele/ada.json" || { echo "contrôle « $controle » non exigé dans $modele/ada.json"; exit 1; }
             done
           done
+      - name: Accessibilité des pages construites (Emmanuelle, épinglée à un SHA), exigée là où elle tourne
+        run: |
+          for ci in catalogue/*/.github/workflows/ci.yml; do
+            modele=${ci%/.github/workflows/ci.yml}
+            grep -q 'Carolinedanslesnuages/emmanuelle' "$ci" || continue
+            grep -Eq 'uses: Carolinedanslesnuages/emmanuelle@[0-9a-f]{40} # v[0-9.]+$' "$ci" || { echo "$ci : Emmanuelle doit être épinglée à un SHA"; exit 1; }
+            grep -qF '"Accessibilité RGAA (pages construites)"' "$modele/ada.json" || { echo "contrôle d'accessibilité non exigé dans $modele/ada.json"; exit 1; }
+          done
       - name: Référentiel RGAA du socle identique à celui de la skill po-story
         run: diff -r skills/po/po-story/references/rgaa-4.1.2 catalogue/socle/ressources/accessibilite/rgaa-4.1.2
       - name: Liens .claude/skills et .agents/skills vers chaque skill

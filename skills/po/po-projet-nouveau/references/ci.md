@@ -46,6 +46,10 @@ et de Madeleine, épinglées à un SHA :
 
 Découper par responsabilité, jamais une fonction par fichier.
 
+Projet avec écran : un job « Accessibilité RGAA (pages construites) » dans `ci.yml`, sur
+`ubuntu-24.04`, qui construit le site puis lance [Emmanuelle](https://github.com/Carolinedanslesnuages/emmanuelle)
+(épinglée à un SHA) sur ses pages ; reprendre celui du modèle de la stack dans le catalogue d'ADA.
+
 Valider les fichiers avant de commiter (si Docker est disponible) :
 `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12`
 

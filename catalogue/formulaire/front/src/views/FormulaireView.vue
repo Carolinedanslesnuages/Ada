@@ -46,16 +46,17 @@ const libelleDe = (identifiant: string) =>
 </script>
 
 <template>
-  <DsfrAlert v-if="erreurChargement" type="error" title="Formulaire indisponible" :description="erreurChargement" />
+  <!-- Un titre principal sur chaque état de la page, même si le formulaire n'a pas pu être chargé (RGAA 9.1). -->
+  <h1>{{ formulaire?.titre ?? 'Formulaire' }}</h1>
+  <DsfrAlert v-if="erreurChargement" type="error" title="Formulaire indisponible" title-tag="h2" :description="erreurChargement" />
   <template v-else-if="formulaire">
-    <h1>{{ formulaire.titre }}</h1>
     <p>{{ formulaire.introduction }}</p>
     <DsfrNotice title="Prototype : n’indiquez aucune donnée personnelle réelle." />
 
     <div role="status" class="fr-my-3w">
-      <DsfrAlert v-if="confirmation" type="success" title="Réponse envoyée" :description="confirmation" />
+      <DsfrAlert v-if="confirmation" type="success" title="Réponse envoyée" title-tag="h2" :description="confirmation" />
     </div>
-    <DsfrAlert v-if="erreurEnvoi" type="error" title="Envoi impossible" :description="erreurEnvoi" class="fr-mb-3w" />
+    <DsfrAlert v-if="erreurEnvoi" type="error" title="Envoi impossible" title-tag="h2" :description="erreurEnvoi" class="fr-mb-3w" />
 
     <div
       v-if="Object.keys(erreurs).length > 0"

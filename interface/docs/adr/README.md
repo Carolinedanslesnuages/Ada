@@ -16,3 +16,4 @@
 | [0012](0012-un-fichier-une-responsabilite.md) | Un fichier, une responsabilité, vérifié en CI dans ADA et dans chaque projet | Accepted | 2026-11-19 |
 | [0013](0013-socle-commun-des-modeles.md) | Un socle commun aux modèles, des contrôles communs fournis par Constance | Accepted | 2026-11-21 |
 | [0014](0014-dependances-en-version-exacte.md) | Dépendances des projets en version exacte, vérifiées par Madeleine | Accepted | 2026-11-22 |
+| [0015](0015-accessibilite-des-pages-construites.md) | Accessibilité des pages construites, vérifiée par Emmanuelle | Accepted | 2026-11-22 |

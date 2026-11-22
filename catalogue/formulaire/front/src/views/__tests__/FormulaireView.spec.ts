@@ -33,6 +33,15 @@ describe('Écran du formulaire', () => {
     document.body.innerHTML = ''
   })
 
+  it('serveur injoignable : un titre principal, une alerte au bon niveau, aucune violation', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => new Response('', { status: 503 })))
+    const wrapper = await monter()
+    expect(wrapper.findAll('h1')).toHaveLength(1)
+    expect(wrapper.find('h2').text()).toBe('Formulaire indisponible')
+    expect(await violationsAccessibilite(document.body)).toEqual([])
+    wrapper.unmount()
+  })
+
   it('affiche chaque question avec le composant adapté et signale les champs obligatoires', async () => {
     simulerServeur(() => reponseJson({ id: 1 }, 201))
     const wrapper = await monter()

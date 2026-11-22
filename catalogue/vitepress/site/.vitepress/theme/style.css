@@ -28,3 +28,28 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* À 320 px de large, rien ne défile horizontalement (RGAA 10.11) : le nom du site passe à la
+   ligne au lieu de pousser la recherche et le menu hors de l'écran. */
+@media (max-width: 767px) {
+  .VPNavBar .container > .title {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+  .VPNavBarTitle .title {
+    min-width: 0;
+    white-space: normal;
+    line-height: 1.2;
+  }
+  .VPNavBarTitle .title > span:last-child {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Espacement du texte augmenté par l'utilisateur : les liens du sommaire passent à la ligne au
+   lieu d'être coupés (RGAA 10.12). */
+.VPDocOutlineItem .outline-link {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
