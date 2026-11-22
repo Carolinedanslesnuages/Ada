@@ -15,4 +15,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: Carolinedanslesnuages/madeleine@6146df1632e41257a48c1229c32a83d5fb914f9b # v1.0.0
+      - uses: Carolinedanslesnuages/madeleine@d77cfe5a7d0b96919fad904aa13ddd54e8d91bbb # v1.1.0
