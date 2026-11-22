@@ -51,3 +51,29 @@ jobs:
       - run: npm run type-check
       - run: npm run test:unit -- --run
       - run: npm run build-only
+
+  accessibilite:
+    name: Interface — Accessibilité RGAA (pages construites)
+    # Ubuntu 24.04 : le Playwright d'Emmanuelle ne prend pas encore en charge Ubuntu 26.04.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: interface/front/package-lock.json
+      - run: npm ci
+        working-directory: interface/front
+      - run: npm run build-only
+        working-directory: interface/front
+      # Front construit, servi comme pour une personne non connectée (l'API répond 401).
+      - name: Front servi sans session
+        run: |
+          node interface/front/scripts/servir-sans-session.mjs 4173 > /dev/null 2>&1 &
+          for _ in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ > /dev/null && exit 0; sleep 1; done
+          exit 1
+      - uses: Carolinedanslesnuages/emmanuelle@f7aba12b7a19e2a96f8ae2936539676beccfdc13 # v1.0.0
+        with:
+          url: http://127.0.0.1:4173
+          pages: "/connexion"

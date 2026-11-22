@@ -2,25 +2,17 @@ name: titre-pr
 
 # Fusion en squash : le titre de la PR devient le commit de main, que release-please lit pour
 # choisir la prochaine version (semver). Il doit donc suivre Conventional Commits 1.0.0.
+# Contrôle fourni par Constance, épinglé à une version.
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   titre:
     name: Titre de PR (Conventional Commits, semver)
     runs-on: ubuntu-latest
     steps:
-      - name: feat → 0.x.0 · fix → 0.0.x · « ! » → changement incompatible
-        env:
-          TITRE: ${{ github.event.pull_request.title }}
-        run: |
-          motif='^(feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert)(\([^()[:space:]][^()]*\))?!?: [^[:space:]]'
-          if printf '%s' "$TITRE" | grep -Eq "$motif"; then
-            echo "Titre conforme : $TITRE"
-          else
-            echo "::error title=Titre de PR non conforme::« $TITRE » doit commencer par « feat: », « fix: », « chore: »… (Conventional Commits). Ajouter « ! » avant « : » pour un changement incompatible."
-            exit 1
-          fi
+      - uses: Carolinedanslesnuages/constance/titre-pr@df8fc5f62f37d23bf8189e24c887f1ee6b3c5b97 # v1.2.0
