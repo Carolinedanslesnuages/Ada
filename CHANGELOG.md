@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Carolinedanslesnuages/Ada/compare/v0.4.0...v0.5.0) (2026-11-25)
+
+
+### Features
+
+* « Mon modèle » (modèle de langage par utilisateur) et skills externes livrées en sous-modules ([#132](https://github.com/Carolinedanslesnuages/Ada/issues/132)) ([804c91a](https://github.com/Carolinedanslesnuages/Ada/commit/804c91acaf32ac62e0b84e4f59a0252c4110f040))
+
 ## [0.4.0](https://github.com/Carolinedanslesnuages/Ada/compare/v0.3.1...v0.4.0) (2026-11-25)
 
 
