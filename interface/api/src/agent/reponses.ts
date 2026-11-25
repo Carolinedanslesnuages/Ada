@@ -32,8 +32,10 @@ export function lireReponseConversation(texte: string): string | null {
 export function lireJson<T>(texte: string, accepter: (valeur: Record<string, unknown>) => boolean = () => true): T | null {
   const nettoye = texte.replace(/```(?:json)?/g, '');
   // De la fin vers le début : le JSON final de l'agent, même s'il contient des objets imbriqués
-  // (ses choix) ou si du texte le précède.
-  for (let debut = nettoye.lastIndexOf('{"'); debut >= 0; debut = nettoye.lastIndexOf('{"', debut - 1)) {
+  // (ses choix) ou si du texte le précède. Un objet commence par « { » puis une clé, avec ou sans
+  // retour à la ligne : certains modèles indentent leur JSON.
+  const debuts = [...nettoye.matchAll(/\{\s*"/g)].map((trouve) => trouve.index as number).reverse();
+  for (const debut of debuts) {
     for (let fin = nettoye.lastIndexOf('}'); fin > debut; fin = nettoye.lastIndexOf('}', fin - 1)) {
       try {
         const valeur = JSON.parse(nettoye.slice(debut, fin + 1)) as unknown;
@@ -42,7 +44,6 @@ export function lireJson<T>(texte: string, accepter: (valeur: Record<string, unk
         // pas un JSON complet : on essaie une fin plus courte
       }
     }
-    if (debut === 0) break;
   }
   return null;
 }
