@@ -41,4 +41,7 @@ export const api = {
   lire: <T>(chemin: string) => appeler<T>(chemin),
   envoyer: <T>(chemin: string, corps: unknown) =>
     appeler<T>(chemin, { method: 'POST', body: JSON.stringify(corps) }),
+  remplacer: <T>(chemin: string, corps: unknown) =>
+    appeler<T>(chemin, { method: 'PUT', body: JSON.stringify(corps) }),
+  supprimer: <T>(chemin: string) => appeler<T>(chemin, { method: 'DELETE' }),
 }

@@ -301,6 +301,10 @@ function envoyer(): void {
       />
     </template>
 
+    <p v-if="envoiEnCours" class="fr-text--lg fr-mb-2w" role="status">
+      Je fabrique votre projet{{ projet.nom.trim() ? ` « ${adresse || projet.nom.trim()} »` : '' }}…
+    </p>
+
     <ul class="fr-btns-group fr-btns-group--inline-md">
       <li v-if="etape > 1">
         <DsfrButton type="button" secondary label="Étape précédente" @click="precedent" />

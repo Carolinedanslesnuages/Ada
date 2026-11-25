@@ -27,6 +27,8 @@ export const config = (agent = '/bin/agent') =>
     GITHUB_CLIENT_SECRET: 's',
     SESSION_SECRET: 'x'.repeat(32),
     AGENT_COMMANDE: agent,
+    // Les tests ne dépendent pas des sous-modules de skills : aucune skill, sauf quand un test en fournit.
+    AGENT_SKILLS: '',
     DOSSIER_REGISTRE: REGISTRE_ESSAI,
   });
 

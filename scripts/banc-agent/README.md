@@ -31,7 +31,7 @@ node scripts/banc-agent/realisation.mjs recherche    # un seul cas
 Code de sortie : 0 si toutes les exécutions sont réussies, 1 sinon.
 
 **Réglages.** Lus dans `interface/api/.env` (seulement `AGENT_COMMANDE`, `AGENT_MODELE`, `AGENT_SKILLS` ;
-jamais les secrets) : lance donc le banc depuis la copie où ce fichier existe. Chacun se remplace par
+jamais les secrets) : lance donc le banc depuis la copie où ce fichier existe. Sans `AGENT_SKILLS` dans ce fichier, le banc prend, comme l'API, les skills des sous-modules `skills/externes/`. Chacun se remplace par
 `BANC_COMMANDE`, `BANC_MODELE`, `BANC_SKILLS` (dossiers séparés par des virgules). Pour comparer deux
 modèles : `BANC_MODELE=haiku …` puis `BANC_MODELE=sonnet …`.
 

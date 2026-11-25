@@ -24,7 +24,7 @@ export async function phaseReprise(outils: OutilsPhase, projets: ProjetsService,
   const skills = await outils.equiperSkills(cwd);
   await outils.noter(depot, numero, 'Compare le projet à un projet créé avec ADA');
   const consigne = consigneReprise({ stack: stack && adaModele ? { libelle: stack.libelle, ada: adaModele } : null, dsfr }, skills.noms);
-  const analyse = lireAnalyseReprise(await outils.executer(depot, numero, 'reprise', consigne, cwd, skills.dossiers));
+  const analyse = lireAnalyseReprise(await outils.executer(depot, numero, 'reprise', consigne, cwd, skills.dossiers, null, login));
   if (!analyse) {
     await outils.bloquer(jeton, depot, numero, 'ADA n’a pas réussi à analyser le projet.');
     return;

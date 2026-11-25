@@ -1,4 +1,12 @@
+import { resolve } from 'node:path';
 import { z } from 'zod';
+
+const SKILLS_LIVREES_AVEC_ADA = [
+  '../../skills/externes/dsfr-skill/skills/dsfr-skill',
+  '../../skills/externes/agent-skills/skills/dev/bug-investigate',
+  '../../skills/externes/agent-skills/skills/repo/repo-perimetre',
+  '../../skills/externes/agent-skills/skills/dev/controle-qualite-code',
+].join(',');
 
 const schema = z.object({
   NODE_ENV: z.string().default('development'),
@@ -25,8 +33,23 @@ const schema = z.object({
   /**
    * Commande de l'agent de code (mode non interactif, sortie stream-json). Vide : agent désactivé.
    * Démo : l'exécutable Claude Code. Remplaçable par un autre agent (voir src/agent/agent.ts).
+   * Un chemin relatif (« ./… », « ../… ») est lu depuis interface/api : l'agent livré avec ADA se règle
+   * donc sans chemin propre à un poste (AGENT_COMMANDE=./agent-openai/runner.mjs).
    */
-  AGENT_COMMANDE: z.string().default(''),
+  AGENT_COMMANDE: z
+    .string()
+    .default('')
+    .transform((commande) => (/^\.{1,2}\//.test(commande) ? resolve(process.cwd(), commande) : commande)),
+  /**
+   * Agent lancé quand l'utilisateur a renseigné son propre modèle (page « Mon modèle ») : celui, livré avec ADA,
+   * qui parle à une passerelle compatible OpenAI. Chemin relatif lu depuis interface/api, comme AGENT_COMMANDE.
+   */
+  AGENT_COMMANDE_OPENAI: z
+    .string()
+    .default('./agent-openai/runner.mjs')
+    .transform((commande) => (/^\.{1,2}\//.test(commande) ? resolve(process.cwd(), commande) : commande)),
+  /** Modèles personnels des utilisateurs (adresse, clé chiffrée, nom) : un fichier chiffré par utilisateur, hors git. */
+  DOSSIER_MODELES: z.string().default('../sessions/modeles-utilisateur'),
   /**
    * Agents qui travaillent en même temps sur toute la machine (un par projet au plus). Les
    * suivants attendent leur tour dans une file : chaque agent mobilise un conteneur et un processeur.
@@ -40,10 +63,13 @@ const schema = z.object({
   /**
    * Skills mises à disposition de l'assistant (chemins de dossiers contenant un SKILL.md,
    * séparés par des virgules) : reliées dans le projet avant chaque exécution, jamais commitées.
+   * Par défaut, celles que livre ADA : les dépôts DINUM (dsfr-skill) et IA-Generative (agent-skills)
+   * sont des sous-modules git de `skills/externes/` (chemins relatifs à interface/api). Vide
+   * explicitement (AGENT_SKILLS=) : aucune skill.
    */
   AGENT_SKILLS: z
     .string()
-    .default('')
+    .default(SKILLS_LIVREES_AVEC_ADA)
     .transform((v) => v.split(',').map((chemin) => chemin.trim()).filter(Boolean)),
   /** Index du référentiel RGAA (DINUM) joint à chaque consigne de l'assistant. */
   RGAA_INDEX: z.string().default('../../skills/po/po-story/references/rgaa-4.1.2/README.md'),

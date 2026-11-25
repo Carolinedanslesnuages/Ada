@@ -5,7 +5,7 @@ import { consigneAnalyse } from './consignes.js';
 import type { OutilsPhase } from './outils-phase.js';
 import { lireDecision, texteQuestions } from './reponses.js';
 
-export async function phaseAnalyse(outils: OutilsPhase, { jeton, depot, numero }: Tache): Promise<void> {
+export async function phaseAnalyse(outils: OutilsPhase, { jeton, login, depot, numero }: Tache): Promise<void> {
   const { stories } = outils;
   await outils.noter(depot, numero, 'Prépare le projet');
   const cwd = await outils.apercu.preparerDepot(jeton, depot);
@@ -14,7 +14,7 @@ export async function phaseAnalyse(outils: OutilsPhase, { jeton, depot, numero }
   const { dsfr } = await outils.apercu.lireConfig(cwd);
   const demande = { ...(await outils.demande(jeton, depot, numero)), existantes: await outils.existantes(jeton, depot, numero) };
   const consigne = consigneAnalyse(demande, await outils.lireIndexRgaa(), skills.noms, dsfr);
-  const reponse = await outils.executer(depot, numero, 'analyse', consigne, cwd, skills.dossiers);
+  const reponse = await outils.executer(depot, numero, 'analyse', consigne, cwd, skills.dossiers, null, login);
   const decision = lireDecision(reponse);
   if (!decision) {
     await outils.bloquer(jeton, depot, numero, 'ADA n’a pas réussi à analyser la demande.');

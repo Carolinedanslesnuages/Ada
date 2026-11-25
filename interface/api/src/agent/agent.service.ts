@@ -19,6 +19,7 @@ import type { ConseilStack } from './conseil-stack.js';
 import { ConseillerStack } from './conseiller-stack.js';
 import { FileAttente } from './file-attente.js';
 import { JournalActivite, type Activite } from './journal-activite.js';
+import { StoreModeleUtilisateur } from '../modele-utilisateur/modele-utilisateur.js';
 import { lancerParDefaut, type LancerAgent } from './lancement.js';
 import { Ordonnanceur } from './ordonnanceur.js';
 import { OutilsPhase } from './outils-phase.js';
@@ -53,7 +54,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
     this.journal = new JournalActivite(dossierAgent);
     this.verrou = new VerrouProjet(dossierAgent);
     this.file = new FileAttente(() => join(resolve(this.config.DOSSIER_APERCUS), '.file-attente'));
-    this.outils = new OutilsPhase(config, github, stories, apercu, this.journal, () => this.lancerAgent, this.log);
+    this.outils = new OutilsPhase(config, github, stories, apercu, this.journal, () => this.lancerAgent, this.log, new StoreModeleUtilisateur(config.DOSSIER_MODELES, config.SESSION_SECRET));
     this.conseiller = new ConseillerStack(config, projets, () => this.lancerAgent, this.log);
     const travailler = (tache: Tache): Promise<void> => {
       if (tache.phase === 'analyse') return phaseAnalyse(this.outils, tache);

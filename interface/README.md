@@ -25,8 +25,8 @@ Facultatif, pour contribuer à ADA : [pre-commit](https://pre-commit.com) (anti-
 ### 2. Cloner ADA
 
 ```bash
-git clone https://github.com/Carolinedanslesnuages/ada.git
-cd ada
+git clone --recurse-submodules https://github.com/Carolinedanslesnuages/ada.git
+cd ada   # (déjà cloné sans l'option ? git submodule update --init)
 pre-commit install        # facultatif : bloque un secret avant qu'il soit commité
 ```
 
@@ -55,8 +55,8 @@ ne reçoit aucun secret d'ADA.
 
 ### 5. Les skills de l'assistant (recommandé)
 
-Voir [Skills de l'assistant](#skills-de-lassistant) : deux `git clone`, puis les dossiers des skills
-voulues dans `AGENT_SKILLS`, en chemins complets (une skill introuvable est ignorée sans erreur).
+Rien à faire : les skills externes sont livrées avec ADA (sous-modules git de `skills/externes/`) et
+`AGENT_SKILLS` les vise par défaut. Voir [Skills de l'assistant](#skills-de-lassistant).
 
 ### 6. Configurer
 
@@ -147,20 +147,46 @@ En cas de doute, une fois connecté : `http://localhost:5180/api/diagnostic` mon
 l'installation (`all` / `selected`), les permissions accordées et les modèles disponibles,
 sans aucun secret.
 
+## Mon modèle (modèle de langage de l'utilisateur)
+
+La page **Mon modèle** (menu en haut à droite) permet à chaque utilisateur de faire travailler ADA avec **son** modèle :
+adresse d'une passerelle compatible OpenAI, clé d'API et nom du modèle. Un bouton **Tester la connexion** vérifie
+l'adresse, la clé et surtout que le modèle sait appeler des outils (sinon l'agent explique au lieu d'agir).
+Sans réglage, ADA utilise `AGENT_COMMANDE` / `AGENT_MODELE`. Chaque demande indique dans son fil le modèle utilisé.
+
+- La clé est **chiffrée** (AES-256-GCM, clé dérivée de `SESSION_SECRET`) dans `DOSSIER_MODELES`, par utilisateur ; elle
+  n'est jamais renvoyée à l'écran (seulement ses 4 derniers caractères), ni écrite dans un journal ou une option de commande.
+  L'agent la reçoit par son environnement, et les commandes qu'il lance ne la voient pas. Changer `SESSION_SECRET` rend les
+  clés enregistrées illisibles : chacun doit les ressaisir.
+- Ces utilisateurs passent par l'agent `agent-openai/` (voir son README), jamais par les réglages de l'administrateur : ni sa
+  clé, ni ses profils ne peuvent partir vers une adresse saisie par quelqu'un d'autre.
+- **Adresses acceptées : https uniquement**, et jamais une adresse locale ou interne (localhost, réseaux privés ou partagés,
+  adresses de métadonnées du cloud, IPv4 cachée en IPv6), car c'est le serveur qui appelle l'adresse saisie. Un nom de
+  domaine doit se résoudre vers des adresses publiques seulement, et une redirection de la passerelle n'est jamais suivie.
+  Limite connue : la résolution peut changer après la vérification (rebinding DNS) ; seule une règle réseau sur le serveur
+  l'empêche vraiment. Un modèle qui tourne sur un poste (Ollama) n'est
+  donc pas joignable par ce biais. Aucune liste de domaines autorisés : toute passerelle publique en https convient.
+
 ## Skills de l'assistant
 
 ADA relie dans chaque projet, avant chaque exécution, les skills listées dans `AGENT_SKILLS`
 (`.claude/skills/` et `.agents/skills/`, exclus localement de git : rien n'est commité).
-Installation recommandée, à l'emplacement prévu par leurs auteurs :
+Les skills externes sont **livrées avec ADA, sans copie** : le dépôt contient des sous-modules git, figés à
+un commit précis, dans `skills/externes/` (indépendants du poste de chacun, donc présents aussi en ligne) :
 
-```bash
-git clone https://github.com/numerique-gouv/dsfr-skill.git ~/.local/share/dsfr-skill     # DINUM, licence ouverte 2.0
-git clone https://github.com/IA-Generative/agent-skills.git ~/.local/share/agent-skills  # IA-Generative
-```
+| Sous-module | Dépôt | Licence |
+|---|---|---|
+| `skills/externes/dsfr-skill` | [numerique-gouv/dsfr-skill](https://github.com/numerique-gouv/dsfr-skill) (DINUM) | Licence ouverte 2.0 |
+| `skills/externes/agent-skills` | [IA-Generative/agent-skills](https://github.com/IA-Generative/agent-skills) | non précisée : d'où des références, pas des copies |
+
+`AGENT_SKILLS` les vise par défaut (chemins relatifs à `interface/api`) ; le renseigner remplace la liste, et le
+laisser vide (`AGENT_SKILLS=`) retire toutes les skills. Une skill introuvable (sous-modules non récupérés) est
+signalée dans le journal de l'API : `git submodule update --init`. Les skills `po-*` d'ADA sont, elles, dans `skills/po/`.
+Mettre à jour une skill externe : `git -C skills/externes/<nom> pull`, puis committer le nouveau commit dans ADA.
+Un serveur ou une CI qui clone ADA doit récupérer les sous-modules (`--recurse-submodules`, ou `submodules: recursive`).
 
 Skills reliées : `dsfr-skill` (composants et pages DSFR), `bug-investigate` (problèmes
-signalés), `repo-perimetre` (avant de livrer), `controle-qualite-code` (relecture). Mise à jour :
-`git -C ~/.local/share/<catalogue> pull`. Avec l'isolement actuel (`--setting-sources user`), l'outil
+signalés), `repo-perimetre` (avant de livrer), `controle-qualite-code` (relecture). Avec l'isolement actuel (`--setting-sources user`), l'outil
 Skill de l'agent ne voit pas ces skills : la consigne lui indique de lire leur `SKILL.md` au bon moment
 (`.claude/skills/<nom>/`), et le banc d'essai compte ces lectures. Leur apport n'est pas encore mesuré.
 

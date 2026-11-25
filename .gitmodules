@@ -1,0 +1,6 @@
+[submodule "skills/externes/dsfr-skill"]
+	path = skills/externes/dsfr-skill
+	url = https://github.com/numerique-gouv/dsfr-skill.git
+[submodule "skills/externes/agent-skills"]
+	path = skills/externes/agent-skills
+	url = https://github.com/IA-Generative/agent-skills.git
