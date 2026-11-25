@@ -18,3 +18,5 @@
 | [0014](0014-dependances-en-version-exacte.md) | Dépendances des projets en version exacte, vérifiées par Madeleine | Accepted | 2026-11-22 |
 | [0015](0015-accessibilite-des-pages-construites.md) | Accessibilité des pages construites, vérifiée par Emmanuelle | Accepted | 2026-11-22 |
 | [0016](0016-ada-utilise-les-controles-de-ses-projets.md) | ADA passe les mêmes contrôles que ses projets | Accepted | 2026-11-22 |
+| [0017](0017-mon-modele-par-utilisateur.md) | Chaque utilisateur peut faire travailler ADA avec son propre modèle | Accepted | 2026-11-25 |
+| [0018](0018-skills-externes-en-sous-modules.md) | Les skills externes sont livrées avec ADA, en sous-modules git | Accepted | 2026-11-25 |

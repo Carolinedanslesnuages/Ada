@@ -18,7 +18,7 @@ export async function phaseConversation(outils: OutilsPhase, { jeton, login, dep
   const { controles, dsfr } = await outils.apercu.lireConfig(cwd);
   const indexRgaa = await outils.lireIndexRgaa();
   const executerConversation = async (consigne: string, session: { id: string; reprendre: boolean }) =>
-    lireFinConversation(await outils.executer(depot, numero, 'conversation', consigne, cwd, skills.dossiers, session));
+    lireFinConversation(await outils.executer(depot, numero, 'conversation', consigne, cwd, skills.dossiers, session, login));
 
   // Garder le fil : la session de l'agent est reprise d'un message à l'autre (il a déjà les règles
   // et l'historique) ; sans session, ou si elle ne se reprend plus, on repart de la consigne complète.

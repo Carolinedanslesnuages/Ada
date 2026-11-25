@@ -18,7 +18,8 @@ import { decrireEvenement } from './activite.js';
 import { equiperSkills } from './equiper-skills.js';
 import { fichiersModifies } from './fichiers-modifies.js';
 import type { Activite, JournalActivite } from './journal-activite.js';
-import { optionModele, type LancerAgent } from './lancement.js';
+import { lancerParDefaut, optionModele, type LancerAgent } from './lancement.js';
+import { environnementModele, StoreModeleUtilisateur } from '../modele-utilisateur/modele-utilisateur.js';
 import { cheminsReserves, OPTIONS_ISOLEMENT, OUTILS_INTERDITS, outilsAutorises } from './outils.js';
 
 /** Tours maximum de l'agent par phase. */
@@ -36,6 +37,8 @@ export class OutilsPhase {
     /** L'agent à lancer, lu à chaque exécution (les tests le remplacent). */
     private readonly lancerAgent: () => LancerAgent,
     readonly log: Logger,
+    /** Modèles personnels des utilisateurs (page « Mon modèle »). */
+    private readonly modeles: StoreModeleUtilisateur | null = null,
   ) {}
 
   noter(depot: string, numero: number, texte: string): Promise<void> {
@@ -118,16 +121,22 @@ export class OutilsPhase {
     dossiersLisibles: string[] = [],
     /** Conversation : session nommée (premier message) ou reprise (messages suivants). */
     session: { id: string; reprendre: boolean } | null = null,
+    /** Utilisateur qui a lancé la demande : s'il a renseigné son propre modèle (« Mon modèle »), c'est lui qui travaille. */
+    login = '',
   ): Promise<string> {
     let resultat = '';
     let usages: UsageModele[] = [];
+    const personnel = login && this.modeles ? await this.modeles.lire(login) : null;
+    // Le modèle personnel passe par l'agent livré avec ADA (passerelle compatible OpenAI), avec sa clé dans l'environnement.
+    const lancer = personnel ? lancerParDefaut(this.config.AGENT_COMMANDE_OPENAI, environnementModele(personnel)) : this.lancerAgent();
+    await this.noter(depot, numero, `Travaille avec ${personnel ? `votre modèle « ${personnel.modele} »` : this.config.AGENT_MODELE ? `le modèle « ${this.config.AGENT_MODELE} »` : 'le modèle par défaut d’ADA'}`);
     const args = [
       '-p',
       consigne,
       '--output-format',
       'stream-json',
       '--verbose',
-      ...optionModele(this.config.AGENT_MODELE),
+      ...(personnel ? ['--model', personnel.modele] : optionModele(this.config.AGENT_MODELE)),
       '--max-turns',
       String(TOURS[phase]),
       ...OPTIONS_ISOLEMENT,
@@ -138,7 +147,7 @@ export class OutilsPhase {
       ...outilsAutorises(phase, dossiersLisibles),
     ];
     const notes: Promise<void>[] = [];
-    const code = await this.lancerAgent()(args, cwd, (ligne) => {
+    const code = await lancer(args, cwd, (ligne) => {
       for (const texte of decrireEvenement(ligne)) notes.push(this.noter(depot, numero, texte));
       try {
         const evt = JSON.parse(ligne) as { type?: string; result?: string; modelUsage?: unknown };

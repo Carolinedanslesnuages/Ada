@@ -16,6 +16,12 @@ const router = createRouter({
       component: () => import('../views/IndicateursView.vue'),
       meta: { connexionRequise: true },
     },
+    {
+      path: '/modele',
+      name: 'modele',
+      component: () => import('../views/ModeleView.vue'),
+      meta: { connexionRequise: true },
+    },
     { path: '/connexion', name: 'connexion', component: () => import('../views/ConnexionView.vue') },
   ],
 })
@@ -28,7 +34,7 @@ router.beforeEach(async (vers) => {
 })
 
 router.afterEach((vers) => {
-  const titres: Record<string, string> = { connexion: 'Connexion — ADA', indicateurs: 'Indicateurs — ADA' }
+  const titres: Record<string, string> = { connexion: 'Connexion — ADA', indicateurs: 'Indicateurs — ADA', modele: 'Mon modèle — ADA' }
   document.title = titres[String(vers.name)] ?? 'ADA'
 })
 

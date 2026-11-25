@@ -1,11 +1,13 @@
 /** Lancement des processus : l'agent de code, et le travailleur détaché qui survit à l'API. */
 import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { rename, writeFile } from 'node:fs/promises';
 import { environnementAgent } from '../apercu/git-isole.js';
 
 /** Écriture atomique : on ne lit jamais un fichier à moitié écrit (fichier temporaire puis renommage). */
 export async function ecrireAtomique(chemin: string, contenu: string): Promise<void> {
-  const temporaire = `${chemin}.${process.pid}.${Date.now()}.tmp`;
+  // Nom unique même pour deux écritures dans la même milliseconde (plusieurs événements de l'agent d'un coup).
+  const temporaire = `${chemin}.${process.pid}.${Date.now()}.${randomBytes(4).toString('hex')}.tmp`;
   await writeFile(temporaire, contenu);
   await rename(temporaire, chemin);
 }
@@ -36,11 +38,11 @@ export async function lancerDetache(script: string, fichierTache: string, journa
 export type LancerAgent = (args: string[], cwd: string, surLigne: (ligne: string) => void) => Promise<number>;
 
 export const lancerParDefaut =
-  (commande: string): LancerAgent =>
+  (commande: string, environnement: Record<string, string> = {}): LancerAgent =>
   (args, cwd, surLigne) =>
     new Promise((ok, ko) => {
       // Sans les secrets du serveur, et avec git verrouillé sur le dépôt de travail (voir git-isole.ts).
-      const processus = spawn(commande, args, { cwd, env: environnementAgent(process.env, cwd), stdio: ['ignore', 'pipe', 'pipe'] });
+      const processus = spawn(commande, args, { cwd, env: environnementAgent({ ...process.env, ...environnement }, cwd), stdio: ['ignore', 'pipe', 'pipe'] });
       let reste = '';
       processus.stdout.on('data', (morceau: Buffer) => {
         const lignes = (reste + morceau.toString('utf8')).split('\n');

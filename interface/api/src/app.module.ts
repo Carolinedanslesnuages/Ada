@@ -6,9 +6,11 @@ import { ApercuController } from './apercu/apercu.controller.js';
 import { ApercuService } from './apercu/apercu.service.js';
 import { AuthController } from './auth/auth.controller.js';
 import { GithubOAuthService } from './auth/github-oauth.service.js';
-import { CONFIG, lireConfig } from './config.js';
+import { CONFIG, lireConfig, type Config } from './config.js';
 import { DiagnosticController } from './diagnostic/diagnostic.controller.js';
 import { GithubService } from './github/github.service.js';
+import { ModeleUtilisateurController } from './modele-utilisateur/modele-utilisateur.controller.js';
+import { StoreModeleUtilisateur } from './modele-utilisateur/modele-utilisateur.js';
 import { ProjetsController } from './projets/projets.controller.js';
 import { IndicateursController } from './indicateurs/indicateurs.controller.js';
 import { IndicateursService } from './indicateurs/indicateurs.service.js';
@@ -29,9 +31,10 @@ import { VersionsController } from './versions/versions.controller.js';
 import { VersionsService } from './versions/versions.service.js';
 
 @Module({
-  controllers: [AgentController, DemoController, EmpreinteProjetController, IndicateursController, ApercuController, AuthController, DiagnosticController, ProjetsController, ProtectionController, RepriseController, StoriesController, VerificationController, VersionController, VersionsController],
+  controllers: [AgentController, ModeleUtilisateurController, DemoController, EmpreinteProjetController, IndicateursController, ApercuController, AuthController, DiagnosticController, ProjetsController, ProtectionController, RepriseController, StoriesController, VerificationController, VersionController, VersionsController],
   providers: [
     { provide: CONFIG, useFactory: () => lireConfig() },
+    { provide: StoreModeleUtilisateur, useFactory: (config: Config) => new StoreModeleUtilisateur(config.DOSSIER_MODELES, config.SESSION_SECRET), inject: [CONFIG] },
     AgentService,
     ApercuService,
     DemoService,

@@ -229,4 +229,11 @@ describe('Formulaire de nouveau projet (étapier)', () => {
     expect(await violationsAccessibilite(document.body)).toEqual([])
     wrapper.unmount()
   })
+
+  it('annonce « Je fabrique votre projet » pendant la création, et pas avant', async () => {
+    const wrapper = monter()
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    await wrapper.setProps({ envoiEnCours: true })
+    expect(wrapper.find('[role="status"]').text()).toContain('Je fabrique votre projet')
+  })
 })

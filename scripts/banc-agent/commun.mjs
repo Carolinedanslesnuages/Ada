@@ -35,7 +35,14 @@ export function lireReglages() {
       if (trouve) lus[trouve[1]] = trouve[2].trim()
     }
   }
-  const dossiers = (process.env.BANC_SKILLS ?? lus.AGENT_SKILLS ?? '')
+  // Sans AGENT_SKILLS dans .env, l'API livre les skills externes des sous-modules (config.ts, SKILLS_LIVREES_AVEC_ADA) : le banc fait de même.
+  const livrees = [
+    'skills/externes/dsfr-skill/skills/dsfr-skill',
+    'skills/externes/agent-skills/skills/dev/bug-investigate',
+    'skills/externes/agent-skills/skills/repo/repo-perimetre',
+    'skills/externes/agent-skills/skills/dev/controle-qualite-code',
+  ].map((chemin) => join(RACINE, chemin)).join(',')
+  const dossiers = (process.env.BANC_SKILLS ?? lus.AGENT_SKILLS ?? livrees)
     .split(',')
     .map((chemin) => developper(chemin.trim()))
     .filter((chemin) => chemin && existsSync(join(chemin, 'SKILL.md')))

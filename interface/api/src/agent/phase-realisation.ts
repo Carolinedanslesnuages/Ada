@@ -15,7 +15,7 @@ export async function phaseRealisation(outils: OutilsPhase, { jeton, login, depo
   await outils.noter(depot, numero, travailRepris ? `Reprend le travail interrompu sur ${branche}` : `Travaille sur la branche ${branche}`);
   const { controles, dsfr } = await outils.apercu.lireConfig(cwd);
   const consigne = consigneRealisation(demande, branche, await outils.lireIndexRgaa(), skills.noms, controles, dsfr) + (travailRepris ? REPRISE : '');
-  const reponse = await outils.executer(depot, numero, 'realisation', consigne, cwd, skills.dossiers);
+  const reponse = await outils.executer(depot, numero, 'realisation', consigne, cwd, skills.dossiers, null, login);
   const resultat = lireResultat(reponse);
   if (!resultat || resultat.resultat === 'bloque') {
     await outils.bloquer(jeton, depot, numero, resultat?.resultat === 'bloque' ? resultat.raison : 'ADA n’a pas terminé la réalisation.');

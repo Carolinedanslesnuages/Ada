@@ -35,6 +35,12 @@ l'aperçu du produit tourne à droite dès la création du projet.
   `.agents/skills/` et reliées depuis `.claude/skills/`, au même commit que le modèle (`api/src/projets/skills-projet.ts`). Un
   projet existant est d'abord analysé par l'assistant (phase « reprise », `api/src/agent/consigne-reprise.ts`),
   puis entre dans ADA par une PR de reprise que le PO fusionne (`docs/adr/0010`).
+- **Mon modèle** (`api/src/modele-utilisateur/`, `front/src/views/ModeleView.vue`, `docs/adr/0017`) : chaque utilisateur peut
+  renseigner son propre modèle (passerelle compatible OpenAI en https, clé, nom). Clé chiffrée par utilisateur, jamais renvoyée
+  à l'écran ni passée en option de commande ; adresses internes et redirections refusées. L'agent livré avec ADA
+  (`api/agent-openai/`) sert ces utilisateurs, jamais les réglages de l'administrateur.
+- **Skills externes** : sous-modules git de `skills/externes/` (`docs/adr/0018`) ; `AGENT_SKILLS` les prend par défaut. Toute CI qui lance les tests de l'API
+  récupère les sous-modules.
 - Registre des projets (`api/src/indicateurs/registre*.ts`, fichier `registre/projets.json` hors
   git) : la seule trace gardée hors de GitHub, pour que les indicateurs comptent aussi les projets
   archivés, retirés d'ADA ou supprimés. Il ne fait que grandir ; l'état de chaque projet vient de GitHub.
