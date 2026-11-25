@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { adresseInterne, environnementModele, StoreModeleUtilisateur, testerPasserelle, verifierModele, verifierResolution, versPublic } from './modele-utilisateur.js';
+import { adresseInterne, environnementModele, StoreModeleUtilisateur, testerPasserelle, verifierModele, sansBarreFinale, verifierResolution, versPublic } from './modele-utilisateur.js';
 
 const MODELE = { adresse: 'https://llm.exemple.fr/v1', cle: 'sk-secret-1234', modele: 'glm-5' };
 
@@ -64,6 +64,19 @@ describe('Mon modèle : adresses cachées et noms de domaine', () => {
     expect(await verifierResolution('inconnu.exemple.fr', async () => { throw new Error('ENOTFOUND'); })).toMatch(/introuvable/);
     expect(await verifierResolution('inconnu.exemple.fr', async () => [])).toMatch(/introuvable/);
     expect(await verifierResolution('8.8.8.8', async () => { throw new Error('ne doit pas être appelé'); })).toBeNull();
+  });
+});
+
+describe('Mon modèle : barres finales de l’adresse', () => {
+  it('retire toutes les barres finales, rien d’autre', () => {
+    expect(sansBarreFinale('https://llm.exemple.fr/v1///')).toBe('https://llm.exemple.fr/v1');
+    expect(sansBarreFinale('https://llm.exemple.fr/v1')).toBe('https://llm.exemple.fr/v1');
+    expect(sansBarreFinale('/')).toBe('');
+  });
+  it('une adresse très longue est refusée vite, sans ralentir le serveur', () => {
+    const debut = Date.now();
+    expect(verifierModele({ adresse: `https://x.fr/${'/'.repeat(200000)}`, modele: 'm' }).erreurs.adresse).toBeTruthy();
+    expect(Date.now() - debut).toBeLessThan(500);
   });
 });
 

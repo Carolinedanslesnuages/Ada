@@ -23,7 +23,8 @@ function frontmatter(texte) {
   return champs
 }
 
-for (const groupe of readdirSync(RACINE, { withFileTypes: true }).filter((d) => d.isDirectory())) {
+// skills/externes/ = sous-modules git (dsfr-skill, agent-skills) : des dépôts d'autres, pas des skills d'ADA à vérifier.
+for (const groupe of readdirSync(RACINE, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name !== 'externes')) {
   for (const skill of readdirSync(join(RACINE, groupe.name), { withFileTypes: true }).filter((d) => d.isDirectory())) {
     const dossier = join(RACINE, groupe.name, skill.name)
     const fichier = join(dossier, 'SKILL.md')

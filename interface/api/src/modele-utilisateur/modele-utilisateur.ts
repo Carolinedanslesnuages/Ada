@@ -31,6 +31,13 @@ export interface ResultatTest {
   message: string;
 }
 
+/** Retire les « / » finaux sans expression régulière (une adresse très longue ne doit pas ralentir le serveur). */
+export function sansBarreFinale(adresse: string): string {
+  let fin = adresse.length;
+  while (fin > 0 && adresse[fin - 1] === '/') fin--;
+  return adresse.slice(0, fin);
+}
+
 /** IPv4 privée, locale, partagée par les opérateurs (100.64.0.0/10), réservée ou de multidiffusion. */
 function ipv4Interne(adresse: string): boolean {
   const [a = 0, b = 0, c = 0] = adresse.split('.').map(Number);
@@ -103,11 +110,12 @@ export function verifierModele(brut: unknown): { valeur: { adresse: string; cle:
 
   let adresse = '';
   try {
+    if (adresseBrute.length > 2000) throw new Error('adresse trop longue');
     const url = new URL(adresseBrute);
     if (url.protocol !== 'https:') erreurs.adresse = 'L’adresse doit commencer par https://.';
     else if (adresseInterne(url.hostname)) erreurs.adresse = 'Cette adresse n’est pas accessible depuis le serveur d’ADA : indiquez une passerelle en https, joignable depuis Internet.';
     else if (url.username || url.password) erreurs.adresse = 'Ne mettez ni identifiant ni mot de passe dans l’adresse : utilisez le champ clé.';
-    else adresse = adresseBrute.replace(/\/+$/, '');
+    else adresse = sansBarreFinale(adresseBrute);
   } catch {
     erreurs.adresse = 'Adresse invalide (exemple : https://llm.mon-organisation.fr/v1).';
   }
@@ -181,7 +189,7 @@ export class StoreModeleUtilisateur {
  */
 export async function testerPasserelle(modele: ModeleUtilisateur, appeler: typeof fetch = fetch): Promise<ResultatTest> {
   try {
-    const reponse = await appeler(`${modele.adresse.replace(/\/+$/, '')}/chat/completions`, {
+    const reponse = await appeler(`${sansBarreFinale(modele.adresse)}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(modele.cle ? { Authorization: `Bearer ${modele.cle}` } : {}) },
       body: JSON.stringify({

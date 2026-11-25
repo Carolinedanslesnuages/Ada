@@ -21,7 +21,8 @@ const index = (groupe) => ({
 
 const verifier = process.argv.includes('--check')
 let ok = true
-for (const g of readdirSync('skills', { withFileTypes: true }).filter((d) => d.isDirectory())) {
+// skills/externes/ = sous-modules git d'autres dépôts : pas de catalogue d'ADA pour eux.
+for (const g of readdirSync('skills', { withFileTypes: true }).filter((d) => d.isDirectory() && d.name !== 'externes')) {
   const groupe = join('skills', g.name)
   const attendu = `${JSON.stringify(index(groupe), null, 2)}\n`
   const chemin = join(groupe, 'index.json')
