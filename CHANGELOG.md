@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0](https://github.com/Carolinedanslesnuages/Ada/compare/v0.3.1...v0.4.0) (2026-11-25)
+
+
+### Features
+
+* **catalogue:** accessibilité des pages construites vérifiée par Emmanuelle ([#127](https://github.com/Carolinedanslesnuages/Ada/issues/127)) ([60558f0](https://github.com/Carolinedanslesnuages/Ada/commit/60558f0b35fc768d976b24978cf4950abde3cba3))
+* **catalogue:** dépendances des projets en version exacte, vérifiées par Madeleine ([#126](https://github.com/Carolinedanslesnuages/Ada/issues/126)) ([26b1c8c](https://github.com/Carolinedanslesnuages/Ada/commit/26b1c8c12ea420325e2da4c514a2f11e3c283931))
+* **catalogue:** modèle Vue 3 + Node.js sans DSFR ([#118](https://github.com/Carolinedanslesnuages/Ada/issues/118)) ([cb7fc43](https://github.com/Carolinedanslesnuages/Ada/commit/cb7fc4385cf4aff57972cb11e9b6177db82d4c1d))
+* **catalogue:** un socle commun à tous les modèles, contrôles communs par Constance ([#125](https://github.com/Carolinedanslesnuages/Ada/issues/125)) ([87b7ac0](https://github.com/Carolinedanslesnuages/Ada/commit/87b7ac0112125e5909f8c9924ac2bb8712ebecc4))
+
+
+### Bug Fixes
+
+* **interface:** lien d'évitement, et ADA passe les mêmes contrôles que ses projets ([#128](https://github.com/Carolinedanslesnuages/Ada/issues/128)) ([8b5a374](https://github.com/Carolinedanslesnuages/Ada/commit/8b5a374016b85a9b70fcac6d1fc090bc00bb0996))
+* l'anti-fuite des projets « formulaire » et « vue-node » ignore le jeton d'exemple cité par les skills ([#123](https://github.com/Carolinedanslesnuages/Ada/issues/123)) ([777cc17](https://github.com/Carolinedanslesnuages/Ada/commit/777cc173020dfe3b1c780df8b925debc7c8ee277))
+
 ## [0.3.1](https://github.com/Carolinedanslesnuages/Ada/compare/v0.3.0...v0.3.1) (2026-11-20)
 
 
