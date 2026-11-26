@@ -109,6 +109,8 @@ describe('Lecture des réponses de l’agent', () => {
   it('lit une décision, même entourée de texte ou de ```json', () => {
     expect(lireDecision('Voici :\n```json\n{"decision":"plan","texte":"Je vais…"}\n```')).toEqual({ decision: 'plan', texte: 'Je vais…' });
     expect(lireDecision('{"decision":"questions","texte":"1. Quel format ?"}')?.decision).toBe('questions');
+    // un JSON indenté, comme en écrivent certains modèles
+    expect(lireDecision('{\n  "decision": "plan",\n  "texte": "Je vais…"\n}')).toEqual({ decision: 'plan', texte: 'Je vais…' });
   });
 
   it('refuse une réponse inexploitable', () => {
