@@ -1,0 +1,36 @@
+version: 2
+
+# Mises à jour des dépendances npm de l'interface et des modèles du catalogue, regroupées pour
+# limiter le nombre de PR : une PR par semaine pour les versions mineures et correctives, une PR
+# par correctif de sécurité (tous dossiers confondus). Les versions majeures arrivent une par une.
+# Délai de 14 jours avant de proposer une version : le même que Madeleine (règle « age »).
+# Les « overrides » des package.json ne sont pas mis à jour par Dependabot : à relever à la main.
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /interface/*
+      - /catalogue/*
+      - /catalogue/*/*
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Paris
+    cooldown:
+      default-days: 14
+    versioning-strategy: increase
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      securite:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      mineures-et-correctifs:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
