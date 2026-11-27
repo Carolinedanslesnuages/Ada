@@ -13,8 +13,10 @@ jobs:
     name: Skills conformes (invariants agent-skills)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-node@v7.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       - name: Conformité des SKILL.md (invariants d'ADA)
@@ -31,19 +33,26 @@ jobs:
         run: |
           node scripts/rgaa-generer.mjs ressources/rgaa/4.1.2/criteres.json "$RUNNER_TEMP/rgaa" 4.1.2
           diff -r "$RUNNER_TEMP/rgaa" skills/po/po-story/references/rgaa-4.1.2
-      - name: Versions par le workflow commun fabnum-cicd, épinglé à un SHA, identique dans ADA et le socle des modèles
+      - name: Workflows communs de la Fabnum (fabnum-cicd), épinglés à un SHA, identiques dans ADA et le socle des modèles
         run: |
-          grep -Eq 'uses: dnum-mi/fabnum-cicd/\.github/workflows/release-app\.yml@[0-9a-f]{40} # v[0-9.]+$' .github/workflows/release-please.yml
-          diff -u .github/workflows/release-please.yml catalogue/socle/.github/workflows/release-please.yml
-      - name: Contrôles communs des projets (Constance et Madeleine, épinglées à un SHA), exigés par chaque modèle
+          for workflow in release-please anti-fuite commits workflows configuration; do
+            grep -Eq 'uses: dnum-mi/fabnum-cicd/\.github/workflows/[a-z-]+\.yml@[0-9a-f]{40} # v[0-9.]+$' ".github/workflows/$workflow.yml" \
+              || { echo ".github/workflows/$workflow.yml : le workflow fabnum-cicd doit être épinglé à un SHA"; exit 1; }
+            diff -u ".github/workflows/$workflow.yml" "catalogue/socle/.github/workflows/$workflow.yml"
+          done
+          test "$(grep -ho 'fabnum-cicd/.github/workflows/[a-z-]*\.yml@[0-9a-f]*' .github/workflows/*.yml | sed 's/.*@//' | sort -u | wc -l)" -eq 1 \
+            || { echo "tous les workflows fabnum-cicd doivent être épinglés au même SHA"; exit 1; }
+          grep -q "^FABNUM_SHA=$(grep -ho 'fabnum-cicd/.github/workflows/release-app\.yml@[0-9a-f]*' .github/workflows/release-please.yml | sed 's/.*@//') " scripts/installer-hooks-git.sh \
+            || { echo "scripts/installer-hooks-git.sh : le hook commit-msg doit venir du même SHA de fabnum-cicd"; exit 1; }
+      - name: Contrôles communs des projets (Fabnum, Constance et Madeleine, épinglés à un SHA), exigés par chaque modèle
         run: |
-          for workflow in titre-pr taille-fichiers anti-fuite dependances; do
+          for workflow in titre-pr taille-fichiers dependances; do
             grep -Eq 'uses: Carolinedanslesnuages/(constance/[a-z-]+|madeleine)@[0-9a-f]{40} # v[0-9.]+$' "catalogue/socle/.github/workflows/$workflow.yml" \
               || { echo "catalogue/socle/.github/workflows/$workflow.yml : l'action doit être épinglée à un SHA"; exit 1; }
           done
           for modele in catalogue/*/; do
             [ "$modele" = catalogue/socle/ ] && continue
-            for controle in 'Anti-fuite (gitleaks)' 'Dépendances (paquet réel, version exacte, licence)' 'Titre de PR (Conventional Commits, semver)' 'Taille des fichiers (une responsabilité par fichier)'; do
+            for controle in 'Anti-fuite (gitleaks) / Scan git history for leaked secrets' 'Commits (Conventional Commits) / Lint commit messages' 'Workflows (zizmor) / Audit workflows with zizmor' 'Configuration (Trivy) / Scan config files vulnerabilities' 'Dépendances (paquet réel, version exacte, licence)' 'Titre de PR (Conventional Commits, semver)' 'Taille des fichiers (une responsabilité par fichier)'; do
               grep -qF "\"$controle\"" "$modele/ada.json" || { echo "contrôle « $controle » non exigé dans $modele/ada.json"; exit 1; }
             done
           done
@@ -57,10 +66,11 @@ jobs:
           done
       - name: Contrôles communs identiques dans ADA et le socle des projets
         run: |
-          for workflow in titre-pr taille-fichiers anti-fuite dependances; do
+          for workflow in titre-pr taille-fichiers dependances; do
             diff -u ".github/workflows/$workflow.yml" "catalogue/socle/.github/workflows/$workflow.yml"
           done
           diff -u madeleine.json catalogue/socle/madeleine.json
+          diff -u .editorconfig catalogue/socle/.editorconfig
       - name: Référentiel RGAA du socle identique à celui de la skill po-story
         run: diff -r skills/po/po-story/references/rgaa-4.1.2 catalogue/socle/ressources/accessibilite/rgaa-4.1.2
       - name: Liens .claude/skills et .agents/skills vers chaque skill
@@ -82,7 +92,9 @@ jobs:
       run:
         working-directory: catalogue/${{ matrix.modele }}
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Image de production
         run: docker build -t modele .
       - name: L'image démarre et répond
@@ -108,11 +120,13 @@ jobs:
       matrix:
         modele: [vue-nest-dsfr, vue-node, vue-node-sans-dsfr, vue-fastapi, formulaire, tableau-de-bord, api-nest, api-fastapi, traitement-python, django, vitepress, nuxt, carte, quiz, composant, pwa, extension, maquette]
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-node@v7.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - uses: actions/setup-python@v7.1.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.13'
       - name: Contrôles déclarés par catalogue/${{ matrix.modele }}/ada.json

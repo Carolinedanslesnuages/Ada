@@ -12,7 +12,10 @@
     "traitement/__main__.py"
   ],
   "controlesRequis": [
-    "Anti-fuite (gitleaks)",
+    "Anti-fuite (gitleaks) / Scan git history for leaked secrets",
+    "Commits (Conventional Commits) / Lint commit messages",
+    "Workflows (zizmor) / Audit workflows with zizmor",
+    "Configuration (Trivy) / Scan config files vulnerabilities",
     "Traitement (lint, types, tests)",
     "Dépendances (paquet réel, version exacte, licence)",
     "Titre de PR (Conventional Commits, semver)",
