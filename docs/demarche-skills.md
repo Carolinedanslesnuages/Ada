@@ -101,6 +101,8 @@ Reliées depuis un clone local, mises à jour par `git pull` (voir `AGENT_SKILLS
 |---|---|---|
 | `dsfr-skill` | DINUM | Composants du système de design de l'État |
 | `bug-investigate`, `repo-perimetre`, `controle-qualite-code` | agent-skills IA-Generative | Méthode de diagnostic, contrôle de périmètre, qualité |
+| `fabnum-code-style`, `fabnum-client`, `fabnum-server`, `fabnum-rest-api`, `fabnum-project-docs` | transversal-doc (Fabnum) | Conventions de la Fabrique numérique pour écrire le code, depuis le 27 novembre 2026 (ADR-0020) |
+| `securite-developpement`, `rgaa` | etalab-ia/skills (DINUM) | Sécurité (guides de l'ANSSI), auto-évaluation RGAA, depuis le 27 novembre 2026 (ADR-0020) |
 | `adr-new` | agent-skills IA-Generative | **Écartée** : elle pré-autorise des outils (`allowed-tools`), ce qu'ADA refuse pour toute skill. Le format des ADR est repris dans `po-projet-nouveau/references/socle.md` |
 
 ADA écarte toute skill qui pré-autorise des outils ou exécute des commandes au chargement (contrôle `skillSure`
@@ -127,8 +129,8 @@ d'origine est appelée si elle est installée : la skill d'ADA fonctionne seule,
 | **Codebox** (DINUM) | Non ; document de sécurité à lire | Bac à sable de recherche (OpenCode dans une microVM, espace de travail scellé). Expérimental, « rien de stable » |
 | **microsandbox**, agent-vm | Non | Isolation plus forte que Docker, mais gros chantier sans besoin identifié |
 | **etalab-ia/skills** : `react-dsfr` | Non | ADA n'utilise pas React |
-| **etalab-ia/skills** : `securite-developpement` | Non branchée pour l'instant | Sur trois demandes sensibles, l'agent écrit déjà du code sûr sans la skill (c'est la situation réelle d'ADA). L'effet de la skill elle-même reste à mesurer. Elle reste utile comme référence de sécurité pour un développeur, et à rejouer si de nouveaux cas révèlent un défaut |
-| **etalab-ia/skills** : `rgaa` | Utile pour un audit, pas pour écrire du code | Même détection que sans skill sur le cas testé, avec un rapport mieux structuré. À envisager si un audit devient une fonction d'ADA |
+| **etalab-ia/skills** : `securite-developpement` | **Branchée le 27 novembre 2026** (ADR-0020) | Sur trois demandes sensibles, l'agent écrit déjà du code sûr sans la skill (c'est la situation réelle d'ADA). L'effet de la skill elle-même reste à mesurer. Elle reste utile comme référence de sécurité pour un développeur, et à rejouer si de nouveaux cas révèlent un défaut |
+| **etalab-ia/skills** : `rgaa` | **Branchée le 27 novembre 2026** (ADR-0020), pour vérifier un écran avant le contrôle final | Même détection que sans skill sur le cas testé, avec un rapport mieux structuré. À envisager si un audit devient une fonction d'ADA |
 | **etalab-ia/skills** : `usage-ia-agents-etat` | Non testable au banc | Cadre d'usage qui change des messages, pas des fichiers |
 | **etalab-ia/skills** : `anssi-guides` | Écartée pour l'agent de l'interface | Dépend d'un service externe ; l'agent n'a pas d'outil web, et rien ne garantit la sortie réseau du conteneur de l'aperçu |
 

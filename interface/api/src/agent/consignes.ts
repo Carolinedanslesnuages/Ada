@@ -102,6 +102,13 @@ const USAGE_SKILLS: Record<string, string> = {
   'repo-perimetre': 'avant de livrer : vérifier que chaque modification sert la demande et retirer le hors-sujet',
   'controle-qualite-code': 'pour relire ton propre code avant le contrôle final',
   'adr-new': 'si tu prends une décision d’architecture (nouvelle dépendance, structure de données, etc.)',
+  'fabnum-code-style': 'avant d’écrire du code : nommage (fichiers, variables, composants), règles TypeScript, gestion des erreurs, ordre des imports',
+  'fabnum-client': 'avant d’écrire un écran ou un composant Vue (conventions Vue 3, VueDsfr, messages d’alerte)',
+  'fabnum-server': 'avant d’écrire du code serveur NestJS, Fastify ou FastAPI',
+  'fabnum-rest-api': 'avant d’ajouter ou de modifier une route d’API (nommage, codes HTTP, réponses d’erreur, journalisation)',
+  'fabnum-project-docs': 'avant de modifier le README ou la documentation du projet',
+  'securite-developpement': 'avant d’écrire du code qui touche aux données saisies, aux fichiers reçus, à l’authentification, aux secrets ou à la base de données',
+  rgaa: 'pour vérifier l’accessibilité d’un écran que tu as créé ou modifié, avant le contrôle final',
 };
 
 export function consigneSkills(toutes: string[], dsfr = true): string {
@@ -111,7 +118,10 @@ export function consigneSkills(toutes: string[], dsfr = true): string {
   return `
 
 Méthodes à ta disposition (un dossier par méthode dans .claude/skills/ du projet : ouvre son
-SKILL.md avec Read au moment indiqué, plutôt que de te fier à ta mémoire) :
+SKILL.md avec Read au moment indiqué, plutôt que de te fier à ta mémoire). La stack, les
+dépendances et les fichiers protégés du projet ne changent pas pour suivre une méthode : si une
+méthode demande un autre outil (gestionnaire de paquets, bibliothèque, configuration de lint),
+garde celui du projet et applique le reste de la méthode :
 ${lignes.join('\n')}`;
 }
 

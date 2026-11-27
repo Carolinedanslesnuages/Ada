@@ -4,3 +4,9 @@
 [submodule "skills/externes/agent-skills"]
 	path = skills/externes/agent-skills
 	url = https://github.com/IA-Generative/agent-skills.git
+[submodule "skills/externes/transversal-doc"]
+	path = skills/externes/transversal-doc
+	url = https://github.com/dnum-mi/transversal-doc.git
+[submodule "skills/externes/etalab-skills"]
+	path = skills/externes/etalab-skills
+	url = https://github.com/etalab-ia/skills.git
