@@ -21,3 +21,4 @@
 | [0017](0017-mon-modele-par-utilisateur.md) | Chaque utilisateur peut faire travailler ADA avec son propre modèle | Accepted | 2026-11-25 |
 | [0018](0018-skills-externes-en-sous-modules.md) | Les skills externes sont livrées avec ADA, en sous-modules git | Accepted | 2026-11-25 |
 | [0019](0019-ci-par-les-workflows-de-la-fabnum.md) | Les contrôles d'ADA et de ses projets passent d'abord par les outils de la Fabnum | Accepted | 2026-11-27 |
+| [0020](0020-skills-fabnum-pour-l-agent.md) | L'agent reçoit les conventions de la Fabnum et les skills de sécurité et RGAA de la DINUM | Accepted | 2026-11-27 |

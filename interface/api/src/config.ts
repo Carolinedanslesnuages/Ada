@@ -6,6 +6,16 @@ const SKILLS_LIVREES_AVEC_ADA = [
   '../../skills/externes/agent-skills/skills/dev/bug-investigate',
   '../../skills/externes/agent-skills/skills/repo/repo-perimetre',
   '../../skills/externes/agent-skills/skills/dev/controle-qualite-code',
+  // Conventions de la Fabrique numérique (dnum-mi/transversal-doc) utiles à l'écriture du code ;
+  // la stack, la CI et le déploiement sont fixés par le modèle du projet, pas par l'agent.
+  '../../skills/externes/transversal-doc/.agents/skills/fabnum-code-style',
+  '../../skills/externes/transversal-doc/.agents/skills/fabnum-client',
+  '../../skills/externes/transversal-doc/.agents/skills/fabnum-server',
+  '../../skills/externes/transversal-doc/.agents/skills/fabnum-rest-api',
+  '../../skills/externes/transversal-doc/.agents/skills/fabnum-project-docs',
+  // DINUM (etalab-ia/skills) : sécurité (guides de l'ANSSI) et auto-évaluation RGAA.
+  '../../skills/externes/etalab-skills/skills/securite-developpement',
+  '../../skills/externes/etalab-skills/skills/rgaa',
 ].join(',');
 
 const schema = z.object({

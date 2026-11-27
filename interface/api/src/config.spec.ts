@@ -1,6 +1,7 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
+import { skillSure } from './agent/outils.js';
 import { lireConfig, loginAutorise } from './config.js';
 
 const base = {
@@ -29,9 +30,19 @@ describe('Configuration', () => {
 
   it('livre par défaut les skills externes d’ADA (sous-modules), sans rien à configurer', () => {
     const config = lireConfig(base);
-    expect(config.AGENT_SKILLS.map((chemin) => chemin.split('/').pop())).toEqual(['dsfr-skill', 'bug-investigate', 'repo-perimetre', 'controle-qualite-code']);
+    expect(config.AGENT_SKILLS.map((chemin) => chemin.split('/').pop())).toEqual([
+      'dsfr-skill', 'bug-investigate', 'repo-perimetre', 'controle-qualite-code',
+      'fabnum-code-style', 'fabnum-client', 'fabnum-server', 'fabnum-rest-api', 'fabnum-project-docs',
+      'securite-developpement', 'rgaa',
+    ]);
     // Les sous-modules doivent être récupérés (git clone --recurse-submodules) : sinon ADA tourne sans skills.
     for (const chemin of config.AGENT_SKILLS) expect(existsSync(resolve(process.cwd(), chemin, 'SKILL.md')), chemin).toBe(true);
+  });
+
+  it('aucune skill livrée par défaut ne pré-autorise d’outil ni ne lance de commande au chargement', () => {
+    for (const chemin of lireConfig(base).AGENT_SKILLS) {
+      expect(skillSure(readFileSync(resolve(process.cwd(), chemin, 'SKILL.md'), 'utf8')), chemin).toBe(true);
+    }
   });
 
   it('AGENT_SKILLS vide explicitement : aucune skill', () => {
