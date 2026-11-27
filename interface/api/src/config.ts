@@ -1,7 +1,8 @@
 import { resolve } from 'node:path';
 import { z } from 'zod';
 
-const SKILLS_LIVREES_AVEC_ADA = [
+/** Skills livrées avec ADA (chemins relatifs à interface/api) ; le banc d'essai lit la même liste. */
+export const SKILLS_LIVREES_AVEC_ADA = [
   '../../skills/externes/dsfr-skill/skills/dsfr-skill',
   '../../skills/externes/agent-skills/skills/dev/bug-investigate',
   '../../skills/externes/agent-skills/skills/repo/repo-perimetre',
