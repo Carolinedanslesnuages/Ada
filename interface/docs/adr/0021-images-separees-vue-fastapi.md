@@ -97,6 +97,7 @@ Page lue en plus : `serveur/nestjs`.
   dépendances de NestJS lit les types des constructeurs) et les règles typées gardées sauf les plus
   strictes pour un POC (`strict-boolean-expressions`, `no-unsafe-*`) : une promesse oubliée reste
   refusée, comme avec oxlint avant.
+- **ESLint 10.14.0 dans l'API** (le front reste en 10.15.0, déjà présent) : Madeleine refuse une version de moins de 14 jours.
 - **Code touché dans l'API** : `process` s'importe de `node:process` (règle de la config) et
   `main.ts` n'a plus d'`await` de haut niveau.
 - **pnpm 12 et la chaîne d'approvisionnement** : les scripts d'installation de Prisma sont
