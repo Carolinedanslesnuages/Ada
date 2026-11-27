@@ -10,7 +10,7 @@ import { CAS_ANALYSE } from './cas.mjs'
 import { chargerApi, enParallele, lancerAgent, lireIndexRgaa, lireReglages, moyenne, projetJetable } from './commun.mjs'
 
 const api = await chargerApi()
-const { consigneAnalyse, lireDecision, demandeVaste, relanceDecoupage } = api.agent
+const { consigneAnalyse, lireDecision, demandeVaste, relanceDecoupage, lireFichiersInstructions, repriseDUnFichier, RELANCE_FICHIER_SUSPECT } = api.agent
 const reglages = lireReglages()
 const aBlanc = process.argv.includes('--a-blanc')
 const demandes = process.argv.slice(2).filter((argument) => !argument.startsWith('--'))
@@ -55,6 +55,13 @@ await enParallele(taches, 3, async ({ nom, rang }) => {
   if (premiere?.decision === 'questions' && demandeVaste(CAS_ANALYSE[nom].demande, premiere.texte)) {
     execution = await lancerAgent({ api, reglages, phase: 'analyse', consigne: consigneDe(nom) + relanceDecoupage(premiere.texte), cwd, tours: 30 })
     if (lireDecision(execution.resultat)?.decision !== 'decoupage') execution = { ...execution, resultat: JSON.stringify(premiere) }
+  }
+  // Comme l'API : une réponse reprise telle quelle d'un fichier du projet est refusée, relancée une fois, puis bloquée.
+  const fichiers = await lireFichiersInstructions(cwd)
+  const suspecte = (resultat) => { const lue = lireDecision(resultat); return Boolean(lue) && repriseDUnFichier(lue.texte, fichiers) }
+  if (suspecte(execution.resultat)) {
+    execution = await lancerAgent({ api, reglages, phase: 'analyse', consigne: consigneDe(nom) + RELANCE_FICHIER_SUSPECT, cwd, tours: 30 })
+    if (suspecte(execution.resultat)) execution = { ...execution, resultat: '' }
   }
   const { decision, verifs } = noter(nom, execution.resultat)
   faits.push({ nom, decision: decision?.decision ?? null, verifs, ...execution })
