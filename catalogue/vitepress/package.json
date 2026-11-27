@@ -42,5 +42,11 @@
   },
   "engines": {
     "node": "^22.18.0 || >=24.12.0"
+  },
+  "overrides": {
+    "minimatch": "11.0.8",
+    "vitepress": {
+      "vite": "6.4.6"
+    }
   }
 }

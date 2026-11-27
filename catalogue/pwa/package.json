@@ -54,5 +54,11 @@
   },
   "engines": {
     "node": "^22.18.0 || >=24.12.0"
+  },
+  "overrides": {
+    "minimatch": "11.0.8",
+    "filelist": {
+      "minimatch": "5.1.9"
+    }
   }
 }
