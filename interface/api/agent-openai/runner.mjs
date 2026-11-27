@@ -8,6 +8,7 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { glob, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { looseReplace, readWindow } from './edit-tools.mjs'
 
 const CWD = process.cwd()
 const OUTPUT_LIMIT = 30000
@@ -170,8 +171,8 @@ export async function executeTool(name, input, permissions) {
         const file = absolutePath(input.file_path)
         if (!permissions.permit('Read', file)) return refused(input.file_path)
         const lines = (await readFile(file, 'utf8')).split('\n')
-        const start = Math.max(0, Number(input.offset) || 0)
-        const slice = lines.slice(start, start + (Number(input.limit) || 2000))
+        const { offset: start, limit } = readWindow(input)
+        const slice = lines.slice(start, start + limit)
         return truncate(slice.map((line, index) => `${String(start + index + 1).padStart(6)}\t${line}`).join('\n'))
       }
       case 'Write': {
@@ -185,11 +186,9 @@ export async function executeTool(name, input, permissions) {
         const file = absolutePath(input.file_path)
         if (!permissions.permit('Edit', file)) return refused(input.file_path)
         const current = await readFile(file, 'utf8')
-        const oldText = String(input.old_string ?? '')
-        const count = oldText ? current.split(oldText).length - 1 : 0
-        if (count === 0) return 'Erreur : old_string introuvable dans le fichier (le texte doit correspondre exactement).'
-        if (count > 1 && !input.replace_all) return `Erreur : old_string apparaît ${count} fois ; précise-le ou utilise replace_all.`
-        await writeFile(file, input.replace_all ? current.split(oldText).join(String(input.new_string ?? '')) : current.replace(oldText, () => String(input.new_string ?? '')))
+        const outcome = looseReplace(current, String(input.old_string ?? ''), String(input.new_string ?? ''), input.replace_all === true)
+        if (!outcome.ok) return outcome.error
+        await writeFile(file, outcome.text)
         return `Fichier modifié : ${input.file_path}`
       }
       case 'Glob': {

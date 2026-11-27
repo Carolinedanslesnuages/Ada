@@ -2,6 +2,7 @@
 import { branchOf, type Task } from './agent.js';
 import { implementationInstructions } from './instructions.js';
 import type { PhaseTools } from './phase-tools.js';
+import { pendingCommitMessage } from './pending-commit.js';
 import { readResult } from './responses.js';
 
 const ADOPTION =
@@ -21,6 +22,8 @@ export async function implementationPhase(tools: PhaseTools, { token, login, rep
     await tools.block(token, repository, number, result?.result === 'blocked' ? result.reason : 'ADA n’a pas terminé la réalisation.');
     return;
   }
+  // The agent finished but left its work uncommitted: ADA records it, then the usual checks apply.
+  if (await tools.commitPending(cwd, pendingCommitMessage(workRequest))) await tools.record(repository, number, 'Enregistre le travail que l’agent n’avait pas enregistré');
   if ((await tools.countCommits(cwd, `origin/main..${branch}`)) === 0) {
     await tools.block(token, repository, number, 'ADA n’a enregistré aucune modification.');
     return;
