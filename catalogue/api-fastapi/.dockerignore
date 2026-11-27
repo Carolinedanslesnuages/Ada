@@ -1,0 +1,13 @@
+**/__pycache__
+.venv
+.venv-verification
+.mypy_cache
+.ruff_cache
+.pytest_cache
+.env
+.env.*
+tests
+.git
+.github
+docs
+charts

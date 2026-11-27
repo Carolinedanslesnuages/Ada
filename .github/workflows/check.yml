@@ -87,13 +87,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # images : « unique » (l'API sert le front) ou « separees » (une image par partie, lancées
-        # avec la base par docker compose).
+        # images : « unique » (l'API sert le front, sans base) ou « compose » (image de l'API, et du
+        # front s'il y en a un, lancées avec la base par docker compose ; « port » : où répond le projet).
         include:
           - { modele: vue-node, images: unique }
           - { modele: formulaire, images: unique }
-          - { modele: vue-fastapi, images: separees }
-          - { modele: vue-nest-dsfr, images: separees }
+          - { modele: vue-fastapi, images: compose, port: 8080 }
+          - { modele: vue-nest-dsfr, images: compose, port: 8080 }
+          - { modele: tableau-de-bord, images: compose, port: 8080 }
+          - { modele: api-fastapi, images: compose, port: 8000 }
+          - { modele: api-nest, images: compose, port: 3000 }
     defaults:
       run:
         working-directory: catalogue/${{ matrix.modele }}
@@ -111,12 +114,12 @@ jobs:
           for _ in $(seq 1 30); do curl -sf http://localhost:8080/api && exit 0; sleep 1; done
           docker logs modele; exit 1
       - name: Images de production, lancées avec la base (docker compose, personnalisé comme à la création d'un projet)
-        if: matrix.images == 'separees'
+        if: matrix.images == 'compose'
         run: |
           sed -i 's/__SLUG__/projet-essai/g' docker-compose.yml
           docker compose up -d --build --wait || { docker compose logs; exit 1; }
-          curl -sf http://localhost:8080/ > /dev/null
-          curl -sf http://localhost:8080/api
+          curl -sf "http://localhost:${{ matrix.port }}/" > /dev/null
+          curl -sf "http://localhost:${{ matrix.port }}/api"
       - name: Chart Helm, personnalisé comme à la création d'un projet
         run: |
           curl -sSfL -o "$RUNNER_TEMP/helm.tgz" https://get.helm.sh/helm-v4.2.3-linux-amd64.tar.gz

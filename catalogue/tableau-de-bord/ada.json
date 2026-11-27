@@ -12,7 +12,10 @@
     "front/src/App.vue",
     "front/src/router/index.ts",
     "front/src/views/TableauDeBordView.vue",
-    "front/src/views/__tests__/TableauDeBordView.spec.ts"
+    "front/src/views/__tests__/TableauDeBordView.spec.ts",
+    "api/.env.example",
+    "charts/app/Chart.yaml",
+    "charts/app/values.yaml"
   ],
   "controlesRequis": [
     "Anti-fuite (gitleaks) / Scan git history for leaked secrets",
@@ -21,6 +24,7 @@
     "Configuration (Trivy) / Scan config files vulnerabilities",
     "API (lint, tests, compilation)",
     "Front (lint, types, tests dont accessibilité, compilation)",
+    "Image et chart (construction, helm lint)",
     "Accessibilité RGAA (pages construites)",
     "Dépendances (paquet réel, version exacte, licence)",
     "Titre de PR (Conventional Commits, semver)",
@@ -45,5 +49,8 @@
     ],
     "principal": "cd /app/front && npx vite --host 0.0.0.0 --port 5173 --strictPort",
     "port": 5173
+  },
+  "deploiement": {
+    "chart": "charts/app"
   }
 }

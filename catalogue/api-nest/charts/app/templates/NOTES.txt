@@ -1,0 +1,7 @@
+{{ .Chart.Description }}
+{{- if .Values.ingress.enabled }}
+Adresse : http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}
+{{- else }}
+Sans ingress : kubectl port-forward svc/{{ include "app.nomComplet" . }} 8080:{{ .Values.service.port }}
+{{- end }}
+Base de données : adresse lue dans le secret « {{ include "app.secretBase" . }} » (clé {{ .Values.database.secretKey }}), à créer avant le déploiement.

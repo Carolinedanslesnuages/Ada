@@ -1,0 +1,58 @@
+# Valeurs par défaut. Les valeurs propres à un environnement (registre, adresse, base…) sont
+# fournies par l'équipe qui déploie, hors de ce dépôt.
+
+api:
+  image:
+    # Registre à définir par l'équipe infra (ex. <registre>/<projet>/__SLUG__).
+    repository: __SLUG__
+    # Vide : appVersion du chart.
+    tag: ""
+    pullPolicy: IfNotPresent
+  # Les migrations Prisma sont jouées au démarrage de chaque instance : une seule par défaut.
+  replicaCount: 1
+  migrations:
+    enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+imagePullSecrets: []
+
+database:
+  # La base PostgreSQL n'est pas dans ce chart. Son adresse est lue dans un secret créé par
+  # l'équipe infra, jamais écrit dans le dépôt. Vide : secret « <nom du déploiement>-base ».
+  existingSecret: ""
+  # Clé du secret qui contient l'adresse (postgresql://utilisateur:motdepasse@hote:5432/base?schema=public).
+  secretKey: DATABASE_URL
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  # Adresse publique, ex. __SLUG__.exemple.gouv.fr
+  host: ""
+  tls:
+    enabled: false
+    secretName: ""
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

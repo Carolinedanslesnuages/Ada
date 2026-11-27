@@ -31,15 +31,33 @@ Objectif : __OBJECTIF__
 - Dépendances : versions figées dans `requirements.txt` (application) et
   `requirements-dev.txt` (outils) ; une nouvelle dépendance est justifiée dans la fiche.
 
+## Déploiement
+- `Dockerfile` : image de production de l'API (FastAPI), utilisateur sans privilèges, comme
+  dans les projets de l'organisation. La CI la construit et la lance avec la base à chaque
+  demande (« Image et chart »). Un nouveau dossier lu par l'API à l'exécution doit y être copié.
+- `docker-compose.yml` : la base seule pour développer (`make db`), ou tout le projet avec
+  l'image de production (`make up`, http://localhost:8000/api/docs).
+- `.env.example` : toute nouvelle variable d'environnement de l'API y est ajoutée, avec une valeur
+  fictive. Le fichier `.env` n'est jamais commité.
+- `.gitlab-ci-dso.yml` : construction de l'image sur Cloud Pi Native quand le dépôt y est copié
+  en miroir. **Réservé aux développeurs et à l'équipe infra : ne pas le modifier.**
+- `charts/app/` (présent si le projet est déployé) : chart Helm générique. **Réservé aux
+  développeurs et à l'équipe infra : ne pas le modifier.** La base PostgreSQL est externe : son
+  adresse est lue dans un secret créé par l'équipe infra. Les valeurs d'un environnement
+  (registre, adresse) sont fournies hors du dépôt.
+
 ## Commandes
-| Action | Commande |
-|---|---|
-| Environnement | `python3.13 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt` |
-| Base de données | `docker compose up -d` puis `alembic upgrade head` |
-| Lancer l'API | `uvicorn app.main:app --reload` (documentation : http://localhost:8000/api/docs) |
-| Tests | `pytest` |
-| Lint et format | `ruff check . && ruff format --check .` |
-| Types | `mypy app` |
+`make` liste les commandes ; chacune a son équivalent direct.
+
+| Action | Commande | Équivalent |
+|---|---|---|
+| Installer | `make install` | `python3.13 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`, `cp .env.example .env` |
+| Base de données | `make migrate` | `docker compose up -d --wait db` puis `.venv/bin/alembic upgrade head` |
+| Lancer l'API | `make dev` | `.venv/bin/uvicorn app.main:app --reload` (documentation : http://localhost:8000/api/docs) |
+| Tests | `make test` | `.venv/bin/pytest` |
+| Lint et format | `make lint` | `.venv/bin/ruff check . && .venv/bin/ruff format --check .` |
+| Tous les contrôles | `make check` | lint, tests, puis `.venv/bin/mypy app` |
+| Tout lancer comme en production | `make up` (arrêt : `make down`) | `docker compose up -d --build --wait` : http://localhost:8000/api/docs |
 
 ## Messages de commit (release-please)
 Conventional Commits, versions SemVer calculées par release-please (jamais à la main) :

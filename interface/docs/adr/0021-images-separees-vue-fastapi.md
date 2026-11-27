@@ -42,7 +42,6 @@ retrouver cette forme.
 - **Négatives** : deux images à construire en CI ; le fichier `.gitlab-ci-dso.yml` n'est vérifié
   par aucun contrôle d'ADA (il ne s'exécute que sur Cloud Pi Native).
 - **Encore ouvert** :
-  - mêmes ajouts pour `api-fastapi`, `api-nest` et `tableau-de-bord` ;
   - dossier `charts/app` (ADR-0008) ou `helm/` à la racine, plus courant dans l'organisation ;
   - publication des images et du chart depuis GitHub (`build-docker.yml`, `release-helm-local.yml`
     de fabnum-cicd).
@@ -54,3 +53,10 @@ Même décision pour `vue-nest-dsfr` (point laissé ouvert par l'ADR-0008), avec
 - le client Prisma est généré avec des imports en « .js » (`importFileExtension`), sans quoi
   l'API compilée (`node dist/main`) ne démarrait pas. Le défaut existait avant ; il n'était pas vu
   parce que l'aperçu lance l'API en mode développement.
+
+## Suite du 2026-11-27 — `tableau-de-bord`, `api-nest`, `api-fastapi`
+- `tableau-de-bord` : comme `vue-nest-dsfr`. Les données fictives sont chargées par
+  `docker compose` et `make migrate`, jamais par le chart.
+- `api-nest` et `api-fastapi` : une seule image (pas de front), un chart à un déploiement, l'API
+  exposée par l'ingress.
+- Le défaut des imports du client Prisma est corrigé dans les trois modèles NestJS.
