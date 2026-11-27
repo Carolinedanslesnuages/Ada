@@ -8,9 +8,11 @@
 ## Lancer le projet
 | Action | Commande |
 |---|---|
-| Base de données | `docker compose up -d` |
-| Lancer l'API | `cd api && npm run start:dev` |
-| Lancer le front | `cd front && npm run dev` |
+| Installer (une fois) | `make install` |
+| Base de données | `make migrate` |
+| Lancer l'API | `make dev-api` |
+| Lancer le front | `make dev-front` |
+| Tout lancer comme en production | `make up` (http://localhost:8080) |
 
 ## Stories réalisées
 _(aucune pour l'instant)_

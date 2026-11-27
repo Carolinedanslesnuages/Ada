@@ -93,6 +93,7 @@ jobs:
           - { modele: vue-node, images: unique }
           - { modele: formulaire, images: unique }
           - { modele: vue-fastapi, images: separees }
+          - { modele: vue-nest-dsfr, images: separees }
     defaults:
       run:
         working-directory: catalogue/${{ matrix.modele }}

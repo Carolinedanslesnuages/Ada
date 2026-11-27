@@ -1,0 +1,39 @@
+# Sert le front construit et transmet /api à l'API : une seule adresse pour le navigateur.
+# ${ADRESSE_API} est remplacée au démarrage du conteneur (variable d'environnement).
+server {
+    listen 8080;
+    server_name _;
+
+    root /usr/share/nginx/html;
+
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 256;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+
+    location /api {
+        proxy_pass ${ADRESSE_API};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /__version__ {
+        proxy_pass ${ADRESSE_API};
+    }
+
+    # Fichiers construits par Vite : leur nom change avec leur contenu, le navigateur peut les garder.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header X-Content-Type-Options "nosniff" always;
+        access_log off;
+    }
+
+    # Application monopage : toute autre adresse reçoit index.html.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
