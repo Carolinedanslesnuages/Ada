@@ -16,7 +16,7 @@ export async function chargerApi() {
     process.exit(1)
   }
   // L'agent est découpé par responsabilité (ADR-0012) : le banc en réunit les modules.
-  const modules = ['agent', 'consignes', 'outils', 'reponses', 'activite'].map((nom) => import(join(API, `dist/agent/${nom}.js`)))
+  const modules = ['agent', 'consignes', 'outils', 'reponses', 'activite', 'relance-decoupage'].map((nom) => import(join(API, `dist/agent/${nom}.js`)))
   return { agent: Object.assign({}, ...(await Promise.all(modules))), empreinte: await import(join(API, 'dist/empreinte/empreinte.js')) }
 }
 
