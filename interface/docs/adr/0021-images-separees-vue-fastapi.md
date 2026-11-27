@@ -70,3 +70,22 @@ Relecture contre `dnum-mi/transversal-doc` (`docs/conventions/deploiement.md`). 
 - **Images en plusieurs étapes** pour les API NestJS : la première compile, la seconde ne garde
   que les dépendances d'exécution. `prisma` (migrations) et `dotenv` (lu par `main.ts`) deviennent
   des dépendances d'exécution, ce qu'elles étaient déjà dans les faits.
+
+## Suite du 2026-11-27 — pnpm, uv et ESLint (étape 2), `vue-fastapi` d'abord
+Pages lues : `conventions/lint-formattage`, `stack/eslint`, `stack/index`, `serveur/fastapi`.
+- **Front** : pnpm (`packageManager` dans `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` pour
+  les `overrides`) et `@antfu/eslint-config` à la place d'oxlint, d'ESLint seul et de Prettier. Les
+  règles de surcharge sont celles de `stack/eslint`, sauf `import/order`, absente de la version 10
+  (qui trie déjà les imports). L'accessibilité reste vérifiée à l'écriture (`vue: { a11y: true }`).
+  pnpm refuse un paquet non déclaré : `@gouvfr/dsfr` devient une dépendance directe.
+- **API** : uv (`pyproject.toml` en versions exactes, `uv.lock`) à la place de `requirements.txt` ;
+  Ruff aligné (88 colonnes, règles `C4`), en gardant `S` et `RUF`.
+- **Aperçu d'ADA** : le fichier de verrou décide. `pnpm-lock.yaml` → pnpm (version de
+  `packageManager`, installée par npm dans le cache partagé) ; `uv.lock` → uv ; sinon npm et pip
+  comme avant. Les projets déjà créés ne changent pas.
+- **Dockerfile** : API en deux étapes avec uv ; pnpm par corepack dans l'image du front.
+- **Reste à faire pour les autres modèles** : mêmes changements pour les modèles Vue et Python
+  (`vue-nest-dsfr`, `api-fastapi`, `tableau-de-bord`, `vue-node*`, et les modèles front seuls).
+  Le contrôle « Dépendances » (Madeleine) ne lit que les `package.json` : il ne vérifie pas
+  `pyproject.toml`.
+

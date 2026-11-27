@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Vérifie un modèle du catalogue comme le ferait son propre projet : installation des dépendances
-// (npm ci ; pour Python : environnement virtuel .venv-verification et pip) dans chaque dossier
+// (npm ci, ou pnpm si pnpm-lock.yaml ; pour Python : environnement virtuel .venv-verification, pip
+// ou uv si uv.lock) dans chaque dossier
 // déclaré par ada.json, puis chacun de ses contrôles (lint, types,
 // tests dont accessibilité, compilation), sur le projet assemblé (socle commun puis modèle) dans un
 // dossier jetable. Les chemins /app du conteneur deviennent ce dossier.
@@ -46,6 +47,8 @@ console.log(`✔ Aucun doublon du socle commun`)
 // Dépendances npm en version exacte (contrôle « Dépendances » des projets), et « npm install »
 // qui continue d'écrire des versions exactes (.npmrc).
 const VERSION_EXACTE = /^\d+\.\d+\.\d+(-[\w.]+)?$/
+// Même version de uv que l'aperçu d'ADA (interface/api/src/preview/preview.ts) et la CI des modèles.
+const VERSION_UV = '0.13.8'
 const libres = []
 for (const sousDossier of ada.apercu?.npm ?? []) {
   const paquet = JSON.parse(readFileSync(join(dossier, sousDossier, 'package.json'), 'utf8'))
@@ -72,7 +75,13 @@ for (const source of [socle, dossier]) {
   }
 }
 const venv = join(projet, '.venv-verification')
-const env = (ada.apercu?.pip ?? []).length ? { ...process.env, VIRTUAL_ENV: venv, PATH: `${join(venv, 'bin')}:${process.env.PATH}` } : process.env
+// pnpm (projets avec pnpm-lock.yaml) est installé dans ce dossier du projet jetable, puis ajouté au PATH.
+const dossierPnpm = join(projet, '.pnpm-verification')
+const env = {
+  ...process.env,
+  PATH: `${join(dossierPnpm, 'bin')}:${(ada.apercu?.pip ?? []).length ? `${join(venv, 'bin')}:` : ''}${process.env.PATH}`,
+  ...((ada.apercu?.pip ?? []).length ? { VIRTUAL_ENV: venv } : {}),
+}
 const executer = (titre, commande, cwd = projet) => {
   console.log(`\n▶ ${titre}`)
   execFileSync('bash', ['-euo', 'pipefail', '-c', commande], { cwd, stdio: 'inherit', env })
@@ -80,10 +89,23 @@ const executer = (titre, commande, cwd = projet) => {
 try {
   if ((ada.apercu?.pip ?? []).length) executer('environnement Python', `python3 -m venv ${JSON.stringify(venv)}`)
   for (const sousDossier of ada.apercu?.pip ?? []) {
+    if (existsSync(join(projet, sousDossier, 'uv.lock'))) {
+      // Projet uv : mêmes versions que l'aperçu et la CI, dans l'environnement virtuel de vérification.
+      executer(`installation Python avec uv (${sousDossier})`, `pip install --quiet --disable-pip-version-check uv==${VERSION_UV} && UV_PROJECT_ENVIRONMENT=${JSON.stringify(venv)} uv sync --frozen --inexact`, join(projet, sousDossier))
+      continue
+    }
     const fichier = existsSync(join(projet, sousDossier, 'requirements-dev.txt')) ? 'requirements-dev.txt' : 'requirements.txt'
     executer(`installation Python (${sousDossier})`, `pip install --quiet --disable-pip-version-check -r ${fichier}`, join(projet, sousDossier))
   }
   for (const sousDossier of ada.apercu?.npm ?? []) {
+    if (existsSync(join(projet, sousDossier, 'pnpm-lock.yaml'))) {
+      // Projet pnpm : la version inscrite dans package.json (« packageManager »), comme la CI et l'aperçu.
+      const gestionnaire = JSON.parse(readFileSync(join(projet, sousDossier, 'package.json'), 'utf8')).packageManager ?? ''
+      const version = gestionnaire.replace(/^pnpm@/, '').replace(/\+.*$/, '')
+      if (!VERSION_EXACTE.test(version)) throw new Error(`${sousDossier}/package.json : « packageManager » doit être pnpm@<version exacte>`)
+      executer(`installation avec pnpm ${version} (${sousDossier})`, `npm install -g --prefix ${JSON.stringify(dossierPnpm)} --no-audit --no-fund pnpm@${version} && pnpm install --frozen-lockfile`, join(projet, sousDossier))
+      continue
+    }
     executer(`installation (${sousDossier})`, 'npm ci --no-audit --no-fund', join(projet, sousDossier))
   }
   for (const controle of ada.controles) {

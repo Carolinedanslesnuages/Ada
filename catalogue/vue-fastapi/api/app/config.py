@@ -15,8 +15,14 @@ class Reglages(BaseSettings):
     def adresse_base(self) -> str:
         """Adresse SQLAlchemy : pilote psycopg 3 explicite, sans l'option « schema » (propre à
         Prisma, ajoutée par certains environnements) que psycopg refuse."""
-        morceaux = urlsplit(self.database_url.replace("postgresql://", "postgresql+psycopg://", 1))
-        options = [(cle, valeur) for cle, valeur in parse_qsl(morceaux.query) if cle != "schema"]
+        morceaux = urlsplit(
+            self.database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        )
+        options = [
+            (cle, valeur)
+            for cle, valeur in parse_qsl(morceaux.query)
+            if cle != "schema"
+        ]
         return urlunsplit(morceaux._replace(query=urlencode(options)))
 
 

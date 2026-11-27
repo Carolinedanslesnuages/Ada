@@ -21,8 +21,15 @@ Objectif : __OBJECTIF__
   `Depends(session_base)`). **Toute évolution de la base = une migration Alembic**
   (`alembic revision --autogenerate -m "<sujet>"`, relue avant fusion), signalée pour relecture.
 - Tests API : pytest (`api/tests/test_<domaine>.py`, client `TestClient`), réponses d'erreur comprises.
-- Dépendances Python : versions figées dans `api/requirements.txt` (application) et
-  `api/requirements-dev.txt` (outils) ; une nouvelle dépendance est justifiée dans la fiche.
+- Dépendances Python gérées par **uv** : déclarées en version exacte dans `api/pyproject.toml`,
+  verrouillées dans `api/uv.lock`. Ajouter : `cd api && uv add <paquet>==<version>` (outil de
+  développement : `uv add --dev …`). Jamais de `pip install` ni de `requirements.txt`.
+- Dépendances du front gérées par **pnpm** : `cd front && pnpm add <paquet>` (version exacte,
+  `.npmrc`), verrouillées dans `front/pnpm-lock.yaml`. Jamais de `npm install`. pnpm n'accepte que
+  les paquets déclarés : un paquet importé dans le code figure dans `package.json`.
+- Une nouvelle dépendance est justifiée dans la fiche.
+- **Style** (conventions de la Fabrique numérique) : `@antfu/eslint-config` vérifie et met en forme
+  le front (pas de Prettier), Ruff vérifie et met en forme l'API. `make format` corrige.
 - Front (`front/`) : Vue 3, un dossier `src/views/` par écran, appels API dans `src/services/`,
   `<script setup lang="ts">`. Jamais de `any`.
 - **Pinia** (installé et activé dans `src/main.ts`) : créer un store `src/stores/<domaine>.ts`
@@ -75,7 +82,7 @@ Le service doit être utilisable par tous (RGAA 4, obligatoire dans l'administra
 **Référentiel complet** (DINUM, RGAA 4.1.2, 106 critères et leurs tests) :
 `ressources/accessibilite/rgaa-4.1.2/README.md` pour l'index, puis le fichier du thème concerné.
 
-Vérifié automatiquement : le **lint** (`eslint-plugin-vuejs-accessibility`) refuse une image sans
+Vérifié automatiquement : le **lint** (`eslint-plugin-vuejs-accessibility`, activé dans `eslint.config.js`) refuse une image sans
 alternative, un champ sans étiquette, un clic sans clavier… et chaque écran a un **test axe-core**
 (`violationsAccessibilite`). Ces outils couvrent environ un tiers du RGAA : le reste se vérifie
 à la main et se note dans la fiche de relecture (« à vérifier par un humain »).
@@ -88,18 +95,22 @@ accepté en connaissance de cause s'inscrit dans `.emmanuelle-reference.json`, j
 passer une PR : on le corrige.
 
 ## Commandes
-`make` liste les commandes ; chacune a son équivalent direct.
+`make` liste les commandes ; chacune a son équivalent direct. Il faut `uv`, `pnpm` et Docker.
 
 | Action | Commande | Équivalent |
 |---|---|---|
-| Installer | `make install` | `cd api && python3.13 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`, `cp api/.env.example api/.env`, `cd front && npm ci` |
-| Base de données | `make migrate` | `docker compose up -d --wait db` puis `cd api && .venv/bin/alembic upgrade head` |
-| Lancer l'API | `make dev-api` | `cd api && .venv/bin/uvicorn app.main:app --reload` (port 8000, documentation : `/api/docs`) |
-| Lancer le front | `make dev-front` | `cd front && npm run dev` (proxy `/api` vers le port 8000) |
-| Tests | `make test` | `cd api && .venv/bin/pytest && cd ../front && npm run test:unit -- --run` |
-| Lint | `make lint` | `cd api && .venv/bin/ruff check . && .venv/bin/ruff format --check . && cd ../front && npx oxlint . && npx eslint .` |
-| Tous les contrôles | `make check` | lint, tests, puis `cd api && .venv/bin/mypy app && cd ../front && npm run type-check && npm run build-only` |
+| Installer | `make install` | `cd api && uv sync`, `cp api/.env.example api/.env`, `cd front && pnpm install --frozen-lockfile` |
+| Base de données | `make migrate` | `docker compose up -d --wait db` puis `cd api && uv run alembic upgrade head` |
+| Lancer l'API | `make dev-api` | `cd api && uv run uvicorn app.main:app --reload` (port 8000, documentation : `/api/docs`) |
+| Lancer le front | `make dev-front` | `cd front && pnpm dev` (proxy `/api` vers le port 8000) |
+| Tests | `make test` | `cd api && uv run pytest && cd ../front && pnpm test:unit --run` |
+| Lint | `make lint` | `cd api && uv run ruff check . && uv run ruff format --check . && cd ../front && pnpm lint` |
+| Corriger le style | `make format` | `cd api && uv run ruff check --fix . && uv run ruff format . && cd ../front && pnpm format` |
+| Tous les contrôles | `make check` | lint, tests, puis `cd api && uv run mypy app && cd ../front && pnpm type-check && pnpm build-only` |
 | Tout lancer comme en production | `make up` (arrêt : `make down`) | `docker compose up -d --build --wait` : http://localhost:8080 |
+
+Dans l'aperçu d'ADA, l'environnement Python est déjà actif : `pytest`, `ruff`, `mypy`, `alembic`
+se lancent sans `uv run`.
 
 ## Messages de commit (release-please)
 Conventional Commits, versions SemVer calculées par release-please (jamais à la main) :

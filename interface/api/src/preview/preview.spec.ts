@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_ADA, readAdaConfig } from '../ada/ada-config.js';
-import { assignPort, NODE_FINGERPRINTS, stateFromPs, generateCompose, generateStartScript, generateWorkScript, REPOSITORY_NAME, nodeAdded, PORT_MIN, NODE_VERSION, NODE_VOLUME, sharedVolumes } from './preview.js';
+import { assignPort, NODE_FINGERPRINTS, stateFromPs, generateCompose, generateStartScript, generateWorkScript, REPOSITORY_NAME, nodeAdded, PORT_MIN, NODE_VERSION, NODE_VOLUME, sharedVolumes, UV_VERSION } from './preview.js';
 
 describe('Preview ports', () => {
   it('keeps the port already assigned to a project', () => {
@@ -46,6 +46,14 @@ describe('Containers of a preview', () => {
     expect(work).toContain('(cd /app/api && npm run start:dev) > /tmp/arriere-plan-0.log 2>&1 &');
     expect(work).toContain('exec bash -c "cd /app/front && npx vite --host 0.0.0.0 --port 5173 --strictPort"');
     expect(generateStartScript()).toContain('chown node:node /app/api/node_modules /app/front/node_modules /home/node/.npm');
+  });
+
+  it('a project with a pnpm-lock.yaml is installed by pnpm (version of package.json), otherwise by npm', () => {
+    expect(generateWorkScript()).toContain('    if [ -f pnpm-lock.yaml ]; then\n      version=$(node -p');
+    expect(generateWorkScript()).toContain('      pnpm install --config.confirmModulesPurge=false && return 0\n    else\n      npm install');
+    expect(generateWorkScript()).toContain('npm install -g --prefix "$prefixe" --no-audit --no-fund "pnpm@$version"');
+    expect(generateStartScript()).toContain('/etc/profile.d/ada-pnpm.sh');
+    expect(compose).toContain('      npm_config_store_dir: /home/node/.npm/pnpm-store');
   });
 
   it('produces scripts that bash accepts (default and mockup)', () => {
@@ -154,6 +162,16 @@ describe('State of a preview', () => {
       expect(work).toContain('pip install --retries 5 --timeout 60 -r "$fichier"');
       expect(work).toContain('(cd /app && installer_python)');
       expect(generateWorkScript(DEFAULT_ADA)).not.toContain('pip install');
+    });
+
+    it('a project with a uv.lock is installed by uv, in the same virtual environment', () => {
+      const work = generateWorkScript(pythonConfig);
+      expect(work).toContain('    if [ -f uv.lock ]; then');
+      expect(work).toContain(`pip install --retries 5 --timeout 60 uv==${UV_VERSION}; } && uv sync --frozen --inexact && return 0`);
+      const python = generateCompose('api-python', 5310, pythonConfig);
+      expect(python).toContain('      UV_PROJECT_ENVIRONMENT: /opt/venv');
+      expect(python).toContain('      UV_CACHE_DIR: /home/ada/.cache/pip/uv');
+      expect(generateCompose('poc-portail', 5301)).not.toContain('UV_');
     });
 
     it('generated scripts syntactically valid (bash -n)', () => {

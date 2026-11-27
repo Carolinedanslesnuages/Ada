@@ -3,10 +3,11 @@
 # Construction : docker build -t <nom>-front front
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
-COPY package.json package-lock.json .npmrc ./
-RUN npm ci --no-audit --no-fund --fetch-retries=5
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+# corepack fournit la version de pnpm inscrite dans package.json (« packageManager »).
+RUN corepack enable && pnpm install --frozen-lockfile
 COPY . .
-RUN npm run build-only
+RUN pnpm build-only
 
 FROM nginxinc/nginx-unprivileged:1.29-alpine
 # Adresse de l'API vue depuis ce conteneur (docker compose : service « api » ; Helm : le chart la fournit).

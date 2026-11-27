@@ -3,7 +3,9 @@ import HomeView from '../views/HomeView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [{ path: '/', name: 'accueil', component: HomeView }],
+  routes: [
+    { path: '/', name: 'accueil', component: HomeView },
+  ],
 })
 
 export default router
