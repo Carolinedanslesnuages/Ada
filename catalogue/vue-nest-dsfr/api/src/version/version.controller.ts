@@ -1,5 +1,6 @@
-import { Controller, Get, Header } from '@nestjs/common';
-import { readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs'
+import process from 'node:process'
+import { Controller, Get, Header } from '@nestjs/common'
 
 /** Contrat repo-version-json (format Dockerflow) : le fichier de l'image, sinon « dev ». */
 export const VERSION_DEV = {
@@ -10,17 +11,17 @@ export const VERSION_DEV = {
   code_date: '',
   changes: [],
   history: [],
-};
+}
 
 @Controller()
 export class VersionController {
   @Get(['__version__', 'api/__version__'])
   @Header('Cache-Control', 'no-store')
-  version(): unknown {
+  version (): unknown {
     try {
-      return JSON.parse(readFileSync(process.env.VERSION_JSON ?? '/app/version.json', 'utf8'));
+      return JSON.parse(readFileSync(process.env.VERSION_JSON ?? '/app/version.json', 'utf8'))
     } catch {
-      return { ...VERSION_DEV };
+      return { ...VERSION_DEV }
     }
   }
 }

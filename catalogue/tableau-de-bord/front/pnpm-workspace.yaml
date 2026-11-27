@@ -1,0 +1,6 @@
+minimumReleaseAgeExcludePrune: true
+trustPolicy: no-downgrade
+shellEmulator: true
+# Réglages de pnpm pour ce dossier (pnpm ne lit plus « overrides » dans package.json).
+overrides:
+  minimatch: 11.0.8

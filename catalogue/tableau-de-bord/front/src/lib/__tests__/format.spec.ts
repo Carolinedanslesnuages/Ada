@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { evolution, nombre, periode } from '../format'
 
-describe('Mise en forme', () => {
+describe('mise en forme', () => {
   it('nombres, périodes et évolutions en français, sans dépendre de la couleur', () => {
     expect(nombre(1250).replace(/\s/g, ' ')).toBe('1 250')
     expect(nombre(null)).toBe('—')

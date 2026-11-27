@@ -222,6 +222,8 @@ export function generateWorkScript(config: AdaConfig = DEFAULT_ADA): string {
   return [
     '#!/usr/bin/env bash',
     'set -euo pipefail',
+    // pnpm (installed below, per project) is also needed by the later commands (background, main page).
+    `export PATH=${PNPM_FOLDER}:$PATH`,
     'installer() {',
     '  for essai in 1 2 3; do',
     // The lock file says which tool installs: pnpm-lock.yaml → pnpm, otherwise npm.
@@ -230,7 +232,6 @@ export function generateWorkScript(config: AdaConfig = DEFAULT_ADA): string {
     '      prefixe=/home/node/.npm/pnpm-$version',
     '      [ -x "$prefixe/bin/pnpm" ] || npm install -g --prefix "$prefixe" --no-audit --no-fund "pnpm@$version"',
     '      ln -sfn "$prefixe" /home/node/.npm/pnpm-actuel',
-    `      export PATH=${PNPM_FOLDER}:$PATH`,
     '      pnpm install --config.confirmModulesPurge=false && return 0',
     '    else',
     '      npm install --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000 \\',

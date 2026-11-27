@@ -1,0 +1,18 @@
+minimumReleaseAgeExcludePrune: true
+
+trustPolicy: no-downgrade
+# pnpm refuse une version publiée sans la provenance des versions précédentes (« trust downgrade »).
+# Prisma publie sans attestation depuis la 7.10.0 (7.9.0 en a une) : exception limitée à cette
+# version, à retirer dès qu'une version de Prisma est de nouveau attestée.
+trustPolicyExclude:
+  - prisma@7.10.1
+
+shellEmulator: true
+# Réglages de pnpm pour ce dossier (pnpm ne lit plus « overrides » dans package.json).
+overrides:
+  minimatch: 11.0.8
+
+# Scripts d'installation autorisés (pnpm bloque les autres) : Prisma télécharge son moteur.
+allowBuilds:
+  '@prisma/engines': true
+  prisma: true
