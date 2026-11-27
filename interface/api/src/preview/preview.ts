@@ -24,6 +24,13 @@ export const NODE_FINGERPRINTS: Record<string, string> = {
   arm64: '4786d00c4d259d3ff0b2328307f764ef3ced65f2d6e9502d433e68d66238509d',
 };
 export const NODE_VOLUME = `atelier-po-node-${NODE_VERSION}`;
+/**
+ * uv, for Python projects that have a uv.lock (Fabnum conventions): pinned version, installed by
+ * pip into the preview's virtual environment.
+ */
+export const UV_VERSION = '0.13.8';
+/** pnpm: the version written in package.json (“packageManager”) is installed by npm into the shared cache. */
+export const PNPM_FOLDER = '/home/node/.npm/pnpm-actuel/bin';
 
 /** Volumes shared between previews, to create before the first start. */
 export const sharedVolumes = (config: AdaConfig): string[] => [
@@ -123,12 +130,18 @@ export function generateCompose(
       : []),
     // Shared npm cache, at the same place whatever the user (node or ada).
     ...(nodeAdded(config) ? ['      npm_config_cache: /home/node/.npm'] : []),
+    // Projects with a pnpm-lock.yaml: pnpm's store is in the shared cache.
+    ...(preview.npm.length ? ['      npm_config_store_dir: /home/node/.npm/pnpm-store'] : []),
     ...(preview.pip.length
       ? [
           '      VIRTUAL_ENV: /opt/venv',
           '      PIP_DISABLE_PIP_VERSION_CHECK: "1"',
           '      PYTHONDONTWRITEBYTECODE: "1"',
           '      PYTHONUNBUFFERED: "1"',
+          // Projects with a uv.lock: uv installs into the same virtual environment, shared cache.
+          '      UV_PROJECT_ENVIRONMENT: /opt/venv',
+          `      UV_CACHE_DIR: ${PYTHON_HOME}/.cache/pip/uv`,
+          '      UV_LINK_MODE: copy',
         ]
       : []),
     // Public address (demo link): otherwise Vite's server refuses another host.
@@ -162,7 +175,7 @@ export function generateCompose(
 /**
  * Run as root only to give the volumes to the “node” user (Node images), then
  * travail.sh runs as “node”. npm install (and not npm ci): npm ci would try to delete the mount
- * point.
+ * point. A project with a pnpm-lock.yaml or a uv.lock is installed by pnpm or uv.
  */
 export function generateStartScript(config: AdaConfig = DEFAULT_ADA): string {
   const volumes = [
@@ -184,6 +197,9 @@ export function generateStartScript(config: AdaConfig = DEFAULT_ADA): string {
     ...(nodeAdded(config)
       ? [...nodeInstallation(), `printf 'export PATH=/opt/node/bin:$PATH\\nexport npm_config_cache=/home/node/.npm\\n' > /etc/profile.d/ada-node.sh`]
       : []),
+    // pnpm (installed by travail.sh into the shared cache) must also be found by the assistant's
+    // commands (login shell, which rebuilds the PATH).
+    ...(config.preview.npm.length ? [`printf 'export PATH=${PNPM_FOLDER}:$PATH\\n' > /etc/profile.d/ada-pnpm.sh`] : []),
     `mkdir -p ${volumes.join(' ')}`,
     `chown ${user}:${user} ${volumes.join(' ')}`,
     `exec runuser -u ${user} -- bash /travail.sh`,
@@ -208,8 +224,18 @@ export function generateWorkScript(config: AdaConfig = DEFAULT_ADA): string {
     'set -euo pipefail',
     'installer() {',
     '  for essai in 1 2 3; do',
-    '    npm install --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000 \\',
-    '      --fetch-retry-maxtimeout=180000 --fetch-timeout=600000 && return 0',
+    // The lock file says which tool installs: pnpm-lock.yaml → pnpm, otherwise npm.
+    '    if [ -f pnpm-lock.yaml ]; then',
+    "      version=$(node -p \"(require('./package.json').packageManager || 'pnpm@12.20.0').replace(/^pnpm@/, '').replace(/[+].*$/, '')\")",
+    '      prefixe=/home/node/.npm/pnpm-$version',
+    '      [ -x "$prefixe/bin/pnpm" ] || npm install -g --prefix "$prefixe" --no-audit --no-fund "pnpm@$version"',
+    '      ln -sfn "$prefixe" /home/node/.npm/pnpm-actuel',
+    `      export PATH=${PNPM_FOLDER}:$PATH`,
+    '      pnpm install --config.confirmModulesPurge=false && return 0',
+    '    else',
+    '      npm install --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000 \\',
+    '        --fetch-retry-maxtimeout=180000 --fetch-timeout=600000 && return 0',
+    '    fi',
     '    echo "[apercu] installation interrompue (essai $essai), nouvelle tentative"',
     '    sleep 10',
     '  done',
@@ -220,10 +246,16 @@ export function generateWorkScript(config: AdaConfig = DEFAULT_ADA): string {
       ? [
           'installer_python() {',
           '  for essai in 1 2 3; do',
-          // Test and lint tools included (requirements-dev.txt includes requirements.txt): the assistant
+          // The lock file says which tool installs: uv.lock → uv (development tools included;
+          // --inexact keeps uv itself in the environment), otherwise pip. Test and lint tools are
+          // included either way (requirements-dev.txt includes requirements.txt): the assistant
           // runs its checks in the preview.
-          '    fichier=requirements.txt; [ -f requirements-dev.txt ] && fichier=requirements-dev.txt',
-          '    pip install --retries 5 --timeout 60 -r "$fichier" && return 0',
+          '    if [ -f uv.lock ]; then',
+          `      { [ -x /opt/venv/bin/uv ] || pip install --retries 5 --timeout 60 uv==${UV_VERSION}; } && uv sync --frozen --inexact && return 0`,
+          '    else',
+          '      fichier=requirements.txt; [ -f requirements-dev.txt ] && fichier=requirements-dev.txt',
+          '      pip install --retries 5 --timeout 60 -r "$fichier" && return 0',
+          '    fi',
           '    echo "[apercu] installation Python interrompue (essai $essai), nouvelle tentative"',
           '    sleep 10',
           '  done',

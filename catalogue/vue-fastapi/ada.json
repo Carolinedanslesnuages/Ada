@@ -7,7 +7,6 @@
     "docker-compose.yml",
     "docs/adr/0001-choix-de-la-stack.md",
     "docs/adr/README.md",
-    "api/pyproject.toml",
     "api/app/__init__.py",
     "api/app/main.py",
     "api/app/config.py",
@@ -35,7 +34,7 @@
   ],
   "controles": [
     "cd /app/api && ruff check . && ruff format --check . && mypy app && pytest",
-    "cd /app/front && npx oxlint . && npx eslint . && npm run type-check && npm run test:unit -- --run && npm run build-only"
+    "cd /app/front && pnpm lint && pnpm type-check && pnpm test:unit --run && pnpm build-only"
   ],
   "apercu": {
     "image": "python:3.13-slim",
