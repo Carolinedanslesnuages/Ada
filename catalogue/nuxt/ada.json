@@ -12,7 +12,10 @@
     "app/pages/accessibilite.vue"
   ],
   "controlesRequis": [
-    "Anti-fuite (gitleaks)",
+    "Anti-fuite (gitleaks) / Scan git history for leaked secrets",
+    "Commits (Conventional Commits) / Lint commit messages",
+    "Workflows (zizmor) / Audit workflows with zizmor",
+    "Configuration (Trivy) / Scan config files vulnerabilities",
     "Site (lint, types, tests dont accessibilité, génération, accessibilité des pages)",
     "Accessibilité RGAA (pages construites)",
     "Dépendances (paquet réel, version exacte, licence)",

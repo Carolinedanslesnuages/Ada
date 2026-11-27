@@ -90,7 +90,10 @@ export const ADA_PAR_DEFAUT: AdaConfig = {
     'front/src/views/__tests__/HomeView.spec.ts',
   ],
   controlesRequis: [
-    'Anti-fuite (gitleaks)',
+    'Anti-fuite (gitleaks) / Scan git history for leaked secrets',
+    'Commits (Conventional Commits) / Lint commit messages',
+    'Workflows (zizmor) / Audit workflows with zizmor',
+    'Configuration (Trivy) / Scan config files vulnerabilities',
     'API (lint, tests, compilation)',
     'Front (lint, types, tests dont accessibilité, compilation)',
   ],

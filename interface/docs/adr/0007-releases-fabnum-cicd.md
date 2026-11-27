@@ -1,6 +1,6 @@
 # ADR-0007 — Versions par le workflow commun de la DNUM (fabnum-cicd)
 
-- **Statut** : Accepted
+- **Statut** : Accepted (complété par l'ADR-0019 : `scan-gitleaks` et `lint-commits` sont branchés)
 - **Date** : 2026-11-16
 - **Décideurs** : équipe ADA
 - **Sujet** : harmoniser les releases des projets créés par ADA avec le reste de l'organisation (issue #11)

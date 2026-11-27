@@ -11,7 +11,8 @@ import { ADA_PAR_DEFAUT } from '../ada/ada-config.js';
 import type { ProjetsService } from '../projets/projets.service.js';
 
 const config = lireConfig({ GITHUB_PROPRIETAIRE: 'proprio', GITHUB_CLIENT_ID: 'Iv', GITHUB_CLIENT_SECRET: 's', SESSION_SECRET: 'x'.repeat(32) });
-const NOMS = ['Anti-fuite (gitleaks)', 'API (lint, tests, compilation)', 'Front (lint, types, tests dont accessibilité, compilation)'];
+// Contrôles exigés par défaut (projet sans ada.json) : tous rapportés par GitHub.
+const NOMS = [...ADA_PAR_DEFAUT.controlesRequis];
 const runs = (conclusion: string | null, status = 'completed') => ({
   data: { check_runs: NOMS.map((name) => ({ name, status, conclusion, html_url: null })) },
 });
@@ -60,7 +61,7 @@ describe('VerificationService', () => {
     const v = await service.verifier('jeton', 'poc', 1);
     expect(gh.checks.listForRef).toHaveBeenCalledWith(expect.objectContaining({ ref: 'abc' }));
     expect(v.pullRequest).toEqual({ numero: 3, url: 'https://github.com/proprio/poc/pull/3', etat: 'ouverte' });
-    expect(v.controles.map((c) => c.etat)).toEqual(['reussi', 'reussi', 'reussi']);
+    expect(v.controles.map((c) => c.etat)).toEqual(NOMS.map(() => 'reussi'));
     expect(v.fusionnable).toBe(true);
   });
 

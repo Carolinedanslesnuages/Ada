@@ -12,7 +12,8 @@
 1. Branche dédiée, jamais de commit sur `main`.
 2. Respecter les invariants de [`AGENTS.md`](AGENTS.md).
 3. `node scripts/verifier-skills.mjs` et `node scripts/skills-index.mjs --check` passent (la CI les rejoue).
-4. Messages Conventional Commits (`feat:`, `fix:`, `docs:`…) : release-please en dépend.
+4. Messages Conventional Commits (`feat:`, `fix:`, `docs:`…) : release-please en dépend. Le hook
+   `commit-msg` de la Fabnum les vérifie avant le commit : `sh scripts/installer-hooks-git.sh` une fois par clone.
 5. Dire avec quel(s) agent(s) le changement a été testé.
 
 ## Ajouter une stack
