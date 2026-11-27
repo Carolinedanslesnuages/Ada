@@ -12,7 +12,10 @@
     "app/__init__.py",
     "app/main.py",
     "tests/test_sante.py",
-    "app/config.py"
+    "app/config.py",
+    ".env.example",
+    "charts/app/Chart.yaml",
+    "charts/app/values.yaml"
   ],
   "controlesRequis": [
     "Anti-fuite (gitleaks) / Scan git history for leaked secrets",
@@ -20,6 +23,7 @@
     "Workflows (zizmor) / Audit workflows with zizmor",
     "Configuration (Trivy) / Scan config files vulnerabilities",
     "API (lint, types, tests)",
+    "Image et chart (construction, helm lint)",
     "Dépendances (paquet réel, version exacte, licence)",
     "Titre de PR (Conventional Commits, semver)",
     "Taille des fichiers (une responsabilité par fichier)"
@@ -40,5 +44,8 @@
     "arrierePlan": [],
     "principal": "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
     "port": 8000
+  },
+  "deploiement": {
+    "chart": "charts/app"
   }
 }

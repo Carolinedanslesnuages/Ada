@@ -8,8 +8,10 @@
 ## Lancer le projet
 | Action | Commande |
 |---|---|
-| Base de données | `docker compose up -d` |
-| Lancer l'API | `uvicorn app.main:app --reload` |
+| Installer (une fois) | `make install` |
+| Base de données | `make migrate` |
+| Lancer l'API | `make dev` |
+| Tout lancer comme en production | `make up` (http://localhost:8000/api/docs) |
 
 ## Stories réalisées
 _(aucune pour l'instant)_

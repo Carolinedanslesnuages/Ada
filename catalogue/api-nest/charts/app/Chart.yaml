@@ -1,0 +1,7 @@
+apiVersion: v2
+name: __SLUG__
+description: "__NOM_PROJET__ — application créée avec ADA (API NestJS, base PostgreSQL externe)"
+type: application
+# Version du chart (indépendante de l'application) ; appVersion = étiquette des images par défaut.
+version: 0.1.0
+appVersion: "0.1.0"

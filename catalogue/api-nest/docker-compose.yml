@@ -1,3 +1,6 @@
+# En développement : « docker compose up -d db » lance la base seule (l'API tourne
+# sur le poste). « docker compose up -d --build » lance tout, avec l'image de production :
+# API sur http://localhost:3000 (documentation : /api/docs).
 services:
   db:
     image: postgres:16
@@ -9,5 +12,27 @@ services:
       - "5432:5432"
     volumes:
       - donnees-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-}
+    environment:
+      DATABASE_URL: postgresql://__SLUG__:__SLUG__@db:5432/__SLUG__?schema=public
+    # Les migrations d'abord, puis l'API.
+    command: sh -c "if [ -d prisma/migrations ]; then npx prisma migrate deploy; fi && node dist/main"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
 volumes:
   donnees-db:
