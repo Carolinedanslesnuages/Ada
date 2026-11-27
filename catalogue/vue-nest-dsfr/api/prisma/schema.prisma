@@ -6,6 +6,8 @@
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
+  // Imports en « .js » : sans cela, l'API compilée (node dist/main) ne trouve pas le client.
+  importFileExtension = "js"
 }
 
 datasource db {
