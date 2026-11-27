@@ -15,4 +15,4 @@ jobs:
     name: Titre de PR (Conventional Commits, semver)
     runs-on: ubuntu-latest
     steps:
-      - uses: Carolinedanslesnuages/constance/titre-pr@df8fc5f62f37d23bf8189e24c887f1ee6b3c5b97 # v1.2.0
+      - uses: Carolinedanslesnuages/constance/titre-pr@80a892e97ceed08494a8ef2ec2fd45993125c431 # v1.2.0

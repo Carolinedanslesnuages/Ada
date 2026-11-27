@@ -18,4 +18,4 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: Carolinedanslesnuages/constance/taille-fichiers@df8fc5f62f37d23bf8189e24c887f1ee6b3c5b97 # v1.2.0
+      - uses: Carolinedanslesnuages/constance/taille-fichiers@80a892e97ceed08494a8ef2ec2fd45993125c431 # v1.2.0
