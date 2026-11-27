@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { hasShellOperators, makePermissions, parseArgs, resolveModel } from './runner.mjs'
+import { hasShellOperators, makePermissions, parseArgs, resolveModel, retryDelay } from './runner.mjs'
 
 const ALLOWED = ['Read(./**)', 'Write(./**)', 'Bash(git status)', 'Bash(git status *)', 'Bash(docker compose -f ../compose.yml exec -T -u 1000 app bash -lc *)']
 const DENIED = ['Write(./.github/**)', 'Bash(git commit*--file*)']
@@ -114,4 +114,13 @@ test('une passerelle qui redirige : la requête et la clé ne partent jamais ver
   destination.close()
   assert.deepEqual(cible, [])
   assert.doesNotMatch(sortie, /"subtype":"success"/)
+})
+
+test('réessai : respecte Retry-After, sinon double le délai jusqu’à 30 s', () => {
+  assert.equal(retryDelay(1, '7'), 7000)
+  assert.equal(retryDelay(1, '500'), 60000, 'plafonné à 60 s')
+  assert.equal(retryDelay(1, '', 0), 2000)
+  assert.equal(retryDelay(3, '', 0), 8000)
+  assert.equal(retryDelay(6, '', 0), 30000, 'plafonné à 30 s')
+  assert.equal(retryDelay(2, 'abc', 0), 4000, 'Retry-After illisible : délai par défaut')
 })

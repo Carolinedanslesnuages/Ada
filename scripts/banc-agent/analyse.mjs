@@ -53,6 +53,7 @@ await enParallele(taches, 3, async ({ nom, rang }) => {
   const { decision, verifs } = noter(nom, execution.resultat)
   faits.push({ nom, decision: decision?.decision ?? null, verifs, ...execution })
   process.stderr.write(`· ${nom} ${rang + 1}/${repetitions} : ${decision?.decision ?? 'illisible'}\n`)
+  if (!decision) process.stderr.write(`  ↳ réponse illisible : ${JSON.stringify(String(execution.resultat ?? '').slice(0, 220))}\n`)
 })
 
 console.log(`\nAnalyse — modèle ${reglages.modele}, ${repetitions} répétition(s) par cas\n`)

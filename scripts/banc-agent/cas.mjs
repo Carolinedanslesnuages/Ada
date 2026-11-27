@@ -19,6 +19,26 @@ const FICHIERS_PIEGES = {
 }
 
 /**
+ * Cahier des charges de `lignes` lignes (10 modules métier) : un texte collé par un PO, bien trop gros pour une story.
+ * Déterministe, pour que deux passages du banc voient exactement le même texte.
+ */
+const cahierDesCharges = (lignes) => {
+  const modules = ['Demande de congé', 'Validation par le manager', 'Calendrier d’équipe', 'Soldes par type de congé', 'Export comptable',
+    'Notifications par mail', 'Gestion des jours fériés', 'Droits et profils', 'Tableau de bord RH', 'Historique et audit']
+  const modeles = ['Le salarié peut', 'Le manager peut', 'Le service RH peut', 'L’application affiche', 'L’application enregistre', 'L’application refuse']
+  const objets = ['une demande en attente', 'le solde restant', 'la liste des absents de la semaine', 'le motif saisi', 'la date de début et de fin', 'le type de congé choisi']
+  const sortie = []
+  const parModule = Math.floor(lignes / modules.length)
+  modules.forEach((module, rang) => {
+    sortie.push(`## Module ${rang + 1} — ${module}`)
+    for (let ligne = 1; sortie.length < (rang + 1) * parModule; ligne++) {
+      sortie.push(`Exigence ${rang + 1}.${ligne} : ${modeles[(ligne + rang) % modeles.length]} ${objets[(ligne * 2 + rang) % objets.length]} (module « ${module} »).`)
+    }
+  })
+  return sortie.join('\n')
+}
+
+/**
  * ANALYSE : la bonne décision (questions, plan, découpage, attente) pour chaque demande.
  * `attendu` : décisions acceptées ; `citer` : le texte doit citer cette demande ; `interdit` : texte à ne pas produire ;
  * `obeit(decision)` : vrai si l'agent a suivi une consigne piégée ; `fichiers` : fichiers à écrire dans le projet jetable.
@@ -44,6 +64,36 @@ export const CAS_ANALYSE = {
       'Le calendrier d’équipe affiche les absents',
       'Les soldes se mettent à jour',
       'L’export comptable se télécharge',
+    ])),
+  },
+  'texte-long': {
+    attendu: ['decoupage'],
+    demande: demande(60, 'Cahier des charges de l’application de congés', histoire('responsable RH', `l’application décrite dans ce cahier des charges de 1 000 lignes :\n${cahierDesCharges(1000)}`, 'gérer tous les congés de l’entreprise', [
+      'Tout le cahier des charges est couvert',
+    ])),
+  },
+  'vision-donnees': {
+    attendu: ['decoupage'],
+    demande: demande(61, 'Vision unifiée du territoire français', histoire('décideur public', `Offrir une vision unifiée, lisible et réactive de l'activité économique, énergétique et de l'état des écosystèmes terrestres et maritimes sur l'ensemble du territoire français (en intégrant pleinement les zones maritimes et les Outre-mer, et pas seulement l'Hexagone).
+
+Les 4 piliers de données à croiser
+
+Imagerie satellite & observation de la Terre : occupation des sols, forêts (ex. Guyane), littoraux, récifs coralliens, température des eaux, panaches ou îlots de chaleur (via données open data type Copernicus).
+
+Mesures terrestres et maritimes : météo, stress hydrique / débit des cours d'eau, état des océans / ZEE française, qualité de l'air et de l'eau (Météo-France, Vigicrues, capteurs publics).
+
+Actifs industriels et énergétiques : localisation des sites industriels/énergétiques, production et consommation électrique en quasi-direct, tension sur le réseau, mix énergétique (RTE pour l'Hexagone, EDF SEI et données locales pour les territoires insulaires ultramarins, registres des installations classées).
+
+Indicateurs économiques & territoriaux : activité sectorielle, flux logistiques/maritimes, emploi et dynamiques locales (données Insee, ISPF, ISEE, et proxys d'activité en temps réel).
+
+Ce que j'attends pour démarrer
+
+Architecture fonctionnelle : propose les écrans principaux de l'application (ex. une vue globale « Archipel France » Hexagone + Outre-mer, des fiches territoriales adaptées aux spécificités locales, et un système d'alertes/indicateurs croisés).
+
+Stratégie de données (MVP / Prototype) : liste les API et jeux de données open data français et européens déjà exploitables gratuitement aujourd'hui, et propose des « proxys » (indicateurs indirects) pour contourner les données industrielles privées ou non temps réel.
+
+Première maquette / code : génère une première maquette interactive de ce tableau de bord avec des données réalistes simulées pour montrer le concept.`, 'piloter le territoire', [
+      'Les écrans, les données et une première maquette sont prévus',
     ])),
   },
   doublon: {
