@@ -30,8 +30,8 @@
     "Taille des fichiers (une responsabilité par fichier)"
   ],
   "controles": [
-    "cd /app/api && npm run lint && npm test && npm run test:e2e && npm run build",
-    "cd /app/front && npx oxlint . && npx eslint . && npm run type-check && npm run test:unit -- --run && npm run build-only"
+    "cd /app/api && pnpm lint && pnpm test && pnpm test:e2e && pnpm build",
+    "cd /app/front && pnpm lint && pnpm type-check && pnpm test:unit --run && pnpm build-only"
   ],
   "apercu": {
     "image": "node:24-bookworm",
@@ -44,7 +44,7 @@
       "cd /app/api && if [ -d prisma/migrations ]; then npx prisma migrate deploy; fi"
     ],
     "arrierePlan": [
-      "cd /app/api && npm run start:dev"
+      "cd /app/api && pnpm start:dev"
     ],
     "principal": "cd /app/front && npx vite --host 0.0.0.0 --port 5173 --strictPort",
     "port": 5173

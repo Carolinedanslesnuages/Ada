@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { reponseJson, TABLEAU_ESSAI } from '@/__tests__/donnees'
 import { useIndicateursStore } from '../indicateurs'
-import { TABLEAU_ESSAI, reponseJson } from '@/__tests__/donnees'
 
-describe('Magasin des indicateurs', () => {
+describe('magasin des indicateurs', () => {
   beforeEach(() => setActivePinia(createPinia()))
   afterEach(() => vi.unstubAllGlobals())
 

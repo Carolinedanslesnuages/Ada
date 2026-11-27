@@ -53,6 +53,8 @@ describe('Containers of a preview', () => {
     expect(generateWorkScript()).toContain('      pnpm install --config.confirmModulesPurge=false && return 0\n    else\n      npm install');
     expect(generateWorkScript()).toContain('npm install -g --prefix "$prefixe" --no-audit --no-fund "pnpm@$version"');
     expect(generateStartScript()).toContain('/etc/profile.d/ada-pnpm.sh');
+    // Outside the install subshell: the background and main commands find pnpm too.
+    expect(generateWorkScript().split('\n')[2]).toBe('export PATH=/home/node/.npm/pnpm-actuel/bin:$PATH');
     expect(compose).toContain('      npm_config_store_dir: /home/node/.npm/pnpm-store');
   });
 

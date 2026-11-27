@@ -4,12 +4,14 @@
 # Construction : docker build --build-arg VERSION=$(cat version.txt) --build-arg COMMIT=$(git rev-parse HEAD) -t <nom>-api api
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
-COPY package.json package-lock.json .npmrc prisma.config.ts ./
+# corepack fournit la version de pnpm inscrite dans package.json (« packageManager »).
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc prisma.config.ts ./
 COPY prisma ./prisma
-# « npm ci » génère aussi le client Prisma (postinstall).
-RUN npm ci --no-audit --no-fund --fetch-retries=5
+# L'installation génère aussi le client Prisma (postinstall).
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN pnpm build
 
 FROM node:24-bookworm-slim
 ARG VERSION=dev
@@ -18,9 +20,10 @@ ENV NODE_ENV=production \
     PORT=3000 \
     VERSION_JSON=/app/version.json
 WORKDIR /app
-COPY package.json package-lock.json .npmrc prisma.config.ts ./
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc prisma.config.ts ./
 COPY prisma ./prisma
-RUN npm ci --omit=dev --no-audit --no-fund --fetch-retries=5 && npm cache clean --force
+RUN pnpm install --prod --frozen-lockfile && pnpm store prune
 COPY --from=build /app/dist ./dist
 # Contrat repo-version-json (format Dockerflow), lu par /__version__.
 RUN printf '{"source":"","version":"%s","commit":"%s","build":"","code_date":"","changes":[],"history":[]}\n' "$VERSION" "$COMMIT" > /app/version.json

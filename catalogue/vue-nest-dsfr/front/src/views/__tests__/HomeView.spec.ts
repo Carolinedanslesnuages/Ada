@@ -1,15 +1,25 @@
-import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { createRouter, createMemoryHistory } from 'vue-router'
-import HomeView from '../HomeView.vue'
+import { describe, expect, it } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { violationsAccessibilite } from '@/__tests__/accessibilite'
+import HomeView from '../HomeView.vue'
 
-const monter = () => {
-  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: HomeView }] })
-  return mount(HomeView, { global: { plugins: [router] }, attachTo: document.body })
+function monter () {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', component: HomeView },
+    ],
+  })
+  return mount(HomeView, {
+    global: {
+      plugins: [router],
+    },
+    attachTo: document.body,
+  })
 }
 
-describe('Page d’accueil', () => {
+describe('page d’accueil', () => {
   it('affiche le nom du projet', () => {
     const wrapper = monter()
     expect(wrapper.find('h1').text()).toBe('__NOM_PROJET__')

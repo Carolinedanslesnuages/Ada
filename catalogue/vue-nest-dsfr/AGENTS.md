@@ -9,6 +9,11 @@ Objectif : __OBJECTIF__
   ou fait, en toutes lettres (`salleLibre`, `reservationsDuJour`, `violation`), jamais `el`,
   `x`, `s`, `tmp`, `data2`. Seuls les noms imposés par les bibliothèques restent tels quels
   (`vi`, `expect`, `app`…). Contrôlé par le lint (`id-length`, 3 caractères minimum) : la CI échoue sinon.
+- **Gestionnaire et style** (conventions de la Fabrique numérique) : **pnpm** pour `api/` et `front/`
+  (`cd api && pnpm add <paquet>`, version exacte grâce à `.npmrc`, verrou `pnpm-lock.yaml` ; jamais
+  `npm install`). pnpm n'accepte que les paquets déclarés : un paquet importé figure dans
+  `package.json`. `@antfu/eslint-config` vérifie et met en forme (pas de Prettier) : `make format`
+  corrige. Dans l'API, `process` s'importe de `node:process`.
 - API (`api/`) : NestJS en modules ESM (imports avec suffixe `.js`). Un module par domaine métier.
 - Validation des entrées sur des DTO avec `class-validator` (ou un schéma Zod via `StandardSchemaValidationPipe`). Jamais de `any`.
 - Accès aux données uniquement via `PrismaService` (module global, `src/prisma/`).
@@ -80,17 +85,20 @@ passer une PR : on le corrige.
   (registre, adresse) sont fournies hors du dépôt.
 
 ## Commandes
-`make` liste les commandes ; chacune a son équivalent direct.
+`make` liste les commandes ; chacune a son équivalent direct. Il faut `pnpm` et Docker.
+
+Dans l'aperçu d'ADA, pnpm est déjà installé, à la version de `package.json`.
 
 | Action | Commande | Équivalent |
 |---|---|---|
-| Installer | `make install` | `cp api/.env.example api/.env`, `cd api && npm ci`, `cd front && npm ci` |
+| Installer | `make install` | `cp api/.env.example api/.env`, `cd api && pnpm install --frozen-lockfile`, `cd front && pnpm install --frozen-lockfile` |
 | Base de données | `make migrate` | `docker compose up -d --wait db` puis, s'il y a des migrations, `cd api && npx prisma migrate deploy` |
-| Lancer l'API | `make dev-api` | `cd api && npm run start:dev` (préfixe `/api`, port 3000) |
-| Lancer le front | `make dev-front` | `cd front && npm run dev` (proxy `/api` vers le port 3000) |
-| Tests | `make test` | `cd api && npm test && npm run test:e2e && cd ../front && npm run test:unit -- --run` |
-| Lint | `make lint` | `cd api && npm run lint && cd ../front && npx oxlint . && npx eslint .` |
-| Tous les contrôles | `make check` | lint, tests, puis `cd api && npm run build && cd ../front && npm run type-check && npm run build-only` |
+| Lancer l'API | `make dev-api` | `cd api && pnpm start:dev` (préfixe `/api`, port 3000) |
+| Lancer le front | `make dev-front` | `cd front && pnpm dev` (proxy `/api` vers le port 3000) |
+| Tests | `make test` | `cd api && pnpm test && pnpm test:e2e && cd ../front && pnpm test:unit --run` |
+| Lint | `make lint` | `cd api && pnpm lint && cd ../front && pnpm lint` |
+| Corriger le style | `make format` | `cd api && pnpm format && cd ../front && pnpm format` |
+| Tous les contrôles | `make check` | lint, tests, puis `cd api && pnpm build && cd ../front && pnpm type-check && pnpm build-only` |
 | Tout lancer comme en production | `make up` (arrêt : `make down`) | `docker compose up -d --build --wait` : http://localhost:8080 |
 
 ## Messages de commit (release-please)

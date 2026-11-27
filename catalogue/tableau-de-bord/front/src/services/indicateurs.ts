@@ -12,7 +12,7 @@ export interface Serie {
   titre: string
   unite: string
   periodes: string[]
-  courbes: { nom: string; valeurs: (number | null)[] }[]
+  courbes: { nom: string, valeurs: (number | null)[] }[]
 }
 
 export interface TableauDeBord {
@@ -20,8 +20,12 @@ export interface TableauDeBord {
   series: Serie[]
 }
 
-export async function lireTableauDeBord(): Promise<TableauDeBord> {
-  const reponse = await fetch('/api/indicateurs', { headers: { Accept: 'application/json' } })
-  if (!reponse.ok) throw new Error(`Le serveur ne répond pas correctement (${reponse.status})`)
+export async function lireTableauDeBord (): Promise<TableauDeBord> {
+  const reponse = await fetch('/api/indicateurs', {
+    headers: { Accept: 'application/json' },
+  })
+  if (!reponse.ok) {
+    throw new Error(`Le serveur ne répond pas correctement (${reponse.status})`)
+  }
   return (await reponse.json()) as TableauDeBord
 }
