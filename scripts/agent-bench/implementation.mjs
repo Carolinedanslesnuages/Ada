@@ -15,7 +15,7 @@ import { IMPLEMENTATION_CASES } from './cases.mjs'
 import { ROOT, loadApi, copyTemplate, writeFiles, equipSkills, launchAgent, readRgaaIndex, readSettings, average } from './common.mjs'
 
 const api = await loadApi()
-const { implementationInstructions, readResult, branchOf, reservedPaths } = api.agent
+const { implementationInstructions, readResult, branchOf, reservedPaths, pendingCommitMessage, pathsToRecord } = api.agent
 const settings = readSettings()
 const dryRun = process.argv.includes('--dry-run')
 const workRequests = process.argv.slice(2).filter((argument) => !argument.startsWith('--'))
@@ -108,6 +108,12 @@ async function une(name, rank) {
   }
   const execution = await launchAgent({ api, settings, phase: 'implementation', instructions: instructionsFor(name), cwd: repository, turns: 150 })
   const result = readResult(execution.result)
+  // Like the API: the work the agent left uncommitted is recorded by ADA.
+  const left = pathsToRecord(git('status', '--porcelain').split('\n').map((line) => line.replace(/^\s*\S+\s+/, '')).filter(Boolean))
+  if (left.length) {
+    git('add', '--', ...left)
+    git('-c', 'user.name=banc', '-c', 'user.email=banc@example.invalid', 'commit', '-qm', pendingCommitMessage(benchCase.workRequest))
+  }
   const files = git('diff', '--name-only', `${offset}..HEAD`).split('\n').filter(Boolean)
   const codeFiles = files.filter((file) => /^src\//.test(file) && !/(__tests__|\.spec\.|\.test\.)/.test(file))
   const codeDiff = codeFiles.length ? git('diff', `${offset}..HEAD`, '--', ...codeFiles) : ''
@@ -116,6 +122,7 @@ async function une(name, rank) {
     .map((file) => git('show', `HEAD:${file}`))
     .join('\n')
   const projectChecks = ada.checks.map((command) => inContainer(command))
+  for (const [index, check] of projectChecks.entries()) if (!check.ok) process.stderr.write(`  ↳ contrôle en échec : ${ada.checks[index]}\n${String(check.output).slice(-600)}\n`)
   const checks = [
     ['l’agent répond « ok »', result?.result === 'ok'],
     ['un commit a été fait', git('rev-parse', 'HEAD') !== offset],

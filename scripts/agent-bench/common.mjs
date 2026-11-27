@@ -18,7 +18,7 @@ export async function loadApi() {
     process.exit(1)
   }
   // The agent is split by responsibility (ADR-0012): the bench gathers its modules.
-  const modules = ['agent', 'instructions', 'tools', 'responses', 'activity', 'breakdown-retry', 'injection-guard'].map((name) => import(join(API, `dist/agent/${name}.js`)))
+  const modules = ['agent', 'instructions', 'tools', 'responses', 'activity', 'breakdown-retry', 'injection-guard', 'pending-commit'].map((name) => import(join(API, `dist/agent/${name}.js`)))
   return { agent: Object.assign({}, ...(await Promise.all(modules))), footprint: await import(join(API, 'dist/footprint/footprint.js')), adaConfig: await import(join(API, 'dist/ada/ada-config.js')) }
 }
 

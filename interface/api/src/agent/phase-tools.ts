@@ -21,6 +21,7 @@ import type { Activity, ActivityLog } from './activity-log.js';
 import { defaultLaunch, modelOption, type AgentLauncher } from './launch.js';
 import { modelEnvironment, UserModelStore } from '../user-model/user-model.js';
 import { reservedPaths, ISOLATION_OPTIONS, FORBIDDEN_TOOLS, allowedTools } from './tools.js';
+import { pathsToRecord } from './pending-commit.js';
 
 /** Maximum agent turns per phase. */
 const TURNS: Record<Phase, number> = { analysis: 30, implementation: 150, adoption: 40, conversation: 100 };
@@ -196,6 +197,21 @@ export class PhaseTools {
     if (existingStories.trim()) await git('checkout', '--quiet', branch);
     else await git('checkout', '--quiet', '-b', branch, 'origin/main');
     return { cwd, isWorkResumed: false };
+  }
+
+  /** Records the modifications the agent left uncommitted (false: nothing to record). */
+  async commitPending(cwd: string, message: string): Promise<boolean> {
+    const git = (...args: string[]) => this.preview.run('git', ['-C', cwd, ...args]);
+    const { stdout } = await git('status', '--porcelain');
+    const modified = stdout
+      .split('\n')
+      .map((line) => line.slice(3).trim().replace(/^"|"$/g, ''))
+      .filter(Boolean);
+    const paths = pathsToRecord(modified);
+    if (!paths.length) return false;
+    await git('add', '--', ...paths);
+    await git('commit', '--quiet', '-m', message);
+    return true;
   }
 
   /** Number of commits of the branch beyond a reference (`origin/main..branch`, for example). */
