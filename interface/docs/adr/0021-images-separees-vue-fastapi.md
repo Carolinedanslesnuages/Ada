@@ -89,3 +89,25 @@ Pages lues : `conventions/lint-formattage`, `stack/eslint`, `stack/index`, `serv
   Le contrôle « Dépendances » (Madeleine) ne lit que les `package.json` : il ne vérifie pas
   `pyproject.toml`.
 
+## Suite du 2026-11-27 — `vue-nest-dsfr` et `tableau-de-bord` (étape 2)
+Page lue en plus : `serveur/nestjs`.
+- **Front et API** en pnpm (un verrou par dossier, comme l'aperçu et le chart les attendent) et
+  `@antfu/eslint-config` à la place d'oxlint, ESLint seul et Prettier. L'API reprend les surcharges
+  « projet back » de `stack/eslint`, plus `ts/consistent-type-imports` désactivée (l'injection de
+  dépendances de NestJS lit les types des constructeurs) et les règles typées gardées sauf les plus
+  strictes pour un POC (`strict-boolean-expressions`, `no-unsafe-*`) : une promesse oubliée reste
+  refusée, comme avec oxlint avant.
+- **Code touché dans l'API** : `process` s'importe de `node:process` (règle de la config) et
+  `main.ts` n'a plus d'`await` de haut niveau.
+- **pnpm 12 et la chaîne d'approvisionnement** : les scripts d'installation de Prisma sont
+  autorisés (`allowBuilds`), et `prisma@7.10.1` est exclue de la règle « trust downgrade » (Prisma
+  publie sans attestation depuis la 7.10.0 ; la 7.9.0 en a une). **Exception à retirer** dès qu'une
+  version attestée de Prisma sort. Décision à confirmer par le responsable d'ADA.
+- **Dockerfile de l'API** : pnpm par corepack, installation `--prod` dans la seconde étape.
+- **Aperçu** : l'`export PATH` de pnpm est en tête de `travail.sh` : l'installation tourne dans un
+  sous-shell, et les commandes d'arrière-plan et de premier plan (`pnpm start:dev`) l'ignoraient.
+- **Pas encore faits sur NestJS** (`serveur/nestjs`) : journaux JSON avec `nestjs-pino`, filtre
+  d'erreurs structuré, arborescence `src/modules/<nom>/controllers|providers|entity`.
+- **Reste pour l'étape 2** : `api-nest`, `api-fastapi`, `traitement-python` (uv), les modèles
+  front seuls et `vue-node*`, `formulaire`.
+

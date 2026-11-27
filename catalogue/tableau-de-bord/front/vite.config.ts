@@ -1,7 +1,7 @@
 import { fileURLToPath, URL } from 'node:url'
 
-import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vite'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
@@ -9,7 +9,11 @@ export default defineConfig({
   plugins: [
     vue({
       // Les graphiques DSFR sont des web components, pas des composants Vue.
-      template: { compilerOptions: { isCustomElement: (balise) => balise.endsWith('-chart') || balise === 'data-box' } },
+      template: {
+        compilerOptions: {
+          isCustomElement: balise => balise.endsWith('-chart') || balise === 'data-box',
+        },
+      },
     }),
     vueDevTools(),
   ],

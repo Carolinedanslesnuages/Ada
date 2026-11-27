@@ -23,16 +23,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # pnpm, à la version inscrite dans api/package.json (« packageManager »).
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: api/package.json
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: api/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
-      - run: npm run test:e2e
-      - run: npm run build
+          cache: pnpm
+          cache-dependency-path: api/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm test:e2e
+      - run: pnpm build
 
   front:
     name: Front (lint, types, tests dont accessibilité, compilation)
@@ -44,17 +48,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # pnpm, à la version inscrite dans front/package.json (« packageManager »).
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: front/package.json
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: front/package-lock.json
-      - run: npm ci
-      - run: npx oxlint .
-      - run: npx eslint .
-      - run: npm run type-check
-      - run: npm run test:unit -- --run
-      - run: npm run build-only
+          cache: pnpm
+          cache-dependency-path: front/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm type-check
+      - run: pnpm test:unit --run
+      - run: pnpm build-only
 
   image:
     name: Image et chart (construction, helm lint)
@@ -89,14 +96,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # pnpm, à la version inscrite dans front/package.json (« packageManager »).
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: front/package.json
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: front/package-lock.json
-      - run: npm ci
+          cache: pnpm
+          cache-dependency-path: front/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
         working-directory: front
-      - run: npm run build-only
+      - run: pnpm build-only
         working-directory: front
       # Lien d'évitement, focus visible, 320 px, zoom, espacement du texte, axe-core : chaque constat
       # rangé par critère du RGAA. Défauts connus et justifiés : .emmanuelle-reference.json.
