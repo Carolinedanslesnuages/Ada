@@ -61,6 +61,17 @@ export function copyTemplate(template, folder) {
   }
 }
 
+/**
+ * A skill being read: through its real folder, or through the link the instructions give in the project
+ * (.claude/skills/<name>/ or .agents/skills/<name>/, relative or absolute path). Without this second case, a
+ * read done as the instructions ask was not counted.
+ */
+export function isSkillRead(filePath, skill) {
+  if (!filePath) return false
+  if (filePath.includes(skill.folder)) return true
+  return filePath.replaceAll('\\', '/').split('/').some((_, rank, parts) => (parts[rank] === '.claude' || parts[rank] === '.agents') && parts[rank + 1] === 'skills' && parts[rank + 2] === skill.name)
+}
+
 /** Disposable copy of a catalog template, with the skills linked as the API does, and the files of the case (booby-trapped, for example). */
 export function disposableProject(template, skills, files = {}) {
   const folder = join(mkdtempSync(join(tmpdir(), 'banc-ada-')), 'projet')
@@ -117,8 +128,8 @@ export function launchAgent({ api, settings, phase, instructions, cwd, turns, de
               if (block.type !== 'tool_use') continue
               tracking.tools[block.name] = (tracking.tools[block.name] ?? 0) + 1
               if (block.name === 'Skill') tracking.skills.add(String(block.input?.skill ?? '?'))
-              const parsed = String(block.input?.file_path ?? '')
-              for (const skill of settings.skills) if (parsed.includes(skill.folder)) tracking.skills.add(skill.name)
+              const readPath = String(block.input?.file_path ?? '')
+              for (const skill of settings.skills) if (isSkillRead(readPath, skill)) tracking.skills.add(skill.name)
             }
           }
           if (event.type === 'result') {
