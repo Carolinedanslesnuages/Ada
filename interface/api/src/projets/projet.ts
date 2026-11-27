@@ -27,9 +27,10 @@ export function slugifier(nom: string): string {
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    // Runs of separators are already collapsed to a single dash: no quantifier needed (linear time).
+    .replace(/^-|-$/g, '')
     .slice(0, 60)
-    .replace(/-+$/, '');
+    .replace(/-$/, '');
 }
 
 const schema = z.object({

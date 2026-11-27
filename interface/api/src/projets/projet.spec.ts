@@ -7,6 +7,11 @@ describe('Nom d’un nouveau projet', () => {
     expect(slugifier('Suivi d’activité — 2027 !')).toBe('suivi-d-activite-2027');
   });
 
+  it('retire les tirets du début et de la fin, même après la coupe à 60 caractères', () => {
+    expect(slugifier('--- Budget --- 2027 ---')).toBe('budget-2027');
+    expect(slugifier(`${'a'.repeat(59)} suite`)).toBe('a'.repeat(59));
+  });
+
   it('remplace l’apostrophe droite, qui casserait le code généré', () => {
     expect(normaliserNom("  L'annuaire   des agents ")).toBe('L’annuaire des agents');
   });

@@ -32,6 +32,15 @@ describe('Front servi par l’API (image de production)', () => {
     expect((await request(app).get('/__version__').expect(200)).body.version).toBe('dev');
   });
 
+  it('limite le nombre de pages servies par minute à une même adresse', async () => {
+    const limited = creerApp(ouvrirBase(':memory:'));
+    servirFront(limited, frontConstruit(), 2);
+    await request(limited).get('/').expect(200);
+    await request(limited).get('/mes-emprunts').expect(200);
+    expect((await request(limited).get('/').expect(429)).text).toMatch(/Trop de demandes/);
+    expect((await request(limited).get('/api').expect(200)).body.statut).toBe('ok');
+  });
+
   it('refuse de démarrer sans front construit', () => {
     expect(() => servirFront(creerApp(ouvrirBase(':memory:')), join(tmpdir(), 'absent'))).toThrow(/introuvable/);
   });
