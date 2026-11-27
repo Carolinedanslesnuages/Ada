@@ -22,10 +22,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       automountServiceAccountToken: false
+      # Pas d'utilisateur fixé : Kubernetes prend celui de l'image, OpenShift attribue le sien.
       securityContext:
-        # Utilisateur de l'image nginx sans privilèges.
-        runAsUser: 101
-        runAsGroup: 101
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: front

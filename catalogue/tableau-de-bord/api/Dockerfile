@@ -16,7 +16,8 @@ COPY . .
 RUN npm run build \
  && printf '{"source":"","version":"%s","commit":"%s","build":"","code_date":"","changes":[],"history":[]}\n' "$VERSION" "$COMMIT" > /app/version.json
 ENV NODE_ENV=production
-USER node
+# Numéro de l'utilisateur « node » : Kubernetes vérifie ainsi que ce n'est pas root.
+USER 1000
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s CMD node -e "fetch('http://127.0.0.1:3000/api').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
 CMD ["node", "dist/main"]

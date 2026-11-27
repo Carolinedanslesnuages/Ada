@@ -19,9 +19,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       automountServiceAccountToken: false
+      # Pas d'utilisateur fixé : Kubernetes prend celui de l'image, OpenShift attribue le sien.
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- if .Values.api.migrations.enabled }}
       initContainers:

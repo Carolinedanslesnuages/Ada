@@ -60,3 +60,12 @@ Même décision pour `vue-nest-dsfr` (point laissé ouvert par l'ADR-0008), avec
 - `api-nest` et `api-fastapi` : une seule image (pas de front), un chart à un déploiement, l'API
   exposée par l'ingress.
 - Le défaut des imports du client Prisma est corrigé dans les trois modèles NestJS.
+
+## Suite du 2026-11-27 — conventions de déploiement de la Fabnum
+Relecture contre `dnum-mi/transversal-doc` (`docs/conventions/deploiement.md`) :
+- **OpenShift** : les charts ne fixent plus de numéro d'utilisateur (OpenShift attribue le sien) ;
+  les images déclarent un utilisateur numérique et tournent avec un utilisateur quelconque.
+- **Écarts connus, non corrigés** : le chart est dans `charts/app` et non `helm/` (dossier protégé
+  par le code d'ADA) ; l'image des API NestJS n'est pas en plusieurs étapes, parce que Prisma
+  (outil de développement) joue les migrations.
+
