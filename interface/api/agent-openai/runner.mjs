@@ -269,8 +269,18 @@ export function loadConfig(file) {
   }
 }
 
+const MAX_ATTEMPTS = 6
+
+/** Attente avant de réessayer : l'en-tête Retry-After de la passerelle (en secondes) si elle en donne un, sinon un délai qui double (2, 4, 8… 30 s). */
+export function retryDelay(attempt, retryAfter = '', jitter = Math.random()) {
+  const asked = Number(retryAfter)
+  if (retryAfter !== '' && Number.isFinite(asked) && asked >= 0) return Math.min(asked, 60) * 1000
+  return Math.min(30000, 2000 * 2 ** (attempt - 1)) + Math.floor(jitter * 1000)
+}
+
 async function callModel(config, model, messages, tools) {
   const url = `${config.baseUrl.replace(/\/+$/, '')}/chat/completions`
+  let retryAfter = ''
   for (let attempt = 1; ; attempt++) {
     try {
       const response = await fetch(url, {
@@ -288,11 +298,13 @@ async function callModel(config, model, messages, tools) {
         redirect: 'manual',
       })
       if (response.ok) return await response.json()
-      if (![429, 500, 502, 503, 504].includes(response.status) || attempt >= 3) throw new Error(`La passerelle a répondu ${response.status} : ${(await response.text()).slice(0, 300)}`)
+      if (![429, 500, 502, 503, 504].includes(response.status) || attempt >= MAX_ATTEMPTS) throw new Error(`La passerelle a répondu ${response.status} : ${(await response.text()).slice(0, 300)}`)
+      retryAfter = response.headers.get('retry-after') ?? ''
     } catch (error) {
-      if (attempt >= 3 || String(error.message).startsWith('La passerelle')) throw error
+      if (attempt >= MAX_ATTEMPTS || String(error.message).startsWith('La passerelle')) throw error
     }
-    await new Promise((wait) => setTimeout(wait, 2000 * attempt))
+    await new Promise((wait) => setTimeout(wait, retryDelay(attempt, retryAfter)))
+    retryAfter = ''
   }
 }
 
