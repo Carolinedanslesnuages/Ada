@@ -76,15 +76,36 @@ de ce contrôle (`.github/workflows/ci.yml`), avec son adresse (ex. `/reservatio
 accepté en connaissance de cause s'inscrit dans `.emmanuelle-reference.json`, jamais pour faire
 passer une PR : on le corrige.
 
+## Déploiement
+- Deux images de production, comme dans les projets de l'organisation : `api/Dockerfile` (API
+  NestJS compilée, utilisateur sans privilèges) et `front/Dockerfile` (front construit, servi par
+  nginx sans privilèges, qui transmet `/api` à l'API : `front/nginx/default.conf.template`). La CI
+  les construit et les lance avec la base à chaque demande (« Image et chart »).
+- `docker-compose.yml` : la base seule pour développer (`make db`), ou tout le projet avec les
+  images de production et les données fictives (`make up`, http://localhost:8080). Les données
+  fictives ne sont jamais chargées par le chart.
+- `api/.env.example` : toute nouvelle variable d'environnement de l'API y est ajoutée, avec une
+  valeur fictive. `api/.env` n'est jamais commité.
+- `.gitlab-ci-dso.yml` : construction des images sur Cloud Pi Native quand le dépôt y est copié
+  en miroir. **Réservé aux développeurs et à l'équipe infra : ne pas le modifier.**
+- `charts/app/` (présent si le projet est déployé) : chart Helm générique. **Réservé aux
+  développeurs et à l'équipe infra : ne pas le modifier.** La base PostgreSQL est externe : son
+  adresse est lue dans un secret créé par l'équipe infra. Les valeurs d'un environnement
+  (registre, adresse) sont fournies hors du dépôt.
+
 ## Commandes
-| Action | Commande |
-|---|---|
-| Base de données | `docker compose up -d` |
-| Lancer l'API | `cd api && npm run start:dev` (préfixe `/api`, port 3000) |
-| Lancer le front | `cd front && npm run dev` (proxy `/api` vers le port 3000) |
-| Tests | `cd api && npm test && cd ../front && npm run test:unit -- --run` |
-| Lint | `cd api && npm run lint && cd ../front && npm run lint` |
-| Compilation | `cd api && npm run build && cd ../front && npm run type-check` |
+`make` liste les commandes ; chacune a son équivalent direct.
+
+| Action | Commande | Équivalent |
+|---|---|---|
+| Installer | `make install` | `cp api/.env.example api/.env`, `cd api && npm ci`, `cd front && npm ci` |
+| Base de données | `make migrate` | `docker compose up -d --wait db` puis `cd api && npx prisma migrate deploy && npx prisma db execute --file prisma/donnees-fictives.sql` (données fictives) |
+| Lancer l'API | `make dev-api` | `cd api && npm run start:dev` (préfixe `/api`, port 3000) |
+| Lancer le front | `make dev-front` | `cd front && npm run dev` (proxy `/api` vers le port 3000) |
+| Tests | `make test` | `cd api && npm test && npm run test:e2e && cd ../front && npm run test:unit -- --run` |
+| Lint | `make lint` | `cd api && npm run lint && cd ../front && npx oxlint . && npx eslint .` |
+| Tous les contrôles | `make check` | lint, tests, puis `cd api && npm run build && cd ../front && npm run type-check && npm run build-only` |
+| Tout lancer comme en production | `make up` (arrêt : `make down`) | `docker compose up -d --build --wait` : http://localhost:8080 |
 
 ## Messages de commit (release-please)
 Conventional Commits, versions SemVer calculées par release-please (jamais à la main) :

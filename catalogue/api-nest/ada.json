@@ -10,7 +10,10 @@
     "docs/adr/0001-choix-de-la-stack.md",
     "docs/adr/README.md",
     "api/src/configurer-app.ts",
-    "api/test/app.e2e-spec.ts"
+    "api/test/app.e2e-spec.ts",
+    "api/.env.example",
+    "charts/app/Chart.yaml",
+    "charts/app/values.yaml"
   ],
   "controlesRequis": [
     "Anti-fuite (gitleaks) / Scan git history for leaked secrets",
@@ -18,6 +21,7 @@
     "Workflows (zizmor) / Audit workflows with zizmor",
     "Configuration (Trivy) / Scan config files vulnerabilities",
     "API (lint, tests, compilation)",
+    "Image et chart (construction, helm lint)",
     "Dépendances (paquet réel, version exacte, licence)",
     "Titre de PR (Conventional Commits, semver)",
     "Taille des fichiers (une responsabilité par fichier)"
@@ -37,5 +41,8 @@
     "arrierePlan": [],
     "principal": "cd /app/api && npm run start:dev",
     "port": 3000
+  },
+  "deploiement": {
+    "chart": "charts/app"
   }
 }

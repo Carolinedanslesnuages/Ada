@@ -31,14 +31,33 @@ Objectif : __OBJECTIF__
 - Tout critère d'acceptation se traduit par au moins un test : unitaire (`*.spec.ts`) pour les
   règles, **e2e** (`test/*.e2e-spec.ts`, supertest) pour chaque route, réponses d'erreur comprises.
 
+## Déploiement
+- `api/Dockerfile` : image de production de l'API (NestJS compilée), utilisateur sans privilèges, comme
+  dans les projets de l'organisation. La CI la construit et la lance avec la base à chaque
+  demande (« Image et chart »).
+- `docker-compose.yml` : la base seule pour développer (`make db`), ou tout le projet avec
+  l'image de production (`make up`, http://localhost:3000/api/docs).
+- `api/.env.example` : toute nouvelle variable d'environnement de l'API y est ajoutée, avec une valeur
+  fictive. Le fichier `.env` n'est jamais commité.
+- `.gitlab-ci-dso.yml` : construction de l'image sur Cloud Pi Native quand le dépôt y est copié
+  en miroir. **Réservé aux développeurs et à l'équipe infra : ne pas le modifier.**
+- `charts/app/` (présent si le projet est déployé) : chart Helm générique. **Réservé aux
+  développeurs et à l'équipe infra : ne pas le modifier.** La base PostgreSQL est externe : son
+  adresse est lue dans un secret créé par l'équipe infra. Les valeurs d'un environnement
+  (registre, adresse) sont fournies hors du dépôt.
+
 ## Commandes
-| Action | Commande |
-|---|---|
-| Base de données | `docker compose up -d` |
-| Lancer l'API | `cd api && npm run start:dev` (port 3000 ; documentation : http://localhost:3000/api/docs) |
-| Tests | `cd api && npm test && npm run test:e2e` |
-| Lint | `cd api && npm run lint` |
-| Compilation | `cd api && npm run build` |
+`make` liste les commandes ; chacune a son équivalent direct.
+
+| Action | Commande | Équivalent |
+|---|---|---|
+| Installer | `make install` | `cp api/.env.example api/.env`, `cd api && npm ci` |
+| Base de données | `make migrate` | `docker compose up -d --wait db` puis, s'il y a des migrations, `cd api && npx prisma migrate deploy` |
+| Lancer l'API | `make dev` | `cd api && npm run start:dev` (port 3000 ; documentation : http://localhost:3000/api/docs) |
+| Tests | `make test` | `cd api && npm test && npm run test:e2e` |
+| Lint | `make lint` | `cd api && npm run lint` |
+| Tous les contrôles | `make check` | lint, tests, puis `cd api && npm run build` |
+| Tout lancer comme en production | `make up` (arrêt : `make down`) | `docker compose up -d --build --wait` : http://localhost:3000/api/docs |
 
 ## Messages de commit (release-please)
 Conventional Commits, versions SemVer calculées par release-please (jamais à la main) :
