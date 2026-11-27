@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url'
 
 export const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const API = join(RACINE, 'interface/api')
+const CONFIG_COMPILEE = join(API, 'dist/config.js')
+const { SKILLS_LIVREES_AVEC_ADA = '' } = existsSync(CONFIG_COMPILEE) ? await import(CONFIG_COMPILEE) : {}
 
 /** Le code d'ADA, compilé : le banc utilise les MÊMES consignes, outils et options que l'API. */
 export async function chargerApi() {
@@ -35,13 +37,9 @@ export function lireReglages() {
       if (trouve) lus[trouve[1]] = trouve[2].trim()
     }
   }
-  // Sans AGENT_SKILLS dans .env, l'API livre les skills externes des sous-modules (config.ts, SKILLS_LIVREES_AVEC_ADA) : le banc fait de même.
-  const livrees = [
-    'skills/externes/dsfr-skill/skills/dsfr-skill',
-    'skills/externes/agent-skills/skills/dev/bug-investigate',
-    'skills/externes/agent-skills/skills/repo/repo-perimetre',
-    'skills/externes/agent-skills/skills/dev/controle-qualite-code',
-  ].map((chemin) => join(RACINE, chemin)).join(',')
+  // Sans AGENT_SKILLS dans .env, l'API livre les skills externes des sous-modules : le banc lit la
+  // MÊME liste dans l'API compilée (SKILLS_LIVREES_AVEC_ADA), pour ne jamais tester une autre configuration.
+  const livrees = SKILLS_LIVREES_AVEC_ADA.split(',').map((chemin) => join(API, chemin)).join(',')
   const dossiers = (process.env.BANC_SKILLS ?? lus.AGENT_SKILLS ?? livrees)
     .split(',')
     .map((chemin) => developper(chemin.trim()))
