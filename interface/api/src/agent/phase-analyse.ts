@@ -4,6 +4,7 @@ import type { Tache } from './agent.js';
 import { consigneAnalyse } from './consignes.js';
 import type { OutilsPhase } from './outils-phase.js';
 import { lireDecision, texteQuestions } from './reponses.js';
+import { demandeVaste, relanceDecoupage } from './relance-decoupage.js';
 
 export async function phaseAnalyse(outils: OutilsPhase, { jeton, login, depot, numero }: Tache): Promise<void> {
   const { stories } = outils;
@@ -15,7 +16,15 @@ export async function phaseAnalyse(outils: OutilsPhase, { jeton, login, depot, n
   const demande = { ...(await outils.demande(jeton, depot, numero)), existantes: await outils.existantes(jeton, depot, numero) };
   const consigne = consigneAnalyse(demande, await outils.lireIndexRgaa(), skills.noms, dsfr);
   const reponse = await outils.executer(depot, numero, 'analyse', consigne, cwd, skills.dossiers, null, login);
-  const decision = lireDecision(reponse);
+  let decision = lireDecision(reponse);
+  // Une demande vaste n'appelle pas des questions mais un découpage : on le redemande une fois
+  // (les modèles plus petits posent des questions au lieu de découper, un texte long ou à plusieurs livrables).
+  if (decision?.decision === 'questions' && demandeVaste(demande, decision.texte)) {
+    await outils.noter(depot, numero, 'La demande est vaste : prépare un découpage');
+    const seconde = await outils.executer(depot, numero, 'analyse', consigne + relanceDecoupage(decision.texte), cwd, skills.dossiers, null, login);
+    const redecoupe = lireDecision(seconde);
+    if (redecoupe?.decision === 'decoupage') decision = redecoupe;
+  }
   if (!decision) {
     await outils.bloquer(jeton, depot, numero, 'ADA n’a pas réussi à analyser la demande.');
     return;

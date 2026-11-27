@@ -10,7 +10,7 @@ import { CAS_ANALYSE } from './cas.mjs'
 import { chargerApi, enParallele, lancerAgent, lireIndexRgaa, lireReglages, moyenne, projetJetable } from './commun.mjs'
 
 const api = await chargerApi()
-const { consigneAnalyse, lireDecision } = api.agent
+const { consigneAnalyse, lireDecision, demandeVaste, relanceDecoupage } = api.agent
 const reglages = lireReglages()
 const aBlanc = process.argv.includes('--a-blanc')
 const demandes = process.argv.slice(2).filter((argument) => !argument.startsWith('--'))
@@ -49,7 +49,13 @@ const taches = choisis.flatMap((nom) => Array.from({ length: repetitions }, (_, 
 const faits = []
 await enParallele(taches, 3, async ({ nom, rang }) => {
   const cwd = projetJetable('pwa', reglages.skills, CAS_ANALYSE[nom].fichiers)
-  const execution = await lancerAgent({ api, reglages, phase: 'analyse', consigne: consigneDe(nom), cwd, tours: 30 })
+  let execution = await lancerAgent({ api, reglages, phase: 'analyse', consigne: consigneDe(nom), cwd, tours: 30 })
+  // Comme l'API : une demande vaste qui reçoit des questions est relancée une fois en découpage.
+  const premiere = lireDecision(execution.resultat)
+  if (premiere?.decision === 'questions' && demandeVaste(CAS_ANALYSE[nom].demande, premiere.texte)) {
+    execution = await lancerAgent({ api, reglages, phase: 'analyse', consigne: consigneDe(nom) + relanceDecoupage(premiere.texte), cwd, tours: 30 })
+    if (lireDecision(execution.resultat)?.decision !== 'decoupage') execution = { ...execution, resultat: JSON.stringify(premiere) }
+  }
   const { decision, verifs } = noter(nom, execution.resultat)
   faits.push({ nom, decision: decision?.decision ?? null, verifs, ...execution })
   process.stderr.write(`· ${nom} ${rang + 1}/${repetitions} : ${decision?.decision ?? 'illisible'}\n`)
