@@ -19,9 +19,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       automountServiceAccountToken: false
+      # Pas d'utilisateur fixé : Kubernetes prend celui de l'image, OpenShift attribue le sien.
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- if .Values.api.migrations.enabled }}
       initContainers:
@@ -29,10 +28,13 @@ spec:
         - name: migrations
           image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
-          command: ["alembic", "upgrade", "head"]
+          command: ["sh", "-c", "if [ -d prisma/migrations ]; then npx prisma migrate deploy; fi"]
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           env:
+            # Système de fichiers en lecture seule : npm et Prisma écrivent leurs caches dans /tmp.
+            - name: HOME
+              value: /tmp
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -58,7 +60,7 @@ spec:
                   key: {{ .Values.database.secretKey }}
           ports:
             - name: http
-              containerPort: 8000
+              containerPort: 3000
           readinessProbe:
             httpGet:
               path: /api

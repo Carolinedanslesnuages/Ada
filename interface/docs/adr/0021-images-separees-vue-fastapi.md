@@ -29,7 +29,7 @@ retrouver cette forme.
 - **`docker-compose.yml`** : `db` seule pour développer, ou tout le projet (base, migrations,
   API, front sur le port 8080). La CI du projet lance ce même fichier et vérifie que le front
   répond et transmet `/api` (« Image et chart »).
-- **Chart `charts/app`**, toujours sur demande (« Ce projet sera-t-il déployé ? ») : deux
+- **Chart Helm** (dossier `helm/`, voir plus bas), toujours sur demande (« Ce projet sera-t-il déployé ? ») : deux
   déploiements, l'API jamais exposée directement, migrations Alembic jouées avant le démarrage de
   l'API, **base PostgreSQL externe** dont l'adresse est lue dans un secret créé hors du dépôt.
 - **`.gitlab-ci-dso.yml`** : les deux tâches de construction du catalogue de Cloud Pi Native
@@ -42,14 +42,12 @@ retrouver cette forme.
 - **Négatives** : deux images à construire en CI ; le fichier `.gitlab-ci-dso.yml` n'est vérifié
   par aucun contrôle d'ADA (il ne s'exécute que sur Cloud Pi Native).
 - **Encore ouvert** :
-  - dossier `charts/app` (ADR-0008) ou `helm/` à la racine, plus courant dans l'organisation ;
   - publication des images et du chart depuis GitHub (`build-docker.yml`, `release-helm-local.yml`
     de fabnum-cicd).
 
 ## Suite du 2026-11-27 — `vue-nest-dsfr`
 Même décision pour `vue-nest-dsfr` (point laissé ouvert par l'ADR-0008), avec deux différences :
-- l'image de l'API garde les outils de développement, comme dans les projets NestJS + Prisma de
-  l'organisation : Prisma en a besoin pour jouer les migrations avant le démarrage ;
+- Prisma reste dans l'image de l'API : il joue les migrations avant le démarrage ;
 - le client Prisma est généré avec des imports en « .js » (`importFileExtension`), sans quoi
   l'API compilée (`node dist/main`) ne démarrait pas. Le défaut existait avant ; il n'était pas vu
   parce que l'aperçu lance l'API en mode développement.
@@ -60,3 +58,15 @@ Même décision pour `vue-nest-dsfr` (point laissé ouvert par l'ADR-0008), avec
 - `api-nest` et `api-fastapi` : une seule image (pas de front), un chart à un déploiement, l'API
   exposée par l'ingress.
 - Le défaut des imports du client Prisma est corrigé dans les trois modèles NestJS.
+
+## Suite du 2026-11-27 — conventions de déploiement de la Fabnum
+Relecture contre `dnum-mi/transversal-doc` (`docs/conventions/deploiement.md`). Règle retenue :
+**les recommandations de la Fabnum sont suivies**, y compris quand elles demandent de modifier ADA.
+- **OpenShift** : les charts ne fixent plus de numéro d'utilisateur (OpenShift attribue le sien) ;
+  les images déclarent un utilisateur numérique et tournent avec un utilisateur quelconque.
+- **Dossier `helm/`** à la racine du projet, à la place de `charts/app`, dans les huit modèles
+  déployables (remplace ce point de l'ADR-0008). L'assistant ne peut modifier ni `helm/` ni
+  `charts/` : les projets créés avant gardent leur dossier `charts/`.
+- **Images en plusieurs étapes** pour les API NestJS : la première compile, la seconde ne garde
+  que les dépendances d'exécution. `prisma` (migrations) et `dotenv` (lu par `main.ts`) deviennent
+  des dépendances d'exécution, ce qu'elles étaient déjà dans les faits.

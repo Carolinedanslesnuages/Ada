@@ -37,7 +37,7 @@ Objectif : __OBJECTIF__
 - `Dockerfile` : image de production unique (l'API sert aussi le front construit, `src/front.ts`).
   Elle est construite et démarrée par la CI à chaque demande (« Image et chart »). Un nouveau
   dossier lu par l'application à l'exécution doit y être copié.
-- `charts/app/` (présent si le projet est déployé) : chart Helm générique. **Réservé aux
+- `helm/` (présent si le projet est déployé) : chart Helm générique. **Réservé aux
   développeurs et à l'équipe infra : ne pas le modifier.** Les valeurs d'un environnement
   (registre, adresse, stockage) sont fournies hors du dépôt.
 
@@ -96,7 +96,7 @@ d'une issue GitHub : `Closes #<numéro>` dans le corps.
 
 ## Règles absolues
 - **Un fichier, une responsabilité** : au plus 400 lignes non vides par fichier de code, 600 par fichier de test (contrôle « Taille des fichiers » en CI). Découper par responsabilité, jamais une fonction par fichier ; un fichier déjà trop long ne grossit plus.
-- Ne jamais modifier `.github/` ni `charts/`.
+- Ne jamais modifier `.github/` ni `helm/`.
 - Aucune donnée réelle, aucun secret dans le dépôt (gitleaks bloque en CI, et en local une fois `pre-commit install` lancé ; `--no-verify` interdit).
 - Une branche par story (`story/…`) ou par bug (`fix/…`) ; jamais de fusion par l'agent.
 - Les décisions d'architecture sont tracées dans `docs/adr/`.

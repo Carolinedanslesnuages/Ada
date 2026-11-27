@@ -237,7 +237,7 @@ export class OutilsPhase {
   }
 
   /**
-   * Garde-fou avant tout envoi : aucun fichier de .github/ ni de charts/ ne doit changer, quel que
+   * Garde-fou avant tout envoi : aucun fichier de .github/, de helm/ ni de charts/ ne doit changer, quel que
    * soit l'outil utilisé (les interdits de l'agent ne couvrent que l'édition directe).
    */
   async toucheDossiersReserves(jeton: string, depot: string, numero: number, cwd: string, branche: string): Promise<boolean> {

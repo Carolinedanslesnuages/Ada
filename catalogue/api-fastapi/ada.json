@@ -14,8 +14,8 @@
     "tests/test_sante.py",
     "app/config.py",
     ".env.example",
-    "charts/app/Chart.yaml",
-    "charts/app/values.yaml"
+    "helm/Chart.yaml",
+    "helm/values.yaml"
   ],
   "controlesRequis": [
     "Anti-fuite (gitleaks) / Scan git history for leaked secrets",
@@ -46,6 +46,6 @@
     "port": 8000
   },
   "deploiement": {
-    "chart": "charts/app"
+    "chart": "helm"
   }
 }

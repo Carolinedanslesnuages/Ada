@@ -12,8 +12,8 @@
     "api/src/configurer-app.ts",
     "api/test/app.e2e-spec.ts",
     "api/.env.example",
-    "charts/app/Chart.yaml",
-    "charts/app/values.yaml"
+    "helm/Chart.yaml",
+    "helm/values.yaml"
   ],
   "controlesRequis": [
     "Anti-fuite (gitleaks) / Scan git history for leaked secrets",
@@ -43,6 +43,6 @@
     "port": 3000
   },
   "deploiement": {
-    "chart": "charts/app"
+    "chart": "helm"
   }
 }

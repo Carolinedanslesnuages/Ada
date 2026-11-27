@@ -13,8 +13,8 @@
     "front/src/views/HomeView.vue",
     "front/src/views/__tests__/HomeView.spec.ts",
     "api/.env.example",
-    "charts/app/Chart.yaml",
-    "charts/app/values.yaml"
+    "helm/Chart.yaml",
+    "helm/values.yaml"
   ],
   "controlesRequis": [
     "Anti-fuite (gitleaks) / Scan git history for leaked secrets",
@@ -50,6 +50,6 @@
     "port": 5173
   },
   "deploiement": {
-    "chart": "charts/app"
+    "chart": "helm"
   }
 }

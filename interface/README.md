@@ -198,7 +198,7 @@ des outils (`allowed-tools`) ou exécute des commandes au chargement (c'est le c
 
 - **Cloisonnement de l'agent** : lecture et écriture limitées au projet, plus la lecture des
   dossiers de skills ; skills qui pré-autorisent des outils écartées ; **jamais de modification
-  de `.github/` ni de `charts/`** (CI, versions, déploiement) ; aucun accès à GitHub (ADA publie
+  de `.github/`, de `helm/` ni de `charts/`** (CI, versions, déploiement) ; aucun accès à GitHub (ADA publie
   à la place du PO) ; seuls les réglages de l'utilisateur du serveur sont lus, sans les secrets d'ADA.
 - **Aperçu isolé** : le dossier git d'un projet est rangé hors du dépôt monté dans le conteneur.
 - **Confiance** : seuls les auteurs qui ont le droit d'écrire dans le projet comptent ; une issue

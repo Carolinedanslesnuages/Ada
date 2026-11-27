@@ -257,7 +257,7 @@ Règles :
   imposés par les bibliothèques restent tels quels (vi, expect…). Le lint le vérifie.
 ${UNE_RESPONSABILITE}
 - Pour supprimer ou renommer un fichier : « git rm <fichier> » ou « git mv <ancien> <nouveau> ».
-- Ne modifie jamais les dossiers .github/ (CI, versions) et charts/ (déploiement) : ils sont réservés aux développeurs. Si la
+- Ne modifie jamais les dossiers .github/ (CI, versions), helm/ et charts/ (déploiement) : ils sont réservés aux développeurs. Si la
   demande l'exige, arrête-toi et réponds « bloque » en expliquant pourquoi.
 - Reste dans le périmètre de la demande : aucun « refactor au passage », aucune dépendance non
   nécessaire. Un autre problème repéré : note-le dans la fiche, ne le corrige pas.
@@ -324,7 +324,7 @@ ${UNE_RESPONSABILITE}
 - Enregistre chaque changement par un commit au format Conventional Commits (« feat: … »,
   « fix: … »). Ne pousse pas, ne fusionne jamais : l'atelier s'en charge quand le PO dit « c'est bon ».
 - Pour supprimer ou renommer un fichier : « git rm <fichier> » ou « git mv <ancien> <nouveau> ».
-- Ne modifie jamais .github/ ni charts/ (réservés aux développeurs) ; aucun secret, aucune donnée réelle.
+- Ne modifie jamais .github/, helm/ ni charts/ (réservés aux développeurs) ; aucun secret, aucune donnée réelle.
 ${STORIES_EN_CONVERSATION}
 - Dans ta réponse : ce que tu as fait, où le voir dans l'aperçu, et ce qu'il peut demander ensuite.
   Rappelle-lui, quand c'est utile, qu'il peut dire « c'est bon » pour proposer ces changements au projet.
@@ -352,7 +352,7 @@ export function consigneSuiteConversation(message: string, controles: string[] =
 ${message}
 
 Rappel : mêmes règles qu'au début de la conversation (agis tout de suite, tests liés au changement
-seulement, un commit par changement, ne pousse pas, jamais .github/ ni charts/, aucun accès à
+seulement, un commit par changement, ne pousse pas, jamais .github/, helm/ ni charts/, aucun accès à
 GitHub : des stories pour plus tard vont dans « stories » de ta réponse).
 
 ${finaliser ? finalisationConversation(controles) : FORMAT_CONVERSATION}`;

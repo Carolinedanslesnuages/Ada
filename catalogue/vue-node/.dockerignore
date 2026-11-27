@@ -7,5 +7,5 @@ api/donnees
 .git
 .github
 docs
-charts
+helm
 revues

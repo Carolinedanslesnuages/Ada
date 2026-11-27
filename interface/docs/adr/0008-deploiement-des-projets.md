@@ -1,6 +1,6 @@
 # ADR-0008 — Déploiement des projets : image Docker toujours, chart Helm sur demande
 
-- **Statut** : Accepted
+- **Statut** : Accepted ; le dossier du chart est devenu `helm/` (ADR-0021, conventions de la Fabnum)
 - **Date** : 2026-11-16
 - **Décideurs** : équipe ADA
 - **Sujet** : de quoi déployer les projets créés par ADA (issue #12)

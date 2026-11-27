@@ -71,13 +71,13 @@ jobs:
           for _ in $(seq 1 30); do curl -sf http://localhost:8080/api && exit 0; sleep 1; done
           docker logs application; exit 1
       - name: Chart Helm (si le projet est déployé)
-        if: hashFiles('charts/app/Chart.yaml') != ''
+        if: hashFiles('helm/Chart.yaml') != ''
         run: |
           curl -sSfL -o helm.tgz https://get.helm.sh/helm-v4.2.3-linux-amd64.tar.gz
           echo "e9b88b4ee95b18c706839c28d3a0220e5bc470e9cd9262410c90793c45ff8b7c  helm.tgz" | sha256sum -c -
           tar -xzf helm.tgz linux-amd64/helm
-          ./linux-amd64/helm lint --strict charts/app
-          ./linux-amd64/helm template verification charts/app --set ingress.enabled=true --set ingress.host=exemple.gouv.fr > /dev/null
+          ./linux-amd64/helm lint --strict helm
+          ./linux-amd64/helm template verification helm --set ingress.enabled=true --set ingress.host=exemple.gouv.fr > /dev/null
 
   accessibilite:
     name: Accessibilité RGAA (pages construites)
