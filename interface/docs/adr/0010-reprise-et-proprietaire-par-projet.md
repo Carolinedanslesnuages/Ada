@@ -7,7 +7,7 @@
   compte personnel du PO
 
 ## Contexte
-Jusqu'ici, tous les projets appartenaient à un seul compte (`GITHUB_PROPRIETAIRE`) et étaient créés
+Jusqu'ici, tous les projets appartenaient à un seul compte (`GITHUB_OWNER`) et étaient créés
 par ADA depuis le catalogue. Un PO veut aussi faire évoluer avec ADA un POC déjà commencé, parfois
 dans son propre compte GitHub.
 

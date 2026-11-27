@@ -23,17 +23,17 @@ exec node "/CHEMIN/DU/DEPOT/interface/api/agent-openai/runner.mjs" "$@"
 
 ## Basculer dans ADA (`interface/api/.env`)
 
-| Agent | AGENT_COMMANDE | AGENT_MODELE |
+| Agent | AGENT_COMMAND | AGENT_MODEL |
 |---|---|---|
 | Claude Code | `/Users/vous/.local/bin/claude-ada` | `sonnet` |
 | Passerelle OpenAI | `./agent-openai/runner.mjs` | **n'importe quel nom de modèle**, transmis tel quel (`glm-5`), ou vide pour `OPENAI_MODEL` |
 
 ### Plusieurs passerelles, plusieurs modèles
 
-`AGENT_MODELE=profil/modèle` choisit la passerelle **et** le modèle. Le profil est un fichier
+`AGENT_MODEL=profil/modèle` choisit la passerelle **et** le modèle. Le profil est un fichier
 `~/.config/glm-ada/<profil>.env` (mêmes lignes que `env`) :
 
-| AGENT_MODELE | Passerelle lue | Modèle envoyé |
+| AGENT_MODEL | Passerelle lue | Modèle envoyé |
 |---|---|---|
 | `glm-5` | `~/.config/glm-ada/env` | `glm-5` |
 | `bureau/glm-5` | `~/.config/glm-ada/bureau.env` | `glm-5` |
@@ -50,7 +50,7 @@ Redémarrer l'API d'ADA après le changement, **quand aucun agent ne travaille**
 Rien ne doit dépendre d'un poste de travail :
 
 - **Commande** : `runner.mjs` est exécutable (`#!/usr/bin/env node`) et ADA lit un chemin relatif depuis
-  `interface/api` : `AGENT_COMMANDE=./agent-openai/runner.mjs`, identique sur tous les postes et en ligne, sans
+  `interface/api` : `AGENT_COMMAND=./agent-openai/runner.mjs`, identique sur tous les postes et en ligne, sans
   lanceur dans `~/.local/bin` ni chemin personnel. Node doit être installé dans l'image.
 - **Passerelle** : `OPENAI_BASE_URL`, `OPENAI_API_KEY` et `OPENAI_MODEL` en **variables d'environnement du
   serveur** (secrets du déploiement). ADA les laisse passer jusqu'à l'agent ; l'agent les retire de

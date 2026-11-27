@@ -1,4 +1,4 @@
-// Tests des permissions de l'agent (aucun réseau) : node --test interface/api/agent-openai/runner.test.mjs
+// Tests of the agent's permissions (no network): node --test interface/api/agent-openai/runner.test.mjs
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { spawn } from 'node:child_process'
@@ -57,63 +57,63 @@ test('profil/modèle : choisit la passerelle décrite dans <profil>.env', () => 
 })
 
 test('modèle personnel (passerelle imposée) : la clé de l’administrateur ne part jamais vers cette adresse', async () => {
-  // Faux dossier personnel avec une clé « de l'administrateur » et un profil ; l'appelant impose une autre passerelle sans clé.
+  // Fake home folder with an “administrator” key and a profile; the caller imposes another gateway without a key.
   const home = mkdtempSync(join(tmpdir(), 'glm-ada-home-'))
   mkdirSync(join(home, '.config', 'glm-ada'), { recursive: true })
   writeFileSync(join(home, '.config', 'glm-ada', 'env'), 'OPENAI_BASE_URL=http://admin.invalid/v1\nOPENAI_API_KEY=CLE-ADMIN\nOPENAI_MODEL=modele-admin\n')
   writeFileSync(join(home, '.config', 'glm-ada', 'bureau.env'), 'OPENAI_BASE_URL=http://admin.invalid/v1\nOPENAI_API_KEY=CLE-ADMIN\n')
-  const requetes = []
-  const serveur = createServer((requete, reponse) => {
-    let corps = ''
-    requete.on('data', (morceau) => (corps += morceau))
-    requete.on('end', () => {
-      requetes.push({ autorisation: requete.headers.authorization ?? null, corps: JSON.parse(corps) })
-      reponse.setHeader('Content-Type', 'application/json')
-      reponse.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }))
+  const httpRequests = []
+  const server = createServer((httpRequest, response) => {
+    let body = ''
+    httpRequest.on('data', (piece) => (body += piece))
+    httpRequest.on('end', () => {
+      httpRequests.push({ authorization: httpRequest.headers.authorization ?? null, body: JSON.parse(body) })
+      response.setHeader('Content-Type', 'application/json')
+      response.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }))
     })
   })
-  await new Promise((pret) => serveur.listen(0, '127.0.0.1', pret))
-  const sortie = await new Promise((fini) => {
-    const enfant = spawn('node', [fileURLToPath(new URL('./runner.mjs', import.meta.url)), '-p', 'salut', '--model', 'bureau/pirate', '--no-session-persistence'], {
-      env: { ...process.env, HOME: home, OPENAI_BASE_URL: `http://127.0.0.1:${serveur.address().port}/v1`, OPENAI_API_KEY: '', OPENAI_MODEL: 'bureau/pirate' },
+  await new Promise((ready) => server.listen(0, '127.0.0.1', ready))
+  const output = await new Promise((finished) => {
+    const child = spawn('node', [fileURLToPath(new URL('./runner.mjs', import.meta.url)), '-p', 'salut', '--model', 'bureau/pirate', '--no-session-persistence'], {
+      env: { ...process.env, HOME: home, OPENAI_BASE_URL: `http://127.0.0.1:${server.address().port}/v1`, OPENAI_API_KEY: '', OPENAI_MODEL: 'bureau/pirate' },
     })
-    let texte = ''
-    enfant.stdout.on('data', (morceau) => (texte += morceau))
-    enfant.on('close', () => fini(texte))
+    let text = ''
+    child.stdout.on('data', (piece) => (text += piece))
+    child.on('close', () => finished(text))
   })
-  serveur.close()
-  assert.equal(requetes.length, 1)
-  assert.equal(requetes[0].autorisation, null)
-  assert.equal(requetes[0].corps.model, 'bureau/pirate')
-  assert.match(sortie, /"subtype":"success"/)
+  server.close()
+  assert.equal(httpRequests.length, 1)
+  assert.equal(httpRequests[0].authorization, null)
+  assert.equal(httpRequests[0].body.model, 'bureau/pirate')
+  assert.match(output, /"subtype":"success"/)
 })
 
 test('une passerelle qui redirige : la requête et la clé ne partent jamais vers l’adresse de destination', async () => {
   const home = mkdtempSync(join(tmpdir(), 'glm-ada-home-'))
-  const cible = []
-  const destination = createServer((requete, reponse) => {
-    cible.push(requete.headers.authorization ?? null)
-    reponse.end('{}')
+  const target = []
+  const destination = createServer((httpRequest, response) => {
+    target.push(httpRequest.headers.authorization ?? null)
+    response.end('{}')
   })
-  await new Promise((pret) => destination.listen(0, '127.0.0.1', pret))
-  const passerelle = createServer((requete, reponse) => {
-    reponse.statusCode = 302
-    reponse.setHeader('Location', `http://127.0.0.1:${destination.address().port}/v1/chat/completions`)
-    reponse.end()
+  await new Promise((ready) => destination.listen(0, '127.0.0.1', ready))
+  const gateway = createServer((httpRequest, response) => {
+    response.statusCode = 302
+    response.setHeader('Location', `http://127.0.0.1:${destination.address().port}/v1/chat/completions`)
+    response.end()
   })
-  await new Promise((pret) => passerelle.listen(0, '127.0.0.1', pret))
-  const sortie = await new Promise((fini) => {
-    const enfant = spawn('node', [fileURLToPath(new URL('./runner.mjs', import.meta.url)), '-p', 'salut', '--model', 'perso', '--no-session-persistence'], {
-      env: { ...process.env, HOME: home, OPENAI_BASE_URL: `http://127.0.0.1:${passerelle.address().port}/v1`, OPENAI_API_KEY: 'CLE-PERSO', OPENAI_MODEL: 'perso' },
+  await new Promise((ready) => gateway.listen(0, '127.0.0.1', ready))
+  const output = await new Promise((finished) => {
+    const child = spawn('node', [fileURLToPath(new URL('./runner.mjs', import.meta.url)), '-p', 'salut', '--model', 'perso', '--no-session-persistence'], {
+      env: { ...process.env, HOME: home, OPENAI_BASE_URL: `http://127.0.0.1:${gateway.address().port}/v1`, OPENAI_API_KEY: 'CLE-PERSO', OPENAI_MODEL: 'perso' },
     })
-    let texte = ''
-    enfant.stdout.on('data', (morceau) => (texte += morceau))
-    enfant.on('close', () => fini(texte))
+    let text = ''
+    child.stdout.on('data', (piece) => (text += piece))
+    child.on('close', () => finished(text))
   })
-  passerelle.close()
+  gateway.close()
   destination.close()
-  assert.deepEqual(cible, [])
-  assert.doesNotMatch(sortie, /"subtype":"success"/)
+  assert.deepEqual(target, [])
+  assert.doesNotMatch(output, /"subtype":"success"/)
 })
 
 test('réessai : respecte Retry-After, sinon double le délai jusqu’à 30 s', () => {

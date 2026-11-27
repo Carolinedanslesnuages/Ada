@@ -9,78 +9,78 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { ConnecteGuard } from '../auth/connecte.guard.js';
-import { ProjetGuard } from '../projets/projet.guard.js';
+import { SignedInGuard } from '../auth/signed-in.guard.js';
+import { ProjectGuard } from '../projects/project.guard.js';
 import { AgentService } from '../agent/agent.service.js';
 import { StoriesService } from './stories.service.js';
-import { RepriseService } from '../projets/reprise.service.js';
+import { AdoptionService } from '../projects/adoption.service.js';
 
-@Controller('projets/:depot/stories')
-@UseGuards(ConnecteGuard, ProjetGuard)
+@Controller('projects/:repository/stories')
+@UseGuards(SignedInGuard, ProjectGuard)
 export class StoriesController {
   constructor(
     private readonly stories: StoriesService,
     private readonly agent: AgentService,
-    private readonly reprise: RepriseService,
+    private readonly adoption: AdoptionService,
   ) {}
 
   @Get()
-  lister(@Req() req: Request, @Param('depot') depot: string) {
-    return this.stories.lister(req.session.jeton!, depot);
+  list(@Req() req: Request, @Param('repository') repository: string) {
+    return this.stories.list(req.session.token!, repository);
   }
 
-  /** Développeurs assignables (déclaré avant « :numero »). */
-  @Get('developpeurs')
-  developpeurs(@Req() req: Request, @Param('depot') depot: string) {
-    return this.stories.developpeurs(req.session.jeton!, depot);
+  /** Assignable developers (declared before “:number”). */
+  @Get('developers')
+  developers(@Req() req: Request, @Param('repository') repository: string) {
+    return this.stories.developers(req.session.token!, repository);
   }
 
-  @Get(':numero')
-  detail(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
-    return this.stories.detail(req.session.jeton!, depot, numero);
+  @Get(':number')
+  detail(@Req() req: Request, @Param('repository') repository: string, @Param('number', ParseIntPipe) number: number) {
+    return this.stories.detail(req.session.token!, repository, number);
   }
 
-  /** Assigne (ou, avec `null`, retire) le développeur d'une demande bloquée. */
-  @Post(':numero/assigner')
-  assigner(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number, @Body('login') login: unknown) {
-    return this.stories.assigner(req.session.jeton!, depot, numero, login === undefined ? null : login);
+  /** Assigns (or, with `null`, removes) the developer of a blocked request. */
+  @Post(':number/assign')
+  assign(@Req() req: Request, @Param('repository') repository: string, @Param('number', ParseIntPipe) number: number, @Body('login') login: unknown) {
+    return this.stories.assign(req.session.token!, repository, number, login === undefined ? null : login);
   }
 
-  /** Découpage validé : ADA publie les stories cochées, telles que le PO les a relues. */
-  @Post(':numero/decoupage')
-  creerDecoupage(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number, @Body('stories') stories: unknown) {
-    return this.stories.creerDecoupage(req.session.jeton!, depot, numero, stories, req.session.utilisateur!.login);
+  /** Approved breakdown: ADA publishes the ticked stories, as the PO reviewed them. */
+  @Post(':number/breakdown')
+  createBreakdown(@Req() req: Request, @Param('repository') repository: string, @Param('number', ParseIntPipe) number: number, @Body('stories') stories: unknown) {
+    return this.stories.createBreakdown(req.session.token!, repository, number, stories, req.session.user!.login);
   }
 
-  /** Mode sauvage : le prompt est enregistré comme issue et lancé ; l'assistant propose un plan. */
+  /** Wild mode: the prompt is saved as an issue and launched; the assistant proposes a plan. */
   @Post('prompt')
-  async prompter(@Req() req: Request, @Param('depot') depot: string, @Body('texte') texte: unknown) {
-    await this.agent.verifierLancable(req.session.jeton!, depot);
-    await this.reprise.verifierRepriseTerminee(req.session.jeton!, depot);
-    const demande = await this.stories.prompter(req.session.jeton!, depot, texte, req.session.utilisateur!.login);
-    await this.agent.analyser(req.session.jeton!, depot, demande.numero, req.session.utilisateur!.login);
-    return demande;
+  async submitPrompt(@Req() req: Request, @Param('repository') repository: string, @Body('text') text: unknown) {
+    await this.agent.checkLaunchable(req.session.token!, repository);
+    await this.adoption.checkAdoptionFinished(req.session.token!, repository);
+    const workRequest = await this.stories.submitPrompt(req.session.token!, repository, text, req.session.user!.login);
+    await this.agent.analyze(req.session.token!, repository, workRequest.number, req.session.user!.login);
+    return workRequest;
   }
 
-  /** Conversation (« vrai prompt ») : le premier message devient une issue ; ADA répond en agissant. */
+  /** Conversation (“real prompt”): the first message becomes an issue; ADA answers by acting. */
   @Post('conversation')
-  async ouvrirConversation(@Req() req: Request, @Param('depot') depot: string, @Body('texte') texte: unknown) {
-    await this.agent.verifierLancable(req.session.jeton!, depot);
-    await this.reprise.verifierRepriseTerminee(req.session.jeton!, depot);
-    const login = req.session.utilisateur!.login;
-    const conversation = await this.stories.ouvrirConversation(req.session.jeton!, depot, texte, login);
-    await this.agent.converser(req.session.jeton!, login, depot, conversation.numero);
+  async openConversation(@Req() req: Request, @Param('repository') repository: string, @Body('text') text: unknown) {
+    await this.agent.checkLaunchable(req.session.token!, repository);
+    await this.adoption.checkAdoptionFinished(req.session.token!, repository);
+    const login = req.session.user!.login;
+    const conversation = await this.stories.openConversation(req.session.token!, repository, text, login);
+    await this.agent.converse(req.session.token!, login, repository, conversation.number);
     return conversation;
   }
 
-  /** Lance la demande, puis l'assistant commence son analyse (questions ou plan). */
-  @Post(':numero/lancer')
-  async lancer(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number, @Body('empreinte') empreinte: unknown) {
-    await this.agent.verifierLancable(req.session.jeton!, depot);
-    await this.reprise.verifierRepriseTerminee(req.session.jeton!, depot);
-    const lancee = await this.stories.lancer(req.session.jeton!, depot, numero, req.session.utilisateur!.login, empreinte);
-    await this.agent.analyser(req.session.jeton!, depot, numero, req.session.utilisateur!.login);
-    return lancee;
+  /** Launches the request, then the assistant starts its analysis (questions or plan). */
+  @Post(':number/launch')
+  async launch(@Req() req: Request, @Param('repository') repository: string, @Param('number', ParseIntPipe) number: number, @Body('fingerprint') fingerprint: unknown) {
+    await this.agent.checkLaunchable(req.session.token!, repository);
+    await this.adoption.checkAdoptionFinished(req.session.token!, repository);
+    const launched = await this.stories.launch(req.session.token!, repository, number, req.session.user!.login, fingerprint);
+    await this.agent.analyze(req.session.token!, repository, number, req.session.user!.login);
+    return launched;
   }
 
 }

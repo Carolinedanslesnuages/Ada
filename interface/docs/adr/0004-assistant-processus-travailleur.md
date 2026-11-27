@@ -31,7 +31,7 @@ reprise d'un travail interrompu sur la même branche est prévue.
 - **À surveiller** : au-delà de quelques PO simultanés, passer à l'option B (file d'attente).
 
 ## Mise à jour (2026-11-18) — plafond d'agents, file d'attente, verrou qui bat
-- **Plafond et file** : au plus `AGENT_MAX_SIMULTANES` agents (3 par défaut) travaillent en même
+- **Plafond et file** : au plus `AGENT_MAX_CONCURRENT` agents (3 par défaut) travaillent en même
   temps sur la machine. Les tâches suivantes attendent dans `apercus/.file-attente/` (un fichier
   par projet, lisible par le seul utilisateur, avec le jeton du PO), démarrent dans l'ordre
   d'arrivée, et sont abandonnées après 30 minutes d'attente (le PO relance depuis l'écran).

@@ -1,185 +1,185 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useStoriesStore } from '../stories'
-import { api, ErreurApi } from '@/services/api'
-import type { DetailStory, ResumeStory } from '@/lib/story'
+import { api, ApiError } from '@/services/api'
+import type { StoryDetail, StorySummary } from '@/lib/story'
 
 vi.mock('@/services/api', async (original) => ({
   ...(await original<typeof import('@/services/api')>()),
   api: {
-    lire: vi.fn<(chemin: string) => Promise<unknown>>(),
-    envoyer: vi.fn<(chemin: string, corps: unknown) => Promise<unknown>>(),
+    read: vi.fn<(filePath: string) => Promise<unknown>>(),
+    send: vi.fn<(filePath: string, body: unknown) => Promise<unknown>>(),
   },
 }))
-const lire = vi.mocked(api.lire)
-const envoyer = vi.mocked(api.envoyer)
+const read = vi.mocked(api.read)
+const send = vi.mocked(api.send)
 
-const resume = (numero: number, extra: Partial<ResumeStory> = {}): ResumeStory => ({
-  numero,
+const summary = (number: number, extra: Partial<StorySummary> = {}): StorySummary => ({
+  number,
   type: 'story',
-  titre: `Story ${numero}`,
-  statut: 'nouvelle',
-  creeeLe: '2026-11-16T10:00:00Z',
-  fermeeLe: null,
+  title: `Story ${number}`,
+  status: 'new',
+  createdAt: '2026-11-16T10:00:00Z',
+  closedAt: null,
   url: 'https://github.com/x',
-  prete: true,
-  raison: null,
+  ready: true,
+  reason: null,
   ...extra,
 })
 
-const detail = (numero: number, extra: Partial<DetailStory> = {}) => ({
-  ...resume(numero, extra),
-  assignes: [],
-  contenu: null,
-  contenuBug: null,
-  contenuLibre: null,
-  texteBrut: '',
+const detail = (number: number, extra: Partial<StoryDetail> = {}) => ({
+  ...summary(number, extra),
+  assignees: [],
+  content: null,
+  bugContent: null,
+  freeContent: null,
+  rawText: '',
   messages: [],
 })
 
-describe('Store des stories', () => {
+describe('Stories store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    lire.mockReset()
-    envoyer.mockReset()
+    read.mockReset()
+    send.mockReset()
   })
 
-  it('charge les stories écrites dans GitHub pour le projet choisi', async () => {
-    lire.mockResolvedValue([resume(1)])
+  it('loads the stories written in GitHub for the chosen project', async () => {
+    read.mockResolvedValue([summary(1)])
     const store = useStoriesStore()
-    await store.charger('mon-poc')
-    expect(lire).toHaveBeenCalledWith('/projets/mon-poc/stories')
-    expect(store.liste).toHaveLength(1)
+    await store.load('mon-poc')
+    expect(read).toHaveBeenCalledWith('/projects/mon-poc/stories')
+    expect(store.list).toHaveLength(1)
   })
 
-  it('repère la demande qui occupe le projet', () => {
+  it('spots the request that keeps the project busy', () => {
     const store = useStoriesStore()
-    store.liste = [resume(3), resume(2, { statut: 'questions' }), resume(1, { statut: 'livree' })]
-    expect(store.active?.numero).toBe(2)
+    store.list = [summary(3), summary(2, { status: 'questions' }), summary(1, { status: 'delivered' })]
+    expect(store.active?.number).toBe(2)
   })
 
-  it('lance une story puis relit la liste et la story ; sans demande ouverte, la relit d’abord pour en avoir l’empreinte', async () => {
+  it('launches a story then reads the list and the story again; without an open request, reads it first to get its fingerprint', async () => {
     const store = useStoriesStore()
-    envoyer.mockResolvedValue(resume(2, { statut: 'en-cours' }))
-    lire.mockImplementation(async (chemin: string) =>
-      chemin.endsWith('/stories') ? [resume(2, { statut: 'en-cours' })] : detail(2, { statut: 'en-cours', empreinte: 'lue-avant-le-lancement' }),
+    send.mockResolvedValue(summary(2, { status: 'in-progress' }))
+    read.mockImplementation(async (filePath: string) =>
+      filePath.endsWith('/stories') ? [summary(2, { status: 'in-progress' })] : detail(2, { status: 'in-progress', fingerprint: 'lue-avant-le-lancement' }),
     )
-    await store.lancer('mon-poc', 2)
-    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/2/lancer', { empreinte: 'lue-avant-le-lancement' })
-    expect(lire.mock.invocationCallOrder[0]).toBeLessThan(envoyer.mock.invocationCallOrder[0]!)
-    expect(store.liste[0]?.statut).toBe('en-cours')
-    expect(store.courante?.statut).toBe('en-cours')
-    expect(store.erreurLancement).toBeNull()
+    await store.launch('mon-poc', 2)
+    expect(send).toHaveBeenCalledWith('/projects/mon-poc/stories/2/launch', { fingerprint: 'lue-avant-le-lancement' })
+    expect(read.mock.invocationCallOrder[0]).toBeLessThan(send.mock.invocationCallOrder[0]!)
+    expect(store.list[0]?.status).toBe('in-progress')
+    expect(store.current?.status).toBe('in-progress')
+    expect(store.launchError).toBeNull()
   })
 
-  it('renvoie au lancement l’empreinte de la demande affichée', async () => {
+  it('sends back at launch the fingerprint of the displayed request', async () => {
     const store = useStoriesStore()
-    store.courante = detail(2, { empreinte: 'empreinte-affichee' })
-    envoyer.mockResolvedValue(resume(2, { statut: 'en-cours' }))
-    lire.mockImplementation(async (chemin: string) => (chemin.endsWith('/stories') ? [resume(2)] : detail(2)))
-    await store.lancer('mon-poc', 2)
-    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/2/lancer', { empreinte: 'empreinte-affichee' })
+    store.current = detail(2, { fingerprint: 'empreinte-affichee' })
+    send.mockResolvedValue(summary(2, { status: 'in-progress' }))
+    read.mockImplementation(async (filePath: string) => (filePath.endsWith('/stories') ? [summary(2)] : detail(2)))
+    await store.launch('mon-poc', 2)
+    expect(send).toHaveBeenCalledWith('/projects/mon-poc/stories/2/launch', { fingerprint: 'empreinte-affichee' })
   })
 
-  it('demande modifiée sur GitHub entre-temps : montre la nouvelle version et garde le message', async () => {
+  it('request modified on GitHub in the meantime: shows the new version and keeps the message', async () => {
     const store = useStoriesStore()
-    store.courante = detail(2, { empreinte: 'ancienne', titre: 'Ancien titre' })
-    envoyer.mockRejectedValue(new ErreurApi(409, 'Cette demande a été modifiée sur GitHub depuis que vous l’avez ouverte. Relisez-la, puis lancez-la de nouveau.'))
-    lire.mockResolvedValue(detail(2, { empreinte: 'nouvelle', titre: 'Nouveau titre' }))
-    await store.lancer('mon-poc', 2)
-    expect(store.courante?.titre).toBe('Nouveau titre')
-    expect(store.erreurLancement).toMatch(/modifiée sur GitHub/)
+    store.current = detail(2, { fingerprint: 'ancienne', title: 'Ancien titre' })
+    send.mockRejectedValue(new ApiError(409, 'Cette demande a été modifiée sur GitHub depuis que vous l’avez ouverte. Relisez-la, puis lancez-la de nouveau.'))
+    read.mockResolvedValue(detail(2, { fingerprint: 'new', title: 'Nouveau titre' }))
+    await store.launch('mon-poc', 2)
+    expect(store.current?.title).toBe('Nouveau titre')
+    expect(store.launchError).toMatch(/modifiée sur GitHub/)
   })
 
-  it('garde le message de refus du lancement (une autre est en cours)', async () => {
+  it('keeps the launch refusal message (another one is in progress)', async () => {
     const store = useStoriesStore()
-    envoyer.mockRejectedValue(new ErreurApi(409, 'La demande #1 « A » est en cours : une seule demande à la fois'))
-    await store.lancer('mon-poc', 2)
-    expect(store.erreurLancement).toMatch(/une seule demande à la fois/)
+    send.mockRejectedValue(new ApiError(409, 'La demande #1 « A » est en cours : une seule demande à la fois'))
+    await store.launch('mon-poc', 2)
+    expect(store.launchError).toMatch(/une seule demande à la fois/)
   })
 
-  it('valide le plan puis relit la demande et son activité', async () => {
+  it('approves the plan then reads the request and its activity again', async () => {
     const store = useStoriesStore()
-    envoyer.mockResolvedValue({ ok: true })
-    lire.mockImplementation(async (chemin: string) =>
-      chemin.endsWith('/activite')
-        ? { phase: 'realisation', enCours: true, debut: null, journal: [], erreur: null, pullRequest: null }
-        : chemin.endsWith('/stories')
-          ? [resume(2, { statut: 'en-cours' })]
-          : detail(2, { statut: 'en-cours' }),
+    send.mockResolvedValue({ ok: true })
+    read.mockImplementation(async (filePath: string) =>
+      filePath.endsWith('/activity')
+        ? { phase: 'implementation', inProgress: true, start: null, log: [], error: null, pullRequest: null }
+        : filePath.endsWith('/stories')
+          ? [summary(2, { status: 'in-progress' })]
+          : detail(2, { status: 'in-progress' }),
     )
-    await store.validerPlan('mon-poc', 2)
-    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/2/plan/valider', {})
-    expect(store.activite?.enCours).toBe(true)
-    expect(store.courante?.statut).toBe('en-cours')
+    await store.approvePlan('mon-poc', 2)
+    expect(send).toHaveBeenCalledWith('/projects/mon-poc/stories/2/plan/approve', {})
+    expect(store.activity?.inProgress).toBe(true)
+    expect(store.current?.status).toBe('in-progress')
   })
 
-  it('envoie la réponse du PO à ADA', async () => {
+  it('sends the PO\'s answer to ADA', async () => {
     const store = useStoriesStore()
-    envoyer.mockResolvedValue({ ok: true })
-    lire.mockImplementation(async (chemin: string) => (chemin.endsWith('/stories') ? [] : detail(3)))
-    await store.repondre('mon-poc', 3, 'Oui')
-    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/3/reponse', { texte: 'Oui' })
+    send.mockResolvedValue({ ok: true })
+    read.mockImplementation(async (filePath: string) => (filePath.endsWith('/stories') ? [] : detail(3)))
+    await store.reply('mon-poc', 3, 'Oui')
+    expect(send).toHaveBeenCalledWith('/projects/mon-poc/stories/3/response', { text: 'Oui' })
   })
 
-  it('fusionne la demande : livrée, elle passe dans « Déjà livrées » et son détail se ferme', async () => {
+  it('merges the request: delivered, it moves to “Déjà livrées” and its detail closes', async () => {
     const store = useStoriesStore()
-    store.courante = detail(2, { statut: 'en-verification' })
-    envoyer.mockResolvedValue({ pullRequest: { numero: 3, url: 'u', etat: 'fusionnee' }, controles: [], fusionnable: false, raison: 'Déjà fusionnée' })
-    lire.mockImplementation(async (chemin: string) => (chemin.endsWith('/stories') ? [resume(2, { statut: 'livree' })] : detail(2, { statut: 'livree' })))
-    await store.fusionner('mon-poc', 2)
-    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/2/fusionner', {})
+    store.current = detail(2, { status: 'in-review' })
+    send.mockResolvedValue({ pullRequest: { number: 3, url: 'u', state: 'merged' }, checks: [], mergeable: false, reason: 'Déjà fusionnée' })
+    read.mockImplementation(async (filePath: string) => (filePath.endsWith('/stories') ? [summary(2, { status: 'delivered' })] : detail(2, { status: 'delivered' })))
+    await store.merge('mon-poc', 2)
+    expect(send).toHaveBeenCalledWith('/projects/mon-poc/stories/2/merge', {})
     expect(store.active).toBeNull()
-    expect(store.courante).toBeNull()
-    expect(store.aFaire).toEqual([])
-    expect(store.livrees.map((story) => story.numero)).toEqual([2])
+    expect(store.current).toBeNull()
+    expect(store.todo).toEqual([])
+    expect(store.delivered.map((story) => story.number)).toEqual([2])
   })
 
-  it('fusion différée (branche mise à jour, contrôles relancés) : la demande reste ouverte', async () => {
+  it('deferred merge (branch updated, checks rerun): the request stays open', async () => {
     const store = useStoriesStore()
-    store.courante = detail(2, { statut: 'en-verification' })
-    envoyer.mockResolvedValue({ pullRequest: { numero: 3, url: 'u', etat: 'ouverte' }, controles: [], fusionnable: false, raison: 'Le projet a évolué' })
-    lire.mockImplementation(async (chemin: string) =>
-      chemin.endsWith('/stories') ? [resume(2, { statut: 'en-verification' })] : chemin.endsWith('/activite') ? null : detail(2, { statut: 'en-verification' }),
+    store.current = detail(2, { status: 'in-review' })
+    send.mockResolvedValue({ pullRequest: { number: 3, url: 'u', state: 'open' }, checks: [], mergeable: false, reason: 'Le projet a évolué' })
+    read.mockImplementation(async (filePath: string) =>
+      filePath.endsWith('/stories') ? [summary(2, { status: 'in-review' })] : filePath.endsWith('/activity') ? null : detail(2, { status: 'in-review' }),
     )
-    await store.fusionner('mon-poc', 2)
-    expect(store.courante?.numero).toBe(2)
-    expect(store.verification?.raison).toBe('Le projet a évolué')
+    await store.merge('mon-poc', 2)
+    expect(store.current?.number).toBe(2)
+    expect(store.verification?.reason).toBe('Le projet a évolué')
   })
 
-  it('sépare ce qui reste à faire des livrées, les plus récentes d’abord', () => {
+  it('separates what is left to do from the delivered ones, most recent first', () => {
     const store = useStoriesStore()
-    store.liste = [
-      resume(1, { statut: 'livree', fermeeLe: '2026-11-10T10:00:00Z' }),
-      resume(2, { statut: 'en-cours' }),
-      resume(3, { statut: 'livree', fermeeLe: '2026-11-12T10:00:00Z' }),
-      resume(4),
+    store.list = [
+      summary(1, { status: 'delivered', closedAt: '2026-11-10T10:00:00Z' }),
+      summary(2, { status: 'in-progress' }),
+      summary(3, { status: 'delivered', closedAt: '2026-11-12T10:00:00Z' }),
+      summary(4),
     ]
-    expect(store.aFaire.map((story) => story.numero)).toEqual([2, 4])
-    expect(store.livrees.map((story) => story.numero)).toEqual([3, 1])
+    expect(store.todo.map((story) => story.number)).toEqual([2, 4])
+    expect(store.delivered.map((story) => story.number)).toEqual([3, 1])
   })
 
-  it('mode sauvage : envoie le prompt, puis ouvre la demande créée', async () => {
+  it('wild mode: sends the prompt, then opens the created request', async () => {
     const store = useStoriesStore()
-    envoyer.mockResolvedValue(resume(9, { type: 'libre', statut: 'en-cours' }))
-    lire.mockImplementation(async (chemin: string) =>
-      chemin.endsWith('/stories') ? [resume(9, { type: 'libre', statut: 'en-cours' })] : chemin.endsWith('/activite') ? null : detail(9, { type: 'libre', statut: 'en-cours' }),
+    send.mockResolvedValue(summary(9, { type: 'free', status: 'in-progress' }))
+    read.mockImplementation(async (filePath: string) =>
+      filePath.endsWith('/stories') ? [summary(9, { type: 'free', status: 'in-progress' })] : filePath.endsWith('/activity') ? null : detail(9, { type: 'free', status: 'in-progress' }),
     )
-    expect(await store.prompter('mon-poc', 'Mets le titre en bleu')).toBeNull()
-    expect(envoyer).toHaveBeenCalledWith('/projets/mon-poc/stories/prompt', { texte: 'Mets le titre en bleu' })
-    expect(store.courante?.numero).toBe(9)
+    expect(await store.submitPrompt('mon-poc', 'Mets le titre en bleu')).toBeNull()
+    expect(send).toHaveBeenCalledWith('/projects/mon-poc/stories/prompt', { text: 'Mets le titre en bleu' })
+    expect(store.current?.number).toBe(9)
   })
 
-  it('mode sauvage : renvoie le refus (une autre demande en cours)', async () => {
+  it('wild mode: returns the refusal (another request in progress)', async () => {
     const store = useStoriesStore()
-    envoyer.mockRejectedValue(new ErreurApi(409, 'La demande #1 « A » est en cours : une seule demande à la fois'))
-    expect(await store.prompter('mon-poc', 'Mets le titre en bleu')).toMatch(/une seule demande à la fois/)
+    send.mockRejectedValue(new ApiError(409, 'La demande #1 « A » est en cours : une seule demande à la fois'))
+    expect(await store.submitPrompt('mon-poc', 'Mets le titre en bleu')).toMatch(/une seule demande à la fois/)
   })
 
-  it('garde le message si l’action est refusée', async () => {
+  it('keeps the message if the action is refused', async () => {
     const store = useStoriesStore()
-    envoyer.mockRejectedValue(new ErreurApi(409, 'Aucun plan n’attend votre validation'))
-    await store.validerPlan('mon-poc', 2)
-    expect(store.erreurAction).toBe('Aucun plan n’attend votre validation')
+    send.mockRejectedValue(new ApiError(409, 'Aucun plan n’attend votre validation'))
+    await store.approvePlan('mon-poc', 2)
+    expect(store.actionError).toBe('Aucun plan n’attend votre validation')
   })
 })

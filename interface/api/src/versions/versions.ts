@@ -1,61 +1,61 @@
-/** Versions d'un projet (release-please) : lecture du récapitulatif et règle de publication. */
+/** Versions of a project (release-please): reading the summary and publication rule. */
 
-/** Seuls fichiers qu'une PR de version a le droit de toucher : aucun code, donc rien à contrôler. */
-export const FICHIERS_DE_VERSION = ['CHANGELOG.md', 'version.txt', '.release-please-manifest.json'];
-export const PREFIXE_BRANCHE_VERSION = 'release-please--';
+/** Only files a version PR is allowed to touch: no code, hence nothing to check. */
+export const VERSION_FILES = ['CHANGELOG.md', 'version.txt', '.release-please-manifest.json'];
+export const VERSION_BRANCH_PREFIX = 'release-please--';
 
-export interface ElementVersion {
-  texte: string;
-  /** Numéro de l'issue (story ou problème) livrée, si connu. */
-  demande: number | null;
+export interface VersionItem {
+  text: string;
+  /** Number of the delivered issue (story or bug), if known. */
+  workRequest: number | null;
 }
 
-export interface Recapitulatif {
+export interface Summary {
   version: string | null;
-  nouveautes: ElementVersion[];
-  corrections: ElementVersion[];
-  autres: ElementVersion[];
+  features: VersionItem[];
+  fixes: VersionItem[];
+  others: VersionItem[];
 }
 
-const RUBRIQUES: Record<string, keyof Omit<Recapitulatif, 'version'>> = {
-  features: 'nouveautes',
-  'bug fixes': 'corrections',
+const SECTIONS: Record<string, keyof Omit<Summary, 'version'>> = {
+  features: 'features',
+  'bug fixes': 'fixes',
 };
 
-/** « chore(main): release 0.2.0 » → « 0.2.0 ». */
-export function versionDepuisTitre(titre: string): string | null {
-  return titre.match(/release v?(\d+\.\d+\.\d+)/)?.[1] ?? null;
+/** “chore(main): release 0.2.0” → “0.2.0”. */
+export function versionFromTitle(title: string): string | null {
+  return title.match(/release v?(\d+\.\d+\.\d+)/)?.[1] ?? null;
 }
 
-/** Transforme le corps de la PR de release-please en récapitulatif lisible par le PO. */
-export function lireRecapitulatif(titre: string, corps: string): Recapitulatif {
-  const recap: Recapitulatif = { version: versionDepuisTitre(titre), nouveautes: [], corrections: [], autres: [] };
-  let rubrique: keyof Omit<Recapitulatif, 'version'> = 'autres';
-  for (const ligne of corps.split('\n')) {
-    const titreRubrique = ligne.match(/^###\s+(.+)$/);
-    if (titreRubrique) {
-      rubrique = RUBRIQUES[titreRubrique[1]!.trim().toLowerCase()] ?? 'autres';
+/** Turns the body of the release-please PR into a summary the PO can read. */
+export function readSummary(title: string, body: string): Summary {
+  const recap: Summary = { version: versionFromTitle(title), features: [], fixes: [], others: [] };
+  let section: keyof Omit<Summary, 'version'> = 'others';
+  for (const line of body.split('\n')) {
+    const sectionTitle = line.match(/^###\s+(.+)$/);
+    if (sectionTitle) {
+      section = SECTIONS[sectionTitle[1]!.trim().toLowerCase()] ?? 'others';
       continue;
     }
-    const element = ligne.match(/^\*\s+(.+)$/);
+    const element = line.match(/^\*\s+(.+)$/);
     if (!element) continue;
-    const brut = element[1]!;
-    const texte = brut.replace(/\s*\(\[[^\]]*\]\([^)]*\)\).*$/, '').replace(/\*\*/g, '').trim();
-    const demande = brut.match(/closes \[#(\d+)\]/i)?.[1];
-    recap[rubrique].push({ texte, demande: demande ? Number(demande) : null });
+    const raw = element[1]!;
+    const text = raw.replace(/\s*\(\[[^\]]*\]\([^)]*\)\).*$/, '').replace(/\*\*/g, '').trim();
+    const workRequest = raw.match(/closes \[#(\d+)\]/i)?.[1];
+    recap[section].push({ text, workRequest: workRequest ? Number(workRequest) : null });
   }
   return recap;
 }
 
-/** Publiable seulement si la PR ne touche que les fichiers de version. */
-export function peutPublier(fichiers: string[]): { publiable: boolean; raison: string | null } {
-  const autres = fichiers.filter((f) => !FICHIERS_DE_VERSION.includes(f));
-  if (fichiers.length === 0) return { publiable: false, raison: 'La version proposée est vide' };
-  if (autres.length) {
+/** Publishable only if the PR only touches the version files. */
+export function canPublish(files: string[]): { publishable: boolean; reason: string | null } {
+  const others = files.filter((f) => !VERSION_FILES.includes(f));
+  if (files.length === 0) return { publishable: false, reason: 'La version proposée est vide' };
+  if (others.length) {
     return {
-      publiable: false,
-      raison: `La version proposée modifie aussi d’autres fichiers (${autres.join(', ')}) : un développeur doit vérifier`,
+      publishable: false,
+      reason: `La version proposée modifie aussi d’autres fichiers (${others.join(', ')}) : un développeur doit vérifier`,
     };
   }
-  return { publiable: true, raison: null };
+  return { publishable: true, reason: null };
 }

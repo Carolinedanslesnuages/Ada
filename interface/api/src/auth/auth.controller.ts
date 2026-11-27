@@ -1,15 +1,15 @@
 import { Controller, Get, Inject, Logger, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import type { Request, Response } from 'express';
-import { CONFIG, loginAutorise, type Config } from '../config.js';
+import { CONFIG, isLoginAllowed, type Config } from '../config.js';
 import { GithubService } from '../github/github.service.js';
-import { ConnecteGuard } from './connecte.guard.js';
+import { SignedInGuard } from './signed-in.guard.js';
 import { GithubOAuthService } from './github-oauth.service.js';
-import type { UtilisateurConnecte } from './session.js';
+import type { SignedInUser } from './session.js';
 
 @Controller('auth')
 export class AuthController {
-  private readonly journal = new Logger(AuthController.name);
+  private readonly logger = new Logger(AuthController.name);
 
   constructor(
     @Inject(CONFIG) private readonly config: Config,
@@ -17,58 +17,58 @@ export class AuthController {
     private readonly github: GithubService,
   ) {}
 
-  /** Étape 1 : renvoie le PO vers GitHub pour qu'il autorise l'atelier. */
+  /** Step 1: redirects the PO to GitHub to authorize the workshop. */
   @Get('github')
-  connexion(@Req() req: Request, @Res() res: Response): void {
-    const etat = randomBytes(16).toString('hex');
-    req.session.etatOAuth = etat;
-    res.redirect(this.oauth.urlAutorisation(etat));
+  signIn(@Req() req: Request, @Res() res: Response): void {
+    const state = randomBytes(16).toString('hex');
+    req.session.oauthState = state;
+    res.redirect(this.oauth.authorizationUrl(state));
   }
 
-  /** Étape 2 : GitHub renvoie le PO ici avec un code à échanger contre un jeton. */
+  /** Step 2: GitHub sends the PO back here with a code to exchange for a token. */
   @Get('github/callback')
-  async retour(
+  async returned(
     @Query('code') code: string | undefined,
-    @Query('state') etat: string | undefined,
+    @Query('state') state: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    const attendu = req.session.etatOAuth;
-    delete req.session.etatOAuth;
-    if (!code || !etat || etat !== attendu) {
-      res.redirect(`${this.config.URL_INTERFACE}/connexion?erreur=etat`);
+    const expected = req.session.oauthState;
+    delete req.session.oauthState;
+    if (!code || !state || state !== expected) {
+      res.redirect(`${this.config.INTERFACE_URL}/sign-in?error=state`);
       return;
     }
-    let jeton: Awaited<ReturnType<GithubOAuthService['echangerCode']>>;
+    let token: Awaited<ReturnType<GithubOAuthService['exchangeCode']>>;
     try {
-      jeton = await this.oauth.echangerCode(code);
+      token = await this.oauth.exchangeCode(code);
     } catch (e) {
-      // Identifiants de la GitHub App refusés, code expiré… : jamais de JSON brut pour le PO.
-      this.journal.warn(`Échange du code GitHub refusé : ${(e as Error).message}`);
-      res.redirect(`${this.config.URL_INTERFACE}/connexion?erreur=github`);
+      // GitHub App credentials refused, expired code…: never raw JSON for the PO.
+      this.logger.warn(`GitHub code exchange refused: ${(e as Error).message}`);
+      res.redirect(`${this.config.INTERFACE_URL}/sign-in?error=github`);
       return;
     }
-    const { data } = await this.github.client(jeton.access_token).users.getAuthenticated();
-    if (!loginAutorise(this.config, data.login)) {
-      res.redirect(`${this.config.URL_INTERFACE}/connexion?erreur=non-autorise`);
+    const { data } = await this.github.client(token.access_token).users.getAuthenticated();
+    if (!isLoginAllowed(this.config, data.login)) {
+      res.redirect(`${this.config.INTERFACE_URL}/sign-in?error=not-allowed`);
       return;
     }
     await new Promise<void>((ok, ko) => req.session.regenerate((e) => (e ? ko(e) : ok())));
-    req.session.jeton = jeton.access_token;
-    req.session.jetonRafraichissement = jeton.refresh_token;
-    req.session.jetonExpireLe = jeton.expires_in ? Date.now() + jeton.expires_in * 1000 : undefined;
-    req.session.utilisateur = { login: data.login, nom: data.name, avatar: data.avatar_url };
-    res.redirect(this.config.URL_INTERFACE);
+    req.session.token = token.access_token;
+    req.session.refreshToken = token.refresh_token;
+    req.session.tokenExpiresAt = token.expires_in ? Date.now() + token.expires_in * 1000 : undefined;
+    req.session.user = { login: data.login, name: data.name, avatar: data.avatar_url };
+    res.redirect(this.config.INTERFACE_URL);
   }
 
-  @Get('moi')
-  @UseGuards(ConnecteGuard)
-  moi(@Req() req: Request): UtilisateurConnecte | undefined {
-    return req.session.utilisateur;
+  @Get('me')
+  @UseGuards(SignedInGuard)
+  self(@Req() req: Request): SignedInUser | undefined {
+    return req.session.user;
   }
 
-  @Post('deconnexion')
-  async deconnexion(@Req() req: Request): Promise<{ ok: true }> {
+  @Post('sign-out')
+  async signOut(@Req() req: Request): Promise<{ ok: true }> {
     await new Promise<void>((ok) => req.session.destroy(() => ok()));
     return { ok: true };
   }

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Agent de code pour ADA qui parle à une passerelle compatible OpenAI (par exemple GLM-5 du bureau),
-// sans Claude Code. Il reprend les options de Claude Code qu'ADA utilise (-p, --model, --max-turns,
-// --allowedTools, --disallowedTools, --session-id, --resume…) et écrit la même sortie « stream-json »,
-// pour qu'ADA n'ait rien à changer. Configuration : ~/.config/glm-ada/env (jamais dans le dépôt).
+// Coding agent for ADA that talks to an OpenAI-compatible gateway (for example the office GLM-5),
+// without Claude Code. It takes the Claude Code options ADA uses (-p, --model, --max-turns,
+// --allowedTools, --disallowedTools, --session-id, --resume…) and writes the same “stream-json” output,
+// so that ADA has nothing to change. Configuration: ~/.config/glm-ada/env (never in the repository).
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { glob, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
@@ -15,7 +15,7 @@ const CONFIG_DIR = join(homedir(), '.config', 'glm-ada')
 
 // ---------- Arguments ----------
 export function parseArgs(argv) {
-  const opts = { prompt: '', model: '', maxTurns: 30, allowed: [], denied: [], sessionId: null, resume: null, persist: true }
+  const opts = { prompt: '', model: '', maxTurns: 30, allowed: [], denied: [], sessionId: null, summary: null, persist: true }
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index]
     switch (arg) {
@@ -37,7 +37,7 @@ export function parseArgs(argv) {
         opts.sessionId = argv[++index] ?? null
         break
       case '--resume':
-        opts.resume = argv[++index] ?? null
+        opts.summary = argv[++index] ?? null
         break
       case '--no-session-persistence':
         opts.persist = false
@@ -49,7 +49,7 @@ export function parseArgs(argv) {
         break
       }
       default:
-        break // --verbose, --strict-mcp-config et les options inconnues
+        break // --verbose, --strict-mcp-config and the unknown options
     }
   }
   return opts
@@ -72,7 +72,7 @@ function pathMatches(pattern, absolute, cwd) {
   return globToRegex(local, '[^/]*').test(rel)
 }
 
-/** Une commande qui enchaîne, redirige ou substitue (hors guillemets simples) n'est jamais acceptée. */
+/** A command that chains, redirects or substitutes (outside single quotes) is never accepted. */
 export function hasShellOperators(command) {
   let quote = null
   for (const char of command) {
@@ -99,7 +99,7 @@ export function makePermissions(allowed, denied, cwd = CWD) {
     if (tool === 'Bash') return !hasShellOperators(spec) && globToRegex(rule.pattern, '.*').test(spec)
     if (['Read', 'Edit', 'Write', 'Glob', 'Grep'].includes(tool)) {
       if (!pathMatches(rule.pattern, spec, cwd)) return false
-      // Un lien qui sort du projet ne doit pas contourner la règle : on revérifie sur le chemin réel.
+      // A link that leaves the project must not bypass the rule: it is checked again on the real path.
       const real = existsSync(spec) ? realpathSync(spec) : null
       return real === null || real === spec || pathMatches(rule.pattern, real, cwd)
     }
@@ -114,7 +114,7 @@ export function makePermissions(allowed, denied, cwd = CWD) {
   }
 }
 
-// ---------- Outils ----------
+// ---------- Tools ----------
 const truncate = (text) => (text.length > OUTPUT_LIMIT ? `${text.slice(0, OUTPUT_LIMIT)}\n[… tronqué : ${text.length} caractères]` : text)
 const absolutePath = (value) => resolve(CWD, String(value ?? ''))
 
@@ -161,7 +161,7 @@ const TOOL_DEFINITIONS = {
   Skill: { description: 'Charge les instructions d’une méthode (skill) par son nom.', properties: { skill: { type: 'string' } }, required: ['skill'] },
 }
 
-/** Exécute un outil ; renvoie le texte pour le modèle. Une permission refusée est un résultat, jamais une exception. */
+/** Runs a tool; returns the text for the model. A denied permission is a result, never an exception. */
 export async function executeTool(name, input, permissions) {
   const refused = (what) => `Refusé : ${name} n’est pas autorisé sur ${what}. Ne réessaie pas ; choisis une autre approche.`
   try {
@@ -231,7 +231,7 @@ export async function executeTool(name, input, permissions) {
   }
 }
 
-// ---------- Configuration et appel du modèle ----------
+// ---------- Configuration and model call ----------
 function readEnvFile(file) {
   const config = {}
   if (!existsSync(file)) return config
@@ -243,10 +243,10 @@ function readEnvFile(file) {
 }
 
 /**
- * Choix du modèle, sans restriction : AGENT_MODELE (option --model) peut être n'importe quel nom,
- * transmis tel quel à la passerelle. « profil/modèle » choisit en plus une autre passerelle, décrite
- * dans ~/.config/glm-ada/<profil>.env (ex. « ollama/qwen3.6:35b », « bureau/glm-5 »). Sans profil,
- * c'est ~/.config/glm-ada/env.
+ * Choice of the model, without restriction: AGENT_MODEL (--model option) can be any name,
+ * passed as is to the gateway. “profile/model” also chooses another gateway, described
+ * in ~/.config/glm-ada/<profile>.env (e.g. “ollama/qwen3.6:35b”, “bureau/glm-5”). Without a profile,
+ * it is ~/.config/glm-ada/env.
  */
 export function resolveModel(requested, configDir = CONFIG_DIR) {
   const slash = requested.indexOf('/')
@@ -263,7 +263,7 @@ export function loadConfig(file) {
     baseUrl: process.env.OPENAI_BASE_URL || config.OPENAI_BASE_URL || '',
     apiKey: process.env.OPENAI_API_KEY || config.OPENAI_API_KEY || '',
     model: process.env.OPENAI_MODEL || config.OPENAI_MODEL || '',
-    // Facultatifs : certains modèles (raisonnement) refusent la température ; on ne l'envoie que si elle est demandée.
+    // Optional: some (reasoning) models refuse the temperature; it is only sent if requested.
     temperature: config.OPENAI_TEMPERATURE ?? process.env.OPENAI_TEMPERATURE ?? '',
     maxTokens: config.OPENAI_MAX_TOKENS ?? process.env.OPENAI_MAX_TOKENS ?? '',
   }
@@ -271,7 +271,7 @@ export function loadConfig(file) {
 
 const MAX_ATTEMPTS = 6
 
-/** Attente avant de réessayer : l'en-tête Retry-After de la passerelle (en secondes) si elle en donne un, sinon un délai qui double (2, 4, 8… 30 s). */
+/** Wait before retrying: the gateway's Retry-After header (in seconds) if it gives one, otherwise a delay that doubles (2, 4, 8… 30 s). */
 export function retryDelay(attempt, retryAfter = '', jitter = Math.random()) {
   const asked = Number(retryAfter)
   if (retryAfter !== '' && Number.isFinite(asked) && asked >= 0) return Math.min(asked, 60) * 1000
@@ -294,7 +294,7 @@ async function callModel(config, model, messages, tools) {
           ...(config.maxTokens !== '' ? { max_tokens: Number(config.maxTokens) } : {}),
         }),
         signal: AbortSignal.timeout(300000),
-        // Une passerelle qui redirige pourrait envoyer la requête (et la clé) ailleurs, vers le réseau du serveur.
+        // A gateway that redirects could send the request (and the key) elsewhere, to the server's network.
         redirect: 'manual',
       })
       if (response.ok) return await response.json()
@@ -330,16 +330,16 @@ async function systemPrompt() {
     .join('\n\n')
 }
 
-// ---------- Boucle principale ----------
+// ---------- Main loop ----------
 const emit = (event) => process.stdout.write(`${JSON.stringify(event)}\n`)
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2))
-  // Passerelle imposée par l'appelant (OPENAI_BASE_URL dans l'environnement : modèle personnel d'un utilisateur d'ADA) :
-  // aucun fichier de ~/.config/glm-ada n'est lu, ni profil ni clé de l'administrateur, qui ne doit jamais partir vers
-  // une adresse choisie par quelqu'un d'autre.
-  const imposee = Boolean(process.env.OPENAI_BASE_URL)
-  const choice = imposee ? { file: null, model: opts.model } : resolveModel(opts.model)
+  // Gateway imposed by the caller (OPENAI_BASE_URL in the environment: personal model of an ADA user):
+  // no file of ~/.config/glm-ada is read, neither profile nor administrator key, which must never go to
+  // an address chosen by someone else.
+  const enforced = Boolean(process.env.OPENAI_BASE_URL)
+  const choice = enforced ? { file: null, model: opts.model } : resolveModel(opts.model)
   const config = loadConfig(choice.file)
   const model = choice.model || config.model
   const finish = (subtype, text, code, usage = {}) => {
@@ -347,22 +347,22 @@ async function main() {
     process.exit(code)
   }
   if (!config.baseUrl) finish('error', `Passerelle non configurée : renseignez OPENAI_BASE_URL dans ${choice.file ?? 'l’environnement'}.`, 1)
-  if (!model) finish('error', `Aucun modèle : renseignez AGENT_MODELE dans le .env d’ADA, ou OPENAI_MODEL dans ${choice.file ?? 'l’environnement'}.`, 1)
+  if (!model) finish('error', `Aucun modèle : renseignez AGENT_MODEL dans le .env d’ADA, ou OPENAI_MODEL dans ${choice.file ?? 'l’environnement'}.`, 1)
 
   const permissions = makePermissions(opts.allowed, opts.denied)
   const tools = Object.entries(TOOL_DEFINITIONS)
     .filter(([name]) => permissions.offered(name))
     .map(([name, def]) => ({ type: 'function', function: { name, description: def.description, parameters: { type: 'object', properties: def.properties, required: def.required } } }))
 
-  const id = opts.resume ?? opts.sessionId
+  const id = opts.summary ?? opts.sessionId
   let messages = []
-  if (opts.resume && existsSync(sessionFile(opts.resume))) messages = JSON.parse(await readFile(sessionFile(opts.resume), 'utf8'))
+  if (opts.summary && existsSync(sessionFile(opts.summary))) messages = JSON.parse(await readFile(sessionFile(opts.summary), 'utf8'))
   if (messages.length === 0) messages.push({ role: 'system', content: await systemPrompt() })
   messages.push({ role: 'user', content: opts.prompt })
   emit({ type: 'system', subtype: 'init', cwd: CWD, model, tools: tools.map((tool) => tool.function.name) })
 
   const usage = { inputTokens: 0, outputTokens: 0 }
-  // Débogage (GLM_ADA_DEBUG=1) : tout l'échange de cette exécution, dans ~/.local/state/glm-ada/runs/ (jamais la clé).
+  // Debugging (GLM_ADA_DEBUG=1): the whole exchange of this run, in ~/.local/state/glm-ada/runs/ (never the key).
   const debugFile = process.env.GLM_ADA_DEBUG ? join(homedir(), '.local', 'state', 'glm-ada', 'runs', `${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}.json`) : null
   const save = async () => {
     if (debugFile) {
@@ -385,15 +385,15 @@ async function main() {
       messages.push({ role: 'assistant', content: message.content ?? '', ...(message.tool_calls?.length ? { tool_calls: message.tool_calls } : {}) })
       if (message.content) lastText = message.content
       const calls = message.tool_calls ?? []
-      // Comme Claude Code : un événement par bloc (texte, puis chaque appel d'outil). ADA note chaque
-      // événement dans son journal d'activité ; plusieurs appels dans un seul événement s'écriraient en même temps.
+      // Like Claude Code: one event per block (text, then each tool call). ADA records each
+      // event in its activity log; several calls in a single event would be written at the same time.
       if (message.content) emit({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: message.content }] } })
       for (const call of calls) {
         let input = {}
         try {
           input = JSON.parse(call.function?.arguments || '{}')
         } catch {
-          /* arguments invalides : l'outil répondra par une erreur */
+          /* invalid arguments: the tool will answer with an error */
         }
         emit({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'tool_use', id: call.id, name: call.function?.name, input }] } })
       }

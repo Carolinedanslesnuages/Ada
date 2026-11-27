@@ -39,16 +39,16 @@ ci-dessous : création, identifiants, **installation sur votre compte** (indispe
 
 ### 4. L'agent de code
 
-ADA lance l'agent elle-même, en mode non interactif, avec la commande indiquée dans `AGENT_COMMANDE`.
+ADA lance l'agent elle-même, en mode non interactif, avec la commande indiquée dans `AGENT_COMMAND`.
 Elle attend les options et la sortie de **Claude Code**.
 
 - Installez Claude Code (voir sa documentation), puis lancez `claude` une fois dans un terminal pour
-  vous connecter (abonnement ou clé d'API). `AGENT_COMMANDE=claude` suffit alors.
+  vous connecter (abonnement ou clé d'API). `AGENT_COMMAND=claude` suffit alors.
 - Vous utilisez seulement l'extension VS Code ? Son exécutable change de dossier à chaque mise à
   jour : créez un petit lanceur (par exemple `~/.local/bin/claude-ada`) qui retrouve la dernière
   version dans `~/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude`, et
-  mettez son chemin **complet** dans `AGENT_COMMANDE` (`/Users/vous/…` : « ~ » n'y est pas remplacé).
-- Sans agent (`AGENT_COMMANDE` vide), ADA s'ouvre, mais ne lance aucune demande.
+  mettez son chemin **complet** dans `AGENT_COMMAND` (`/Users/vous/…` : « ~ » n'y est pas remplacé).
+- Sans agent (`AGENT_COMMAND` vide), ADA s'ouvre, mais ne lance aucune demande.
 
 L'agent ne lit que **vos réglages d'utilisateur** de Claude Code, jamais ceux d'un projet, et
 ne reçoit aucun secret d'ADA.
@@ -66,9 +66,9 @@ cp .env.example .env
 openssl rand -hex 32      # à coller dans SESSION_SECRET
 ```
 
-Dans `api/.env`, au minimum : `GITHUB_PROPRIETAIRE` (votre compte), `GITHUB_CLIENT_ID`,
-`GITHUB_CLIENT_SECRET`, `SESSION_SECRET`, `AGENT_COMMANDE`. Pour laisser d'autres comptes se
-connecter à **votre** ADA : `LOGINS_AUTORISES` (votre App doit aussi être installée sur leur compte).
+Dans `api/.env`, au minimum : `GITHUB_OWNER` (votre compte), `GITHUB_CLIENT_ID`,
+`GITHUB_CLIENT_SECRET`, `SESSION_SECRET`, `AGENT_COMMAND`. Pour laisser d'autres comptes se
+connecter à **votre** ADA : `ALLOWED_LOGINS` (votre App doit aussi être installée sur leur compte).
 Ce fichier contient des secrets : il est ignoré par git, ne le partagez jamais.
 
 ### 7. Installer et lancer
@@ -90,8 +90,8 @@ Ouvrez <http://localhost:5180>, connectez-vous avec GitHub, puis créez un proje
 - **Premier projet :** ADA crée le dépôt sur votre compte, protège sa branche principale et démarre son
   aperçu (le premier démarrage installe les dépendances : quelques minutes).
 - **L'agent, sans rien écrire sur GitHub :** depuis la racine du dépôt,
-  `cd interface/api && npm run build && cd ../..`, puis `node scripts/banc-agent/analyse.mjs --a-blanc`
-  (voir `scripts/banc-agent/README.md` pour le banc complet, qui consomme des appels à l'agent).
+  `cd interface/api && npm run build && cd ../..`, puis `node scripts/agent-bench/analysis.mjs --dry-run`
+  (voir `scripts/agent-bench/README.md` pour le banc complet, qui consomme des appels à l'agent).
 
 ### Mettre à jour
 
@@ -108,9 +108,9 @@ nouveau code. Avant de mettre à jour, vérifiez qu'aucun agent ne travaille (`p
 ADA garde Claude Code comme agent, mais Claude Code peut parler à un autre modèle par une
 adresse compatible avec l'API d'Anthropic. C'est le cas, par exemple, de GLM, chez Zhipu (Z.ai).
 Un lanceur fixe `ANTHROPIC_BASE_URL` (l'adresse donnée par le fournisseur), `ANTHROPIC_AUTH_TOKEN` (sa
-clé, jamais dans le dépôt), puis lance `claude`. Le nom du modèle va dans `AGENT_MODELE`.
+clé, jamais dans le dépôt), puis lance `claude`. Le nom du modèle va dans `AGENT_MODEL`.
 
-- **Qualité à vérifier :** passez le banc d'essai (`BANC_COMMANDE`, `BANC_MODELE`) et comparez avec Claude
+- **Qualité à vérifier :** passez le banc d'essai (`BENCH_COMMAND`, `BENCH_MODEL`) et comparez avec Claude
   avant tout usage réel. Le point fragile est le respect des consignes et du format de réponse.
 - **Données :** le code des projets et les échanges partent chez ce fournisseur. Décidez-en avec
   votre équipe.
@@ -128,7 +128,7 @@ clé, jamais dans le dépôt), puis lance `claude`. Le nom du modèle va dans `A
      Repository creation : *Read and write* ; Actions, Checks, Commit statuses, Metadata : *Read-only*
    - Where can this GitHub App be installed : *Any account* (chaque personne crée ses projets sur
      son propre compte). App déjà créée en *Only on this account* : page de l'App → **Advanced** →
-     *Danger zone* → **Make public**. Seuls les comptes de `LOGINS_AUTORISES` se connectent à ADA.
+     *Danger zone* → **Make public**. Seuls les comptes de `ALLOWED_LOGINS` se connectent à ADA.
 2. **Récupérer les identifiants** (page de l'App, onglet General) : *Client ID*, puis
    *Generate a new client secret* (40 caractères hexadécimaux, affiché une seule fois — pas la
    section *Private keys*). Les mettre dans `api/.env` (modèle : `api/.env.example`).
@@ -152,9 +152,9 @@ sans aucun secret.
 La page **Mon modèle** (menu en haut à droite) permet à chaque utilisateur de faire travailler ADA avec **son** modèle :
 adresse d'une passerelle compatible OpenAI, clé d'API et nom du modèle. Un bouton **Tester la connexion** vérifie
 l'adresse, la clé et surtout que le modèle sait appeler des outils (sinon l'agent explique au lieu d'agir).
-Sans réglage, ADA utilise `AGENT_COMMANDE` / `AGENT_MODELE`. Chaque demande indique dans son fil le modèle utilisé.
+Sans réglage, ADA utilise `AGENT_COMMAND` / `AGENT_MODEL`. Chaque demande indique dans son fil le modèle utilisé.
 
-- La clé est **chiffrée** (AES-256-GCM, clé dérivée de `SESSION_SECRET`) dans `DOSSIER_MODELES`, par utilisateur ; elle
+- La clé est **chiffrée** (AES-256-GCM, clé dérivée de `SESSION_SECRET`) dans `USER_MODELS_DIR`, par utilisateur ; elle
   n'est jamais renvoyée à l'écran (seulement ses 4 derniers caractères), ni écrite dans un journal ou une option de commande.
   L'agent la reçoit par son environnement, et les commandes qu'il lance ne la voient pas. Changer `SESSION_SECRET` rend les
   clés enregistrées illisibles : chacun doit les ressaisir.
@@ -205,7 +205,7 @@ des outils (`allowed-tools`) ou exécute des commandes au chargement (c'est le c
   écrite par un inconnu ne se lance pas.
 - **Processus travailleur** : chaque tâche de l'assistant tourne dans un processus détaché qui
   survit aux redémarrages de l'API ; un agent à la fois par projet (verrou qui « bat » toutes les
-  30 secondes, `apercus/<projet>/agent/verrou.json`), au plus `AGENT_MAX_SIMULTANES` sur la
+  30 secondes, `apercus/<projet>/agent/verrou.json`), au plus `AGENT_MAX_CONCURRENT` sur la
   machine, les suivants en file d'attente.
 - **Fusion** : seulement contrôles verts, et refusée si la branche a avancé en dehors d'ADA ; une
   demande en retard sur `main` est mise à jour (contrôles relancés) avant fusion.
@@ -229,7 +229,7 @@ instance du projet sur sa **dernière version validée** (branche `main`), jamai
 cours de l'assistant. Elle a ses propres données et un port de la plage 5400-5499, sur
 127.0.0.1. Elle est mise à jour après chaque « Valider et fusionner ».
 
-`URL_DEMO` (`api/.env`) donne l'adresse publique partagée, `{projet}` et `{port}` remplacés :
+`DEMO_URL` (`api/.env`) donne l'adresse publique partagée, `{projet}` et `{port}` remplacés :
 
 - en local (par défaut) : `http://localhost:{port}` ;
 - en ligne : par exemple `https://{projet}.demo.ada.gouv.fr`, avec un proxy (domaine générique

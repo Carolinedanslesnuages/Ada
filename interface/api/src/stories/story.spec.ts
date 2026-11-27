@@ -1,17 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import {
-  formaterPrompt,
-  lireBug,
-  lirePrompt,
-  lireStory,
-  statutDepuis,
-  titrePrompt,
-  typeDepuis,
-  verifierPrete,
-  verifierPrompt,
+  formatPrompt,
+  readBug,
+  readPrompt,
+  readStory,
+  statusFrom,
+  promptTitle,
+  typeFrom,
+  checkReady,
+  checkPrompt,
 } from './story.js';
 
-const formulaireStory = (criteres: string) =>
+const storyForm = (criteria: string) =>
   [
     '### En tant que',
     '',
@@ -27,10 +27,10 @@ const formulaireStory = (criteres: string) =>
     '',
     "### Critères d'acceptation",
     '',
-    criteres,
+    criteria,
   ].join('\n');
 
-const formulaireBug = [
+const bugForm = [
   '### Ce qui se passe',
   '',
   'Aucune salle le lundi',
@@ -48,110 +48,110 @@ const formulaireBug = [
   '_No response_',
 ].join('\n');
 
-describe('Lecture des issues écrites dans GitHub', () => {
-  it('relit une story saisie avec le formulaire user-story.yml', () => {
-    expect(lireStory(formulaireStory('- une salle sans réservation est libre\n- triées par nom'))).toEqual({
+describe('Reading the issues written in GitHub', () => {
+  it('reads back a story entered with the user-story.yml form', () => {
+    expect(readStory(storyForm('- une salle sans réservation est libre\n- triées par nom'))).toEqual({
       role: "agent d'accueil",
-      besoin: 'voir les salles libres',
-      benefice: 'proposer une salle',
-      criteres: ['une salle sans réservation est libre', 'triées par nom'],
+      need: 'voir les salles libres',
+      benefit: 'proposer une salle',
+      criteria: ['une salle sans réservation est libre', 'triées par nom'],
     });
   });
 
-  it('relit un problème saisi avec le formulaire bug.yml, champ facultatif vide', () => {
-    expect(lireBug(formulaireBug)).toEqual({
-      constate: 'Aucune salle le lundi',
-      attendu: 'Les salles libres',
-      etapes: '1. Ouvrir la liste un lundi',
-      ecran: '',
+  it('reads back a bug entered with the bug.yml form, optional field empty', () => {
+    expect(readBug(bugForm)).toEqual({
+      observed: 'Aucune salle le lundi',
+      expected: 'Les salles libres',
+      steps: '1. Ouvrir la liste un lundi',
+      screen: '',
     });
   });
 
-  it('ne reconnaît pas une issue écrite librement', () => {
-    expect(lireStory('Il faudrait une page d’accueil')).toBeNull();
-    expect(lireBug('Ça ne marche pas')).toBeNull();
+  it('does not recognize a freely written issue', () => {
+    expect(readStory('Il faudrait une page d’accueil')).toBeNull();
+    expect(readBug('Ça ne marche pas')).toBeNull();
   });
 });
 
-describe('Une demande est-elle prête à être lancée ?', () => {
-  it('oui : story complète, 4 critères au plus', () => {
-    expect(verifierPrete('story', lireStory(formulaireStory('- a\n- b\n- c\n- d')), null)).toEqual({ prete: true });
+describe('Is a request ready to be launched?', () => {
+  it('yes: complete story, 4 criteria at most', () => {
+    expect(checkReady('story', readStory(storyForm('- a\n- b\n- c\n- d')), null)).toEqual({ ready: true });
   });
 
-  it('non : plus de 4 critères, il faut la découper sur GitHub', () => {
-    const resultat = verifierPrete('story', lireStory(formulaireStory('- a\n- b\n- c\n- d\n- e')), null);
-    expect(resultat).toEqual({ prete: false, raison: expect.stringMatching(/Plus de 4 critères/) });
+  it('no: more than 4 criteria, it must be broken down on GitHub', () => {
+    const result = checkReady('story', readStory(storyForm('- a\n- b\n- c\n- d\n- e')), null);
+    expect(result).toEqual({ ready: false, reason: expect.stringMatching(/Plus de 4 critères/) });
   });
 
-  it('non : aucun critère', () => {
-    expect(verifierPrete('story', lireStory(formulaireStory('')), null)).toEqual({
-      prete: false,
-      raison: 'Aucun critère d’acceptation',
+  it('no: no criterion', () => {
+    expect(checkReady('story', readStory(storyForm('')), null)).toEqual({
+      ready: false,
+      reason: 'Aucun critère d’acceptation',
     });
   });
 
-  it('non : story écrite hors du formulaire', () => {
-    expect(verifierPrete('story', null, null)).toEqual({ prete: false, raison: expect.stringMatching(/formulaire/) });
+  it('no: story written outside the form', () => {
+    expect(checkReady('story', null, null)).toEqual({ ready: false, reason: expect.stringMatching(/formulaire/) });
   });
 
-  it('oui : problème complet ; non : sans étapes de reproduction', () => {
-    expect(verifierPrete('bug', null, lireBug(formulaireBug))).toEqual({ prete: true });
-    const sansEtapes = { ...lireBug(formulaireBug)!, etapes: '' };
-    expect(verifierPrete('bug', null, sansEtapes)).toEqual({ prete: false, raison: expect.stringMatching(/reproduire/) });
-  });
-});
-
-describe('Statut et type', () => {
-  it('« livrée » quand l’issue est fermée, sinon le label de statut', () => {
-    expect(statutDepuis('closed', ['story:en-cours'])).toBe('livree');
-    expect(statutDepuis('open', ['user-story', 'story:questions'])).toBe('questions');
-    expect(statutDepuis('open', ['user-story'])).toBe('nouvelle');
-  });
-
-  it('distingue un problème d’une story par son label', () => {
-    expect(typeDepuis(['bug'])).toBe('bug');
-    expect(typeDepuis(['user-story'])).toBe('story');
-  });
-
-  it('reconnaît une story ou un problème sans label, par le contenu du formulaire', () => {
-    expect(typeDepuis([], formulaireStory('- a'))).toBe('story');
-    expect(typeDepuis([], formulaireBug)).toBe('bug');
-    expect(typeDepuis([], 'Une question libre')).toBeNull();
+  it('yes: complete bug; no: without reproduction steps', () => {
+    expect(checkReady('bug', null, readBug(bugForm))).toEqual({ ready: true });
+    const withoutSteps = { ...readBug(bugForm)!, steps: '' };
+    expect(checkReady('bug', null, withoutSteps)).toEqual({ ready: false, reason: expect.stringMatching(/reproduire/) });
   });
 });
 
-describe('Mode sauvage : demande libre', () => {
-  it('enregistre le prompt dans un format relisible, reconnu comme demande libre', () => {
-    const corps = formaterPrompt('  Mets le titre de la page en bleu  ');
-    expect(corps).toContain('### Demande libre (mode sauvage, hors story)');
-    expect(lirePrompt(corps)).toBe('Mets le titre de la page en bleu');
-    expect(typeDepuis([], corps)).toBe('libre');
-    expect(typeDepuis(['mode-libre'], '')).toBe('libre');
-    expect(verifierPrete('libre', null, null, lirePrompt(corps))).toEqual({ prete: true });
+describe('Status and type', () => {
+  it('“delivered” when the issue is closed, otherwise the status label', () => {
+    expect(statusFrom('closed', ['story:en-cours'])).toBe('delivered');
+    expect(statusFrom('open', ['user-story', 'story:questions'])).toBe('questions');
+    expect(statusFrom('open', ['user-story'])).toBe('new');
   });
 
-  it('titre l’issue avec le début du prompt', () => {
-    expect(titrePrompt('Ajoute un lien vers le guide dans le pied de page')).toBe(
+  it('tells a bug from a story by its label', () => {
+    expect(typeFrom(['bug'])).toBe('bug');
+    expect(typeFrom(['user-story'])).toBe('story');
+  });
+
+  it('recognizes a story or a bug without a label, by the content of the form', () => {
+    expect(typeFrom([], storyForm('- a'))).toBe('story');
+    expect(typeFrom([], bugForm)).toBe('bug');
+    expect(typeFrom([], 'Une question libre')).toBeNull();
+  });
+});
+
+describe('Wild mode: free request', () => {
+  it('saves the prompt in a format that can be read back, recognized as a free request', () => {
+    const body = formatPrompt('  Mets le titre de la page en bleu  ');
+    expect(body).toContain('### Demande libre (mode sauvage, hors story)');
+    expect(readPrompt(body)).toBe('Mets le titre de la page en bleu');
+    expect(typeFrom([], body)).toBe('free');
+    expect(typeFrom(['mode-libre'], '')).toBe('free');
+    expect(checkReady('free', null, null, readPrompt(body))).toEqual({ ready: true });
+  });
+
+  it('titles the issue with the beginning of the prompt', () => {
+    expect(promptTitle('Ajoute un lien vers le guide dans le pied de page')).toBe(
       'Demande libre : Ajoute un lien vers le guide dans le pied de page',
     );
-    expect(titrePrompt('a'.repeat(80)).length).toBeLessThanOrEqual('Demande libre : '.length + 72);
+    expect(promptTitle('a'.repeat(80)).length).toBeLessThanOrEqual('Demande libre : '.length + 72);
   });
 
-  it('garde la première proposition du prompt, sans la couper au milieu d’un mot', () => {
+  it('keeps the first clause of the prompt, without cutting it in the middle of a word', () => {
     expect(
-      titrePrompt('Ajoute un filtre par catégorie au-dessus de la liste du matériel : Tous, Ordinateurs, Vidéoprojecteurs, Casques. Le filtre « Tous » est choisi par défaut.'),
+      promptTitle('Ajoute un filtre par catégorie au-dessus de la liste du matériel : Tous, Ordinateurs, Vidéoprojecteurs, Casques. Le filtre « Tous » est choisi par défaut.'),
     ).toBe('Demande libre : Ajoute un filtre par catégorie au-dessus de la liste du matériel');
-    expect(titrePrompt('Mets le titre en bleu. Et agrandis-le.')).toBe('Demande libre : Mets le titre en bleu');
-    const long = titrePrompt(`Ajoute ${'un très long morceau de phrase '.repeat(5)}`);
+    expect(promptTitle('Mets le titre en bleu. Et agrandis-le.')).toBe('Demande libre : Mets le titre en bleu');
+    const long = promptTitle(`Ajoute ${'un très long morceau de phrase '.repeat(5)}`);
     expect(long.endsWith('…')).toBe(true);
     expect(long).not.toMatch(/\s…$/);
     expect(long.length).toBeLessThanOrEqual('Demande libre : '.length + 72);
   });
 
-  it('refuse un prompt vide ou démesuré (une application entière s’écrit en stories)', () => {
-    expect(verifierPrompt('  ')).toEqual({ ok: false, erreur: 'Décrivez votre demande en une phrase au moins' });
-    const long = verifierPrompt('x'.repeat(1001));
+  it('refuses an empty or oversized prompt (a whole application is written as stories)', () => {
+    expect(checkPrompt('  ')).toEqual({ ok: false, error: 'Décrivez votre demande en une phrase au moins' });
+    const long = checkPrompt('x'.repeat(1001));
     expect(long.ok).toBe(false);
-    if (!long.ok) expect(long.erreur).toMatch(/écrivez des stories/);
+    if (!long.ok) expect(long.error).toMatch(/écrivez des stories/);
   });
 });

@@ -1,266 +1,266 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { api, ErreurApi } from '@/services/api'
+import { api, ApiError } from '@/services/api'
 import {
-  STATUTS_ACTIFS,
-  type Activite,
-  type DetailStory,
-  type Personne,
-  type StoryProposee,
-  type ResumeStory,
+  ACTIVE_STATUSES,
+  type Activity,
+  type StoryDetail,
+  type Person,
+  type ProposedStory,
+  type StorySummary,
   type Verification,
 } from '@/lib/story'
 
 export const useStoriesStore = defineStore('stories', () => {
-  const liste = ref<ResumeStory[]>([])
-  const courante = ref<DetailStory | null>(null)
-  const chargement = ref(false)
-  const erreur = ref<string | null>(null)
-  const erreurLancement = ref<string | null>(null)
-  const activite = ref<Activite | null>(null)
+  const list = ref<StorySummary[]>([])
+  const current = ref<StoryDetail | null>(null)
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+  const launchError = ref<string | null>(null)
+  const activity = ref<Activity | null>(null)
   const verification = ref<Verification | null>(null)
-  const erreurAction = ref<string | null>(null)
-  /** Développeurs assignables du projet courant (lus à la demande). */
-  const developpeurs = ref<Personne[] | null>(null)
+  const actionError = ref<string | null>(null)
+  /** Assignable developers of the current project (read on demand). */
+  const developers = ref<Person[] | null>(null)
 
-  /** La demande qui occupe le projet : tant qu'elle existe, on n'en lance pas d'autre. */
-  /** Liste principale : ce qui reste à faire ou est en cours. */
-  const aFaire = computed(() => liste.value.filter((story) => story.statut !== 'livree'))
-  /** Stories livrées, de la plus récente à la plus ancienne. */
-  const livrees = computed(() =>
-    liste.value
-      .filter((story) => story.statut === 'livree')
-      .sort((premiere, seconde) => (seconde.fermeeLe ?? '').localeCompare(premiere.fermeeLe ?? '')),
+  /** The request that keeps the project busy: as long as it exists, no other is launched. */
+  /** Main list: what is left to do or is in progress. */
+  const todo = computed(() => list.value.filter((story) => story.status !== 'delivered'))
+  /** Delivered stories, from most recent to oldest. */
+  const delivered = computed(() =>
+    list.value
+      .filter((story) => story.status === 'delivered')
+      .sort((first, second) => (second.closedAt ?? '').localeCompare(first.closedAt ?? '')),
   )
-  const active = computed(() => liste.value.find((s) => STATUTS_ACTIFS.includes(s.statut)) ?? null)
+  const active = computed(() => list.value.find((s) => ACTIVE_STATUSES.includes(s.status)) ?? null)
 
-  const chemin = (projet: string) => `/projets/${encodeURIComponent(projet)}/stories`
+  const filePath = (project: string) => `/projects/${encodeURIComponent(project)}/stories`
 
-  async function charger(projet: string, garderCourante = false): Promise<void> {
-    chargement.value = !garderCourante
-    erreur.value = null
-    if (!garderCourante) {
-      courante.value = null
-      developpeurs.value = null // autre projet : autres personnes assignables
+  async function load(project: string, keepCurrent = false): Promise<void> {
+    loading.value = !keepCurrent
+    error.value = null
+    if (!keepCurrent) {
+      current.value = null
+      developers.value = null // other project: other assignable people
     }
     try {
-      liste.value = await api.lire<ResumeStory[]>(chemin(projet))
+      list.value = await api.read<StorySummary[]>(filePath(project))
     } catch (e) {
-      if (!garderCourante) liste.value = []
-      erreur.value = (e as Error).message
+      if (!keepCurrent) list.value = []
+      error.value = (e as Error).message
     } finally {
-      chargement.value = false
+      loading.value = false
     }
   }
 
-  async function ouvrir(projet: string, numero: number): Promise<void> {
-    erreur.value = null
-    erreurLancement.value = null
-    if (courante.value?.numero !== numero) {
-      activite.value = null
+  async function open(project: string, number: number): Promise<void> {
+    error.value = null
+    launchError.value = null
+    if (current.value?.number !== number) {
+      activity.value = null
       verification.value = null
     }
     try {
-      courante.value = await api.lire<DetailStory>(`${chemin(projet)}/${numero}`)
+      current.value = await api.read<StoryDetail>(`${filePath(project)}/${number}`)
     } catch (e) {
-      erreur.value = (e as Error).message
+      error.value = (e as Error).message
     }
   }
 
-  async function lancer(projet: string, numero: number): Promise<void> {
-    erreurLancement.value = null
+  async function launch(project: string, number: number): Promise<void> {
+    launchError.value = null
     try {
-      // Ce que le PO a sous les yeux : ADA refuse de lancer sans cette empreinte, ou si l'issue a été modifiée sur GitHub depuis.
-      if (courante.value?.numero !== numero) await ouvrir(projet, numero)
-      const empreinte = courante.value?.empreinte
-      await api.envoyer<ResumeStory>(`${chemin(projet)}/${numero}/lancer`, { empreinte })
-      await charger(projet, true)
-      await ouvrir(projet, numero)
-      await chargerActivite(projet, numero)
+      // What the PO has in front of them: ADA refuses to launch without this fingerprint, or if the issue was modified on GitHub since.
+      if (current.value?.number !== number) await open(project, number)
+      const fingerprint = current.value?.fingerprint
+      await api.send<StorySummary>(`${filePath(project)}/${number}/launch`, { fingerprint })
+      await load(project, true)
+      await open(project, number)
+      await loadActivity(project, number)
     } catch (e) {
       const message = (e as Error).message
-      // Demande modifiée entre-temps (ou autre conflit) : on montre la version actuelle, à relire avant de relancer.
-      if (e instanceof ErreurApi && e.statut === 409) await ouvrir(projet, numero)
-      erreurLancement.value = message
+      // Request modified in the meantime (or other conflict): the current version is shown, to review before relaunching.
+      if (e instanceof ApiError && e.status === 409) await open(project, number)
+      launchError.value = message
     }
   }
 
-  async function chargerActivite(projet: string, numero: number): Promise<void> {
+  async function loadActivity(project: string, number: number): Promise<void> {
     try {
-      activite.value = await api.lire<Activite>(`${chemin(projet)}/${numero}/activite`)
+      activity.value = await api.read<Activity>(`${filePath(project)}/${number}/activity`)
     } catch {
-      /* activité indisponible : on garde la précédente */
+      /* activity unavailable: the previous one is kept */
     }
   }
 
-  async function chargerVerification(projet: string, numero: number): Promise<void> {
+  async function loadVerification(project: string, number: number): Promise<void> {
     try {
-      verification.value = await api.lire<Verification>(`${chemin(projet)}/${numero}/verification`)
+      verification.value = await api.read<Verification>(`${filePath(project)}/${number}/verification`)
     } catch {
-      /* indisponible : on garde la précédente */
+      /* unavailable: the previous one is kept */
     }
   }
 
-  /** Relance les contrôles que GitHub n'avait pas lancés (facturation réglée entre-temps). */
-  async function relancerControles(projet: string, numero: number): Promise<void> {
-    erreurAction.value = null
+  /** Reruns the checks GitHub had not launched (billing fixed in the meantime). */
+  async function rerunChecks(project: string, number: number): Promise<void> {
+    actionError.value = null
     try {
-      verification.value = await api.envoyer<Verification>(`${chemin(projet)}/${numero}/controles/relancer`, {})
+      verification.value = await api.send<Verification>(`${filePath(project)}/${number}/checks/relaunch`, {})
     } catch (e) {
-      erreurAction.value = (e as Error).message
+      actionError.value = (e as Error).message
     }
   }
 
-  /** Fusionne la demande (contrôles verts) : elle devient livrée, la suivante peut être lancée. */
-  async function fusionner(projet: string, numero: number): Promise<void> {
-    erreurAction.value = null
+  /** Merges the request (green checks): it becomes delivered, the next one can be launched. */
+  async function merge(project: string, number: number): Promise<void> {
+    actionError.value = null
     try {
-      verification.value = await api.envoyer<Verification>(`${chemin(projet)}/${numero}/fusionner`, {})
-      await charger(projet, true)
-      // Livrée : elle rejoint « Déjà livrées » et son détail se ferme.
-      if (liste.value.find((story) => story.numero === numero)?.statut === 'livree') {
-        fermer()
+      verification.value = await api.send<Verification>(`${filePath(project)}/${number}/merge`, {})
+      await load(project, true)
+      // Delivered: it joins “Déjà livrées” and its detail closes.
+      if (list.value.find((story) => story.number === number)?.status === 'delivered') {
+        close()
         return
       }
-      await ouvrir(projet, numero)
-      await chargerActivite(projet, numero)
+      await open(project, number)
+      await loadActivity(project, number)
     } catch (e) {
-      erreurAction.value = (e as Error).message
+      actionError.value = (e as Error).message
     }
   }
 
-  /** Relit la demande ouverte, son activité et la liste (statuts changés par l'assistant). */
-  async function suivre(projet: string): Promise<void> {
-    const numero = courante.value?.numero
-    if (!numero) return
-    await Promise.all([chargerActivite(projet, numero), charger(projet, true)])
-    if (courante.value?.statut === 'en-verification') await chargerVerification(projet, numero)
-    const resume = liste.value.find((s) => s.numero === numero)
-    if (resume && resume.statut !== courante.value?.statut) await ouvrir(projet, numero)
-    else if (courante.value?.numero === numero) {
-      courante.value = await api.lire<DetailStory>(`${chemin(projet)}/${numero}`).catch(() => courante.value)
+  /** Reads again the open request, its activity and the list (statuses changed by the assistant). */
+  async function poll(project: string): Promise<void> {
+    const number = current.value?.number
+    if (!number) return
+    await Promise.all([loadActivity(project, number), load(project, true)])
+    if (current.value?.status === 'in-review') await loadVerification(project, number)
+    const summary = list.value.find((s) => s.number === number)
+    if (summary && summary.status !== current.value?.status) await open(project, number)
+    else if (current.value?.number === number) {
+      current.value = await api.read<StoryDetail>(`${filePath(project)}/${number}`).catch(() => current.value)
     }
   }
 
-  async function agir(projet: string, numero: number, action: () => Promise<unknown>): Promise<void> {
-    erreurAction.value = null
+  async function act(project: string, number: number, action: () => Promise<unknown>): Promise<void> {
+    actionError.value = null
     try {
       await action()
-      await ouvrir(projet, numero)
-      await chargerActivite(projet, numero)
-      await charger(projet, true)
+      await open(project, number)
+      await loadActivity(project, number)
+      await load(project, true)
     } catch (e) {
-      erreurAction.value = (e as Error).message
+      actionError.value = (e as Error).message
     }
   }
 
-  const validerPlan = (projet: string, numero: number) =>
-    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/plan/valider`, {}))
+  const approvePlan = (project: string, number: number) =>
+    act(project, number, () => api.send(`${filePath(project)}/${number}/plan/approve`, {}))
 
-  /** Mode sauvage : enregistre le prompt (issue), le lance et l'ouvre ; renvoie l'erreur éventuelle. */
-  async function prompter(projet: string, texte: string): Promise<string | null> {
+  /** Wild mode: saves the prompt (issue), launches it and opens it; returns the error, if any. */
+  async function submitPrompt(project: string, text: string): Promise<string | null> {
     try {
-      const demande = await api.envoyer<ResumeStory>(`${chemin(projet)}/prompt`, { texte })
-      await charger(projet, true)
-      await ouvrir(projet, demande.numero)
-      await chargerActivite(projet, demande.numero)
+      const workRequest = await api.send<StorySummary>(`${filePath(project)}/prompt`, { text })
+      await load(project, true)
+      await open(project, workRequest.number)
+      await loadActivity(project, workRequest.number)
       return null
     } catch (e) {
       return (e as Error).message
     }
   }
 
-  /** Conversation (« vrai prompt ») : le premier message ouvre l'issue, ADA répond en agissant. */
-  async function ouvrirConversation(projet: string, texte: string): Promise<string | null> {
+  /** Conversation (“real prompt”): the first message opens the issue, ADA answers by acting. */
+  async function openConversation(project: string, text: string): Promise<string | null> {
     try {
-      const conversation = await api.envoyer<ResumeStory>(`${chemin(projet)}/conversation`, { texte })
-      await charger(projet, true)
-      await ouvrir(projet, conversation.numero)
-      await chargerActivite(projet, conversation.numero)
+      const conversation = await api.send<StorySummary>(`${filePath(project)}/conversation`, { text })
+      await load(project, true)
+      await open(project, conversation.number)
+      await loadActivity(project, conversation.number)
       return null
     } catch (e) {
       return (e as Error).message
     }
   }
-  const envoyerMessage = (projet: string, numero: number, texte: string) =>
-    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/conversation/message`, { texte }))
-  /** « C'est bon » : ADA propose les changements au projet (PR), ou ferme s'il n'y en a pas. */
-  const terminerConversation = (projet: string, numero: number) =>
-    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/conversation/terminer`, {}))
-  const arreterConversation = (projet: string, numero: number) =>
-    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/conversation/arreter`, {}))
+  const sendMessage = (project: string, number: number, text: string) =>
+    act(project, number, () => api.send(`${filePath(project)}/${number}/conversation/message`, { text }))
+  /** “All good”: ADA proposes the changes to the project (PR), or closes if there are none. */
+  const finishConversation = (project: string, number: number) =>
+    act(project, number, () => api.send(`${filePath(project)}/${number}/conversation/finish`, {}))
+  const stopConversation = (project: string, number: number) =>
+    act(project, number, () => api.send(`${filePath(project)}/${number}/conversation/stop`, {}))
 
-  const relancer = (projet: string, numero: number) =>
-    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/relancer`, {}))
+  const relaunch = (project: string, number: number) =>
+    act(project, number, () => api.send(`${filePath(project)}/${number}/relaunch`, {}))
 
-  /** Découpage validé : ADA publie les stories relues par le PO ; la demande devient leur parent (#36). */
-  const creerDecoupage = (projet: string, numero: number, stories: StoryProposee[]) =>
-    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/decoupage`, { stories }))
+  /** Approved breakdown: ADA publishes the stories reviewed by the PO; the request becomes their parent (#36). */
+  const createBreakdown = (project: string, number: number, stories: ProposedStory[]) =>
+    act(project, number, () => api.send(`${filePath(project)}/${number}/breakdown`, { stories }))
 
-  /** Réponse aux questions, ou modification demandée sur le plan. */
-  const repondre = (projet: string, numero: number, texte: string) =>
-    agir(projet, numero, () => api.envoyer(`${chemin(projet)}/${numero}/reponse`, { texte }))
+  /** Answer to the questions, or change requested on the plan. */
+  const reply = (project: string, number: number, text: string) =>
+    act(project, number, () => api.send(`${filePath(project)}/${number}/response`, { text }))
 
-  function fermer(): void {
-    courante.value = null
-    activite.value = null
+  function close(): void {
+    current.value = null
+    activity.value = null
     verification.value = null
   }
 
-  async function chargerDeveloppeurs(projet: string): Promise<void> {
-    erreurAction.value = null
+  async function loadDevelopers(project: string): Promise<void> {
+    actionError.value = null
     try {
-      developpeurs.value = await api.lire<Personne[]>(`${chemin(projet)}/developpeurs`)
+      developers.value = await api.read<Person[]>(`${filePath(project)}/developers`)
     } catch (e) {
-      erreurAction.value = (e as Error).message
+      actionError.value = (e as Error).message
     }
   }
 
-  /** Assigne un développeur à la demande ouverte (null : retire l'assignation). */
-  async function assigner(projet: string, numero: number, login: string | null): Promise<void> {
-    erreurAction.value = null
+  /** Assigns a developer to the open request (null: removes the assignment). */
+  async function assign(project: string, number: number, login: string | null): Promise<void> {
+    actionError.value = null
     try {
-      courante.value = await api.envoyer<DetailStory>(`${chemin(projet)}/${numero}/assigner`, { login })
+      current.value = await api.send<StoryDetail>(`${filePath(project)}/${number}/assign`, { login })
     } catch (e) {
-      erreurAction.value = (e as Error).message
+      actionError.value = (e as Error).message
     }
   }
 
   return {
-    creerDecoupage,
-    developpeurs,
-    chargerDeveloppeurs,
-    assigner,
-    liste,
-    aFaire,
-    livrees,
-    courante,
+    createBreakdown,
+    developers,
+    loadDevelopers,
+    assign,
+    list,
+    todo,
+    delivered,
+    current,
     active,
-    chargement,
-    erreur,
-    erreurLancement,
-    activite,
+    loading,
+    error,
+    launchError,
+    activity,
     verification,
-    erreurAction,
-    chargerVerification,
-    fusionner,
-    relancerControles,
-    charger,
-    chargerActivite,
-    suivre,
-    validerPlan,
-    relancer,
-    prompter,
-    ouvrirConversation,
-    envoyerMessage,
-    terminerConversation,
-    arreterConversation,
-    ouvrir,
-    lancer,
-    repondre,
-    fermer,
+    actionError,
+    loadVerification,
+    merge,
+    rerunChecks,
+    load,
+    loadActivity,
+    poll,
+    approvePlan,
+    relaunch,
+    submitPrompt,
+    openConversation,
+    sendMessage,
+    finishConversation,
+    stopConversation,
+    open,
+    launch,
+    reply,
+    close,
   }
 })
 
-// Mise à jour à chaud en développement : sans cela, un onglet ouvert garde l'ancienne version du store.
+// Hot update in development: without this, an open tab keeps the old version of the store.
 if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useStoriesStore, import.meta.hot))

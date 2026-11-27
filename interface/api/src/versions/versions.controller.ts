@@ -1,21 +1,21 @@
 import { Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
-import { ConnecteGuard } from '../auth/connecte.guard.js';
-import { ProjetGuard } from '../projets/projet.guard.js';
+import { SignedInGuard } from '../auth/signed-in.guard.js';
+import { ProjectGuard } from '../projects/project.guard.js';
 import { VersionsService } from './versions.service.js';
 
-@Controller('projets/:depot/versions')
-@UseGuards(ConnecteGuard, ProjetGuard)
+@Controller('projects/:repository/versions')
+@UseGuards(SignedInGuard, ProjectGuard)
 export class VersionsController {
   constructor(private readonly versions: VersionsService) {}
 
   @Get()
-  lire(@Req() req: Request, @Param('depot') depot: string) {
-    return this.versions.lire(req.session.jeton!, depot);
+  read(@Req() req: Request, @Param('repository') repository: string) {
+    return this.versions.read(req.session.token!, repository);
   }
 
-  @Post('publier')
-  publier(@Req() req: Request, @Param('depot') depot: string) {
-    return this.versions.publier(req.session.jeton!, depot);
+  @Post('publish')
+  publish(@Req() req: Request, @Param('repository') repository: string) {
+    return this.versions.publish(req.session.token!, repository);
   }
 }

@@ -1,64 +1,64 @@
 import { describe, it, expect } from 'vitest';
-import { etatControles, numeroDepuisUrl, peutFusionner } from './verification.js';
+import { checksState, numberFromUrl, canMerge } from './verification.js';
 
-const requis = ['Anti-fuite', 'API', 'Front'];
+const required = ['Anti-fuite', 'API', 'Front'];
 const run = (name: string, status: string, conclusion: string | null) => ({ name, status, conclusion, html_url: `https://x/${name}` });
 
-describe('Contrôles d’une pull request', () => {
-  it('donne l’état de chaque contrôle exigé, y compris ceux pas encore démarrés', () => {
-    expect(etatControles([run('Anti-fuite', 'completed', 'success'), run('API', 'in_progress', null)], requis)).toEqual([
-      { nom: 'Anti-fuite', etat: 'reussi', lien: 'https://x/Anti-fuite' },
-      { nom: 'API', etat: 'en-cours', lien: 'https://x/API' },
-      { nom: 'Front', etat: 'en-attente', lien: null },
+describe('Checks of a pull request', () => {
+  it('gives the state of every required check, including those not started yet', () => {
+    expect(checksState([run('Anti-fuite', 'completed', 'success'), run('API', 'in_progress', null)], required)).toEqual([
+      { name: 'Anti-fuite', state: 'succeeded', link: 'https://x/Anti-fuite' },
+      { name: 'API', state: 'in-progress', link: 'https://x/API' },
+      { name: 'Front', state: 'pending', link: null },
     ]);
   });
 
-  it('retient la plus récente exécution d’un contrôle relancé, quel que soit l’ordre de GitHub', () => {
-    const ancienne = { ...run('API', 'completed', 'failure'), id: 1, started_at: '2026-11-20T15:50:47Z' };
-    const relance = { ...run('API', 'completed', 'success'), id: 2, started_at: '2026-11-20T15:57:27Z' };
-    // GitHub liste la plus récente d'abord : c'est l'ordre réel qui faisait garder l'échec.
-    expect(etatControles([relance, ancienne], ['API'])[0]!.etat).toBe('reussi');
-    expect(etatControles([ancienne, relance], ['API'])[0]!.etat).toBe('reussi');
-    // Sans date (anciens tests, faux GitHub) : l'identifiant départage.
-    expect(etatControles([{ ...run('API', 'completed', 'failure'), id: 1 }, { ...run('API', 'completed', 'success'), id: 2 }], ['API'])[0]!.etat).toBe('reussi');
+  it('keeps the most recent run of a rerun check, whatever GitHub\'s order', () => {
+    const previous = { ...run('API', 'completed', 'failure'), id: 1, started_at: '2026-11-20T15:50:47Z' };
+    const retry = { ...run('API', 'completed', 'success'), id: 2, started_at: '2026-11-20T15:57:27Z' };
+    // GitHub lists the most recent first: it is the actual order that made the failure stick.
+    expect(checksState([retry, previous], ['API'])[0]!.state).toBe('succeeded');
+    expect(checksState([previous, retry], ['API'])[0]!.state).toBe('succeeded');
+    // Without a date (old tests, fake GitHub): the identifier breaks the tie.
+    expect(checksState([{ ...run('API', 'completed', 'failure'), id: 1 }, { ...run('API', 'completed', 'success'), id: 2 }], ['API'])[0]!.state).toBe('succeeded');
   });
 });
 
-describe('Peut-on fusionner ?', () => {
-  const TITRE = 'feat: Page d’accueil';
-  const verts = etatControles(requis.map((n) => run(n, 'completed', 'success')), requis);
+describe('Can it be merged?', () => {
+  const TITLE = 'feat: Page d’accueil';
+  const green = checksState(required.map((n) => run(n, 'completed', 'success')), required);
 
-  it('oui : PR ouverte, sans conflit, tout est vert', () => {
-    expect(peutFusionner('ouverte', true, verts, TITRE)).toEqual({ fusionnable: true, raison: null });
+  it('yes: PR open, no conflict, everything is green', () => {
+    expect(canMerge('open', true, green, TITLE)).toEqual({ mergeable: true, reason: null });
   });
 
-  it('non tant qu’un contrôle tourne', () => {
-    const enCours = etatControles([...requis.slice(0, 2).map((n) => run(n, 'completed', 'success')), run('Front', 'queued', null)], requis);
-    expect(peutFusionner('ouverte', true, enCours, TITRE)).toEqual({ fusionnable: false, raison: 'Contrôles en cours…' });
+  it('no while a check is running', () => {
+    const inProgress = checksState([...required.slice(0, 2).map((n) => run(n, 'completed', 'success')), run('Front', 'queued', null)], required);
+    expect(canMerge('open', true, inProgress, TITLE)).toEqual({ mergeable: false, reason: 'Contrôles en cours…' });
   });
 
-  it('non si un contrôle a échoué, en le nommant', () => {
-    const rouge = etatControles([run('Anti-fuite', 'completed', 'success'), run('API', 'completed', 'failure'), run('Front', 'completed', 'success')], requis);
-    expect(peutFusionner('ouverte', true, rouge, TITRE).raison).toMatch(/« API » a échoué/);
+  it('no if a check failed, naming it', () => {
+    const red = checksState([run('Anti-fuite', 'completed', 'success'), run('API', 'completed', 'failure'), run('Front', 'completed', 'success')], required);
+    expect(canMerge('open', true, red, TITLE).reason).toMatch(/« API » a échoué/);
   });
 
-  it('non en cas de conflit, ou tant que GitHub ne sait pas', () => {
-    expect(peutFusionner('ouverte', false, verts, TITRE).raison).toMatch(/conflit/);
-    expect(peutFusionner('ouverte', null, verts, TITRE).raison).toMatch(/vérifie/);
+  it('no in case of conflict, or as long as GitHub does not know', () => {
+    expect(canMerge('open', false, green, TITLE).reason).toMatch(/conflit/);
+    expect(canMerge('open', null, green, TITLE).reason).toMatch(/vérifie/);
   });
 
-  it('non si le titre ne suit pas Conventional Commits : il décide de la version (semver)', () => {
-    expect(peutFusionner('ouverte', true, verts, 'Page d’accueil').raison).toMatch(/feat: » ou « fix: »/);
-    expect(peutFusionner('ouverte', true, verts, 'Merge pull request #6').fusionnable).toBe(false);
+  it('no if the title does not follow Conventional Commits: it decides the version (semver)', () => {
+    expect(canMerge('open', true, green, 'Page d’accueil').reason).toMatch(/feat: » ou « fix: »/);
+    expect(canMerge('open', true, green, 'Merge pull request #6').mergeable).toBe(false);
   });
 
-  it('non si déjà fusionnée ou fermée', () => {
-    expect(peutFusionner('fusionnee', true, verts, TITRE).fusionnable).toBe(false);
-    expect(peutFusionner('fermee', true, verts, TITRE).fusionnable).toBe(false);
+  it('no if already merged or closed', () => {
+    expect(canMerge('merged', true, green, TITLE).mergeable).toBe(false);
+    expect(canMerge('closed', true, green, TITLE).mergeable).toBe(false);
   });
 
-  it('retrouve le numéro de la PR depuis son adresse', () => {
-    expect(numeroDepuisUrl('https://github.com/p/poc/pull/3')).toBe(3);
-    expect(numeroDepuisUrl(null)).toBeNull();
+  it('finds the PR number from its address', () => {
+    expect(numberFromUrl('https://github.com/p/poc/pull/3')).toBe(3);
+    expect(numberFromUrl(null)).toBeNull();
   });
 });

@@ -25,7 +25,7 @@ Chaque brique coûte des appels en plus, du temps, de l'empreinte carbone, et un
 
 ### Un banc d'essai rejouable
 
-Un [banc d'essai](../scripts/banc-agent/README.md) rejoue l'agent d'ADA avec **exactement** les consignes, les
+Un [banc d'essai](../scripts/agent-bench/README.md) rejoue l'agent d'ADA avec **exactement** les consignes, les
 outils autorisés et les options de l'API, sur des projets jetables (copie du modèle « pwa »). Rien n'est écrit
 sur GitHub ni dans ADA. Deux bancs :
 
@@ -86,10 +86,10 @@ suivent les invariants d'agent-skills (nom identique au dossier, moins de 100 li
 quoi et quand) pour rester portables vers Codex, OpenCode, Cursor, Copilot ou Gemini CLI.
 
 Depuis le 19 novembre (PR #115), **chaque projet créé par ADA embarque ces trois skills** : copiées dans
-`.agents/skills/` et reliées depuis `.claude/skills/` au commit de création (dossier `SKILLS_PO`, environ
+`.agents/skills/` et reliées depuis `.claude/skills/` au commit de création (dossier `PO_SKILLS`, environ
 300 Ko). Les projets repris ne sont pas touchés. Elles guident un agent piloté par une personne, dans ADA ou dans
 le projet ; **l'agent de l'interface ne les reçoit pas** : il suit les consignes écrites dans
-`interface/api/src/agent/consignes.ts`, et la consigne ne cite que les skills d'`AGENT_SKILLS`. Comment lui
+`interface/api/src/agent/instructions.ts`, et la consigne ne cite que les skills d'`AGENT_SKILLS`. Comment lui
 faire parvenir la méthode des skills `po-` est l'objet de
 [proposition-chargeur-skills.md](proposition-chargeur-skills.md).
 
@@ -105,8 +105,8 @@ Reliées depuis un clone local, mises à jour par `git pull` (voir `AGENT_SKILLS
 | `securite-developpement`, `rgaa` | etalab-ia/skills (DINUM) | Sécurité (guides de l'ANSSI), auto-évaluation RGAA, depuis le 27 novembre 2026 (ADR-0020) |
 | `adr-new` | agent-skills IA-Generative | **Écartée** : elle pré-autorise des outils (`allowed-tools`), ce qu'ADA refuse pour toute skill. Le format des ADR est repris dans `po-projet-nouveau/references/socle.md` |
 
-ADA écarte toute skill qui pré-autorise des outils ou exécute des commandes au chargement (contrôle `skillSure`
-dans `interface/api/src/agent/outils.ts`). Depuis le 19 novembre (PR #114), ce contrôle s'applique aussi aux
+ADA écarte toute skill qui pré-autorise des outils ou exécute des commandes au chargement (contrôle `isSafeSkill`
+dans `interface/api/src/agent/tools.ts`). Depuis le 19 novembre (PR #114), ce contrôle s'applique aussi aux
 skills apportées par le dépôt du projet (projet repris, PR fusionnée) : une skill dangereuse fait refuser la
 demande, et un dossier du projet qui porte le nom d'une skill d'ADA ne la remplace plus en silence. `.claude/`,
 `.agents/` et `.mcp.json` sont des chemins réservés que l'agent ne peut pas modifier.
@@ -172,6 +172,6 @@ d'origine est appelée si elle est installée : la skill d'ADA fonctionne seule,
 1. Une règle est-elle utilisée à chaque exécution ? Elle va dans la consigne.
 2. Est-elle conditionnelle ou à partager avec d'autres agents ? Elle devient une skill, qu'il faut **imposer**
    pour qu'elle serve.
-3. Avant toute adoption, rejouer le banc d'essai (`scripts/banc-agent/`) avant et après, avec le même nombre de
+3. Avant toute adoption, rejouer le banc d'essai (`scripts/agent-bench/`) avant et après, avec le même nombre de
    répétitions, en regardant aussi la durée et les tokens, pas seulement la réussite.
 4. Noter ici la décision et sa raison, y compris lorsque la piste est écartée.

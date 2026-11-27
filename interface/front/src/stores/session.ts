@@ -1,36 +1,36 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { api, ErreurApi } from '@/services/api'
+import { api, ApiError } from '@/services/api'
 
-export interface Utilisateur {
+export interface User {
   login: string
-  nom: string | null
+  name: string | null
   avatar: string
 }
 
 export const useSessionStore = defineStore('session', () => {
-  const utilisateur = ref<Utilisateur | null>(null)
-  const verifiee = ref(false)
-  const connecte = computed(() => utilisateur.value !== null)
+  const user = ref<User | null>(null)
+  const verified = ref(false)
+  const signedIn = computed(() => user.value !== null)
 
-  async function verifier(): Promise<void> {
+  async function verify(): Promise<void> {
     try {
-      utilisateur.value = await api.lire<Utilisateur>('/auth/moi')
+      user.value = await api.read<User>('/auth/me')
     } catch (e) {
-      if (!(e instanceof ErreurApi && e.statut === 401)) throw e
-      utilisateur.value = null
+      if (!(e instanceof ApiError && e.status === 401)) throw e
+      user.value = null
     } finally {
-      verifiee.value = true
+      verified.value = true
     }
   }
 
-  async function deconnecter(): Promise<void> {
-    await api.envoyer('/auth/deconnexion', {})
-    utilisateur.value = null
+  async function signOutUser(): Promise<void> {
+    await api.send('/auth/sign-out', {})
+    user.value = null
   }
 
-  return { utilisateur, verifiee, connecte, verifier, deconnecter }
+  return { user, verified, signedIn, verify, signOutUser }
 })
 
-// Mise à jour à chaud en développement : sans cela, un onglet ouvert garde l'ancienne version du store.
+// Hot update in development: without this, an open tab keeps the old version of the store.
 if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useSessionStore, import.meta.hot))

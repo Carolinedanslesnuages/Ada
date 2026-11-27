@@ -3,16 +3,16 @@ import { retry } from '@octokit/plugin-retry';
 import { Octokit } from '@octokit/rest';
 
 /**
- * Client GitHub avec nouvelles tentatives automatiques sur les erreurs passagères (coupure
- * réseau, erreurs 5xx) : une connexion lente ne doit pas faire échouer une création de projet.
- * Les erreurs de fond (400, 401, 403, 404, 422) ne sont jamais réessayées.
+ * GitHub client with automatic retries on transient errors (network
+ * outage, 5xx errors): a slow connection must not make a project creation fail.
+ * Substantive errors (400, 401, 403, 404, 422) are never retried.
  */
-const OctokitAvecReprise = Octokit.plugin(retry);
+const OctokitWithRetry = Octokit.plugin(retry);
 
-/** Fabrique un client GitHub qui agit au nom du PO connecté. */
+/** Builds a GitHub client that acts on behalf of the signed-in PO. */
 @Injectable()
 export class GithubService {
-  client(jeton: string): Octokit {
-    return new OctokitAvecReprise({ auth: jeton, userAgent: 'ada', retry: { retries: 3 } }) as unknown as Octokit;
+  client(token: string): Octokit {
+    return new OctokitWithRetry({ auth: token, userAgent: 'ada', retry: { retries: 3 } }) as unknown as Octokit;
   }
 }
