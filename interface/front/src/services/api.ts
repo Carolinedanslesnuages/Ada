@@ -1,47 +1,47 @@
-export class ErreurApi extends Error {
+export class ApiError extends Error {
   constructor(
-    public readonly statut: number,
+    public readonly status: number,
     message: string,
-    public readonly erreurs: Record<string, string> = {},
+    public readonly errors: Record<string, string> = {},
   ) {
     super(message)
   }
 }
 
-async function appeler<T>(chemin: string, options: RequestInit = {}): Promise<T> {
-  const reponse = await fetch(`/api${chemin}`, {
+async function callFetch<T>(filePath: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(`/api${filePath}`, {
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     ...options,
   })
-  const texte = await reponse.text()
-  let donnees: { message?: unknown; erreurs?: Record<string, string> } | null = null
+  const text = await response.text()
+  let data: { message?: unknown; errors?: Record<string, string> } | null = null
   try {
-    donnees = texte ? JSON.parse(texte) : null
+    data = text ? JSON.parse(text) : null
   } catch {
-    donnees = null // page d'erreur HTML (proxy) : pas de JSON
+    data = null // HTML error page (proxy): no JSON
   }
-  if (!reponse.ok) {
-    // ADA momentanément indisponible (redémarrage, mise à jour) : message clair, jamais un code brut.
-    if ([502, 503, 504].includes(reponse.status)) {
-      throw new ErreurApi(
-        reponse.status,
+  if (!response.ok) {
+    // ADA temporarily unavailable (restart, update): clear message, never a raw code.
+    if ([502, 503, 504].includes(response.status)) {
+      throw new ApiError(
+        response.status,
         'ADA redémarre un instant. Votre action a peut-être déjà été prise en compte : vérifiez dans quelques secondes avant de réessayer.',
       )
     }
     const message =
-      typeof donnees?.message === 'string' ? donnees.message : `Erreur ${reponse.status}`
-    const erreurs = (donnees?.message as { erreurs?: Record<string, string> } | undefined)?.erreurs ?? donnees?.erreurs
-    throw new ErreurApi(reponse.status, message, erreurs)
+      typeof data?.message === 'string' ? data.message : `Erreur ${response.status}`
+    const errors = (data?.message as { errors?: Record<string, string> } | undefined)?.errors ?? data?.errors
+    throw new ApiError(response.status, message, errors)
   }
-  return donnees as T
+  return data as T
 }
 
 export const api = {
-  lire: <T>(chemin: string) => appeler<T>(chemin),
-  envoyer: <T>(chemin: string, corps: unknown) =>
-    appeler<T>(chemin, { method: 'POST', body: JSON.stringify(corps) }),
-  remplacer: <T>(chemin: string, corps: unknown) =>
-    appeler<T>(chemin, { method: 'PUT', body: JSON.stringify(corps) }),
-  supprimer: <T>(chemin: string) => appeler<T>(chemin, { method: 'DELETE' }),
+  read: <T>(filePath: string) => callFetch<T>(filePath),
+  send: <T>(filePath: string, body: unknown) =>
+    callFetch<T>(filePath, { method: 'POST', body: JSON.stringify(body) }),
+  replaceWith: <T>(filePath: string, body: unknown) =>
+    callFetch<T>(filePath, { method: 'PUT', body: JSON.stringify(body) }),
+  remove: <T>(filePath: string) => callFetch<T>(filePath, { method: 'DELETE' }),
 }

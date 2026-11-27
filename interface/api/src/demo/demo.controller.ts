@@ -1,21 +1,21 @@
 import { Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
-import { ConnecteGuard } from '../auth/connecte.guard.js';
-import { ProjetGuard } from '../projets/projet.guard.js';
+import { SignedInGuard } from '../auth/signed-in.guard.js';
+import { ProjectGuard } from '../projects/project.guard.js';
 import { DemoService } from './demo.service.js';
 
-@Controller('projets/:depot/demo')
-@UseGuards(ConnecteGuard, ProjetGuard)
+@Controller('projects/:repository/demo')
+@UseGuards(SignedInGuard, ProjectGuard)
 export class DemoController {
   constructor(private readonly demo: DemoService) {}
 
   @Get()
-  etat(@Param('depot') depot: string) {
-    return this.demo.etat(depot);
+  state(@Param('repository') repository: string) {
+    return this.demo.state(repository);
   }
 
   @Post()
-  demarrer(@Req() req: Request, @Param('depot') depot: string) {
-    return this.demo.demarrer(req.session.jeton!, depot);
+  start(@Req() req: Request, @Param('repository') repository: string) {
+    return this.demo.start(req.session.token!, repository);
   }
 }

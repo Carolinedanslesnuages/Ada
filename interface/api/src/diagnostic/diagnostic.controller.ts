@@ -1,43 +1,43 @@
 import { Controller, Get, Inject, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
-import { ConnecteGuard } from '../auth/connecte.guard.js';
+import { SignedInGuard } from '../auth/signed-in.guard.js';
 import { CONFIG, type Config } from '../config.js';
-import { decrireErreurGithub } from '../github/erreurs.js';
+import { describeGithubError } from '../github/errors.js';
 import { GithubService } from '../github/github.service.js';
-import { ProjetsService } from '../projets/projets.service.js';
+import { ProjectsService } from '../projects/projects.service.js';
 
 /**
- * Ce que la GitHub App peut réellement faire au nom du PO connecté.
- * Aucun secret : comptes, type d'accès, permissions accordées, modèles livrés dans le catalogue.
+ * What the GitHub App can really do on behalf of the signed-in PO.
+ * No secret: accounts, access type, granted permissions, templates shipped in the catalog.
  */
 @Controller('diagnostic')
-@UseGuards(ConnecteGuard)
+@UseGuards(SignedInGuard)
 export class DiagnosticController {
   constructor(
     @Inject(CONFIG) private readonly config: Config,
     private readonly github: GithubService,
-    private readonly projets: ProjetsService,
+    private readonly projects: ProjectsService,
   ) {}
 
   @Get()
   async diagnostic(@Req() req: Request): Promise<unknown> {
-    const gh = this.github.client(req.session.jeton!);
+    const gh = this.github.client(req.session.token!);
     const installations = await gh.apps
       .listInstallationsForAuthenticatedUser()
       .then(({ data }) =>
         data.installations.map((i) => ({
-          compte: i.account && 'login' in i.account ? i.account.login : null,
-          accesAuxDepots: i.repository_selection,
+          account: i.account && 'login' in i.account ? i.account.login : null,
+          repositoryAccess: i.repository_selection,
           permissions: i.permissions,
         })),
       )
-      .catch((e: unknown) => ({ erreur: decrireErreurGithub(e) }));
-    const modeles = this.projets.modeles().modeles.map(({ id, disponible }) => ({ id, disponible }));
+      .catch((e: unknown) => ({ error: describeGithubError(e) }));
+    const templates = this.projects.templates().templates.map(({ id, available }) => ({ id, available }));
     return {
-      utilisateur: req.session.utilisateur?.login,
-      proprietaireDesProjets: this.config.GITHUB_PROPRIETAIRE,
+      user: req.session.user?.login,
+      projectsOwner: this.config.GITHUB_OWNER,
       installations,
-      modeles,
+      templates,
     };
   }
 }

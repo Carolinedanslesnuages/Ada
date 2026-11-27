@@ -1,292 +1,292 @@
 /**
- * Ce que le PO demande à l'agent : lancer, relancer, valider un plan, converser, arrêter. Chaque
- * action vérifie qu'elle peut démarrer AVANT d'écrire dans GitHub, puis confie la tâche à
- * l'ordonnanceur ; le travail de chaque phase est décrit dans phase-*.ts.
+ * What the PO asks of the agent: launch, relaunch, approve a plan, converse, stop. Each
+ * action checks that it can start BEFORE writing to GitHub, then hands the task to
+ * the scheduler; the work of each phase is described in phase-*.ts.
  */
 import { BadRequestException, ConflictException, Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { dirname, join, resolve } from 'node:path';
-import { ApercuService } from '../apercu/apercu.service.js';
+import { PreviewService } from '../preview/preview.service.js';
 import { CONFIG, type Config } from '../config.js';
-import { EQUIVALENTS } from '../empreinte/empreinte.js';
-import { lireEmpreintes, sommer } from '../empreinte/journal-empreinte.js';
+import { EQUIVALENTS } from '../footprint/footprint.js';
+import { readFootprints, sumUp } from '../footprint/footprint-log.js';
 import { GithubService } from '../github/github.service.js';
-import { lireIdentifiant } from '../projets/depot.js';
-import { ProjetsService } from '../projets/projets.service.js';
-import { StoriesService, type DetailStory } from '../stories/stories.service.js';
-import { verifierMessage } from '../stories/story.js';
-import type { Tache } from './agent.js';
-import type { ConseilStack } from './conseil-stack.js';
-import { ConseillerStack } from './conseiller-stack.js';
-import { FileAttente } from './file-attente.js';
-import { JournalActivite, type Activite } from './journal-activite.js';
-import { StoreModeleUtilisateur } from '../modele-utilisateur/modele-utilisateur.js';
-import { lancerParDefaut, type LancerAgent } from './lancement.js';
-import { Ordonnanceur } from './ordonnanceur.js';
-import { OutilsPhase } from './outils-phase.js';
-import { phaseAnalyse } from './phase-analyse.js';
-import { phaseConversation } from './phase-conversation.js';
-import { phaseRealisation } from './phase-realisation.js';
-import { phaseReprise } from './phase-reprise.js';
-import { VerrouProjet } from './verrou-projet.js';
-import type { Verrou } from './verrou.js';
+import { parseIdentifier } from '../projects/repository.js';
+import { ProjectsService } from '../projects/projects.service.js';
+import { StoriesService, type StoryDetail } from '../stories/stories.service.js';
+import { checkMessage } from '../stories/story.js';
+import type { Task } from './agent.js';
+import type { StackAdvice } from './stack-advice.js';
+import { StackAdviser } from './stack-adviser.js';
+import { WaitingQueue } from './waiting-queue.js';
+import { ActivityLog, type Activity } from './activity-log.js';
+import { UserModelStore } from '../user-model/user-model.js';
+import { defaultLaunch, type AgentLauncher } from './launch.js';
+import { Scheduler } from './scheduler.js';
+import { PhaseTools } from './phase-tools.js';
+import { analysisPhase } from './phase-analysis.js';
+import { conversationPhase } from './phase-conversation.js';
+import { implementationPhase } from './phase-implementation.js';
+import { adoptionPhase } from './phase-adoption.js';
+import { ProjectLock } from './project-lock.js';
+import type { Lock } from './lock.js';
 
 @Injectable()
 export class AgentService implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger(AgentService.name);
-  lancerAgent: LancerAgent;
-  private readonly journal: JournalActivite;
-  private readonly verrou: VerrouProjet;
-  private readonly file: FileAttente;
-  private readonly ordonnanceur: Ordonnanceur;
-  private readonly outils: OutilsPhase;
-  private readonly conseiller: ConseillerStack;
+  launchAgent: AgentLauncher;
+  private readonly activityLog: ActivityLog;
+  private readonly lock: ProjectLock;
+  private readonly file: WaitingQueue;
+  private readonly scheduler: Scheduler;
+  private readonly tools: PhaseTools;
+  private readonly adviser: StackAdviser;
 
   constructor(
     @Inject(CONFIG) private readonly config: Config,
     private readonly github: GithubService,
     private readonly stories: StoriesService,
-    private readonly apercu: ApercuService,
-    projets: ProjetsService,
+    private readonly preview: PreviewService,
+    projects: ProjectsService,
   ) {
-    this.lancerAgent = lancerParDefaut(config.AGENT_COMMANDE);
-    // Dossier de travail de l'agent pour un projet : à côté de son aperçu.
-    const dossierAgent = (depot: string) => join(dirname(this.apercu.cheminDepot(depot)), 'agent');
-    this.journal = new JournalActivite(dossierAgent);
-    this.verrou = new VerrouProjet(dossierAgent);
-    this.file = new FileAttente(() => join(resolve(this.config.DOSSIER_APERCUS), '.file-attente'));
-    this.outils = new OutilsPhase(config, github, stories, apercu, this.journal, () => this.lancerAgent, this.log, new StoreModeleUtilisateur(config.DOSSIER_MODELES, config.SESSION_SECRET));
-    this.conseiller = new ConseillerStack(config, projets, () => this.lancerAgent, this.log);
-    const travailler = (tache: Tache): Promise<void> => {
-      if (tache.phase === 'analyse') return phaseAnalyse(this.outils, tache);
-      if (tache.phase === 'reprise') return phaseReprise(this.outils, projets, tache);
-      if (tache.phase === 'conversation') return phaseConversation(this.outils, tache);
-      return phaseRealisation(this.outils, tache);
+    this.launchAgent = defaultLaunch(config.AGENT_COMMAND);
+    // Working folder of the agent for a project: next to its preview.
+    const agentFolder = (repository: string) => join(dirname(this.preview.repositoryPath(repository)), 'agent');
+    this.activityLog = new ActivityLog(agentFolder);
+    this.lock = new ProjectLock(agentFolder);
+    this.file = new WaitingQueue(() => join(resolve(this.config.PREVIEWS_DIR), '.file-attente'));
+    this.tools = new PhaseTools(config, github, stories, preview, this.activityLog, () => this.launchAgent, this.log, new UserModelStore(config.USER_MODELS_DIR, config.SESSION_SECRET));
+    this.adviser = new StackAdviser(config, projects, () => this.launchAgent, this.log);
+    const work = (task: Task): Promise<void> => {
+      if (task.phase === 'analysis') return analysisPhase(this.tools, task);
+      if (task.phase === 'adoption') return adoptionPhase(this.tools, projects, task);
+      if (task.phase === 'conversation') return conversationPhase(this.tools, task);
+      return implementationPhase(this.tools, task);
     };
-    this.ordonnanceur = new Ordonnanceur({ config, apercu, verrou: this.verrou, journal: this.journal, file: this.file, travailler, dossierAgent, log: this.log });
+    this.scheduler = new Scheduler({ config, preview, lock: this.lock, activityLog: this.activityLog, file: this.file, work, agentFolder, log: this.log });
   }
 
-  /** Vrai : chaque tâche tourne dans un processus travailleur détaché (voir Ordonnanceur). */
-  get travailleurSepare(): boolean {
-    return this.ordonnanceur.travailleurSepare;
+  /** True: each task runs in a detached worker process (see Scheduler). */
+  get usesSeparateWorker(): boolean {
+    return this.scheduler.usesSeparateWorker;
   }
 
-  set travailleurSepare(valeur: boolean) {
-    this.ordonnanceur.travailleurSepare = valeur;
+  set usesSeparateWorker(value: boolean) {
+    this.scheduler.usesSeparateWorker = value;
   }
 
-  /** Dernière tâche de fond lancée (permet aux tests d'en attendre la fin). */
-  get derniereTache(): Promise<void> {
-    return this.ordonnanceur.derniereTache;
+  /** Last background task launched (lets the tests wait for its end). */
+  get lastTask(): Promise<void> {
+    return this.scheduler.lastTask;
   }
 
   onModuleInit(): void {
-    this.ordonnanceur.demarrerMinuteur();
+    this.scheduler.startTimer();
   }
 
   onModuleDestroy(): void {
-    this.ordonnanceur.arreterMinuteur();
+    this.scheduler.stopTimer();
   }
 
-  /** Verrou du projet, s'il est tenu par un processus vivant qui bat encore. */
-  verrouActif(depot: string): Promise<Verrou | null> {
-    return this.verrou.actif(depot);
+  /** Lock of the project, if it is held by a live process that still beats. */
+  activeLock(repository: string): Promise<Lock | null> {
+    return this.lock.active(repository);
   }
 
-  /** Une tâche de ce projet (et de cette demande, si précisée) attend son tour. */
-  enFile(depot: string, numero?: number): Promise<boolean> {
-    return this.file.contient(depot, numero);
+  /** A task of this project (and of this request, if given) is waiting for its turn. */
+  queued(repository: string, number?: number): Promise<boolean> {
+    return this.file.contains(repository, number);
   }
 
-  traiterFile(maintenant = Date.now()): Promise<void> {
-    return this.ordonnanceur.traiterFile(maintenant);
+  processQueue(now = Date.now()): Promise<void> {
+    return this.scheduler.processQueue(now);
   }
 
-  /** Exécute la tâche dans ce processus (travailleur, ou tests) et tient l'activité à jour. */
-  executerTache(tache: Tache): Promise<void> {
-    return this.ordonnanceur.executer(tache);
+  /** Runs the task in this process (worker, or tests) and keeps the activity up to date. */
+  runTask(task: Task): Promise<void> {
+    return this.scheduler.run(task);
   }
 
-  verifierLibre(depot: string): Promise<void> {
-    return this.ordonnanceur.verifierLibre(depot);
+  checkFree(repository: string): Promise<void> {
+    return this.scheduler.checkFree(repository);
   }
 
   /**
-   * Tout ce qui doit être vrai pour lancer ou relancer ADA sur ce projet, vérifié avant la moindre
-   * écriture dans GitHub : agent configuré, projet sous son nom actuel, projet libre.
+   * Everything that must be true to launch or relaunch ADA on this project, checked before any
+   * write to GitHub: agent configured, project under its current name, project free.
    */
-  async verifierLancable(jeton: string, depot: string): Promise<void> {
-    this.verifierDisponible();
-    await this.verifierNomActuel(jeton, depot);
-    await this.verifierLibre(depot);
+  async checkLaunchable(token: string, repository: string): Promise<void> {
+    this.checkAvailable();
+    await this.checkCurrentName(token, repository);
+    await this.checkFree(repository);
   }
 
-  verifierDisponible(): void {
-    if (!this.config.AGENT_COMMANDE) {
-      throw new BadRequestException('Aucun agent n’est configuré pour cet atelier (AGENT_COMMANDE). Prévenez son administrateur.');
+  checkAvailable(): void {
+    if (!this.config.AGENT_COMMAND) {
+      throw new BadRequestException('Aucun agent n’est configuré pour cet atelier (AGENT_COMMAND). Prévenez son administrateur.');
     }
   }
 
   /**
-   * Un dépôt renommé sur GitHub reste joignable sous son ancien nom (redirection) : ADA, qui range
-   * verrou, journal et aperçu sous le nom, y verrait deux projets et pourrait lancer deux agents
-   * sur la même story. On refuse donc tout lancement sous un nom périmé.
+   * A repository renamed on GitHub stays reachable under its former name (redirect): ADA, which stores
+   * lock, log and preview under the name, would see two projects and could launch two agents
+   * on the same story. Any launch under an outdated name is therefore refused.
    */
-  private async verifierNomActuel(jeton: string, depot: string): Promise<void> {
-    const cible = lireIdentifiant(depot, this.config.GITHUB_PROPRIETAIRE);
-    const { data } = await this.github.client(jeton).repos.get({ owner: cible.owner, repo: cible.repo });
-    if (data.name.toLowerCase() !== cible.repo.toLowerCase()) {
+  private async checkCurrentName(token: string, repository: string): Promise<void> {
+    const target = parseIdentifier(repository, this.config.GITHUB_OWNER);
+    const { data } = await this.github.client(token).repos.get({ owner: target.owner, repo: target.repo });
+    if (data.name.toLowerCase() !== target.repo.toLowerCase()) {
       throw new ConflictException(
         `Ce projet a été renommé « ${data.name} » sur GitHub. Rouvrez-le sous ce nom dans la liste des projets, puis relancez.`,
       );
     }
   }
 
-  /** Empreinte estimée d'une demande (toutes ses exécutions de l'agent). */
-  async empreinteDemande(depot: string, numero: number) {
-    const entrees = (await lireEmpreintes(this.config.DOSSIER_REGISTRE)).filter((entree) => entree.projet === depot && entree.numero === numero);
-    return entrees.length ? { empreinte: sommer(entrees), equivalents: EQUIVALENTS } : null;
+  /** Estimated footprint of a request (every run of the agent for it). */
+  async workRequestFootprint(repository: string, number: number) {
+    const entries = (await readFootprints(this.config.REGISTRY_DIR)).filter((entry) => entry.project === repository && entry.number === number);
+    return entries.length ? { footprint: sumUp(entries), equivalents: EQUIVALENTS } : null;
   }
 
-  /** Empreinte estimée d'un projet : toutes les exécutions de l'agent, toutes demandes confondues. */
-  async empreinteProjet(depot: string) {
-    const entrees = (await lireEmpreintes(this.config.DOSSIER_REGISTRE)).filter((entree) => entree.projet === depot);
-    if (!entrees.length) return null;
-    return { empreinte: sommer(entrees), demandes: new Set(entrees.map((entree) => entree.numero)).size, equivalents: EQUIVALENTS };
+  /** Estimated footprint of a project: every run of the agent, all requests combined. */
+  async projectFootprint(repository: string) {
+    const entries = (await readFootprints(this.config.REGISTRY_DIR)).filter((entry) => entry.project === repository);
+    if (!entries.length) return null;
+    return { footprint: sumUp(entries), workRequests: new Set(entries.map((entry) => entry.number)).size, equivalents: EQUIVALENTS };
   }
 
-  /** « En cours » seulement si un agent tourne vraiment (pas un reste d'exécution interrompue). */
-  async activite(depot: string, numero: number): Promise<Activite> {
-    const activite = await this.journal.lire(depot, numero);
-    const verrou = await this.verrou.actif(depot);
-    const enCours = activite.enCours && (verrou?.numero === numero || (await this.file.contient(depot, numero)));
-    return { ...activite, enCours };
+  /** “In progress” only if an agent is really running (not a leftover of an interrupted run). */
+  async activity(repository: string, number: number): Promise<Activity> {
+    const activity = await this.activityLog.read(repository, number);
+    const lock = await this.lock.active(repository);
+    const inProgress = activity.inProgress && (lock?.number === number || (await this.file.contains(repository, number)));
+    return { ...activity, inProgress };
   }
 
-  /** Mémorise le commit que ADA vient de pousser (null : ne plus rien comparer). */
-  async noterTete(depot: string, numero: number, sha: string | null): Promise<void> {
-    await this.journal.enregistrer(depot, numero, { tete: sha });
+  /** Remembers the commit ADA just pushed (null: compare nothing any more). */
+  async recordHead(repository: string, number: number, sha: string | null): Promise<void> {
+    await this.activityLog.save(repository, number, { head: sha });
   }
 
-  conseillerStack(idee: unknown): Promise<ConseilStack> {
-    return this.conseiller.conseiller(idee);
-  }
-
-  /**
-   * Démarre une tâche pour la demande : une seule par projet et au plus AGENT_MAX_SIMULTANES sur
-   * toute la machine ; au-delà, elle attend son tour (voir Ordonnanceur).
-   */
-  private async lancerTache(tache: Tache): Promise<void> {
-    this.verifierDisponible();
-    await this.verifierNomActuel(tache.jeton, tache.depot);
-    await this.ordonnanceur.lancer(tache);
+  adviseStack(idea: unknown): Promise<StackAdvice> {
+    return this.adviser.adviser(idea);
   }
 
   /**
-   * Le détail d'une demande qu'on s'apprête à confier à l'agent. Une demande lancée avant que son
-   * état vive dans ADA (ADR-0011) est figée depuis l'issue vivante au premier passage de l'agent :
-   * si son auteur n'a pas le droit d'écrire dans le projet, elle ne lui est pas confiée.
+   * Starts a task for the request: only one per project and at most AGENT_MAX_CONCURRENT on
+   * the whole machine; beyond that, it waits for its turn (see Scheduler).
    */
-  private async detailFiable(jeton: string, depot: string, numero: number): Promise<DetailStory> {
-    const detail = await this.stories.detail(jeton, depot, numero);
-    if (detail.fiable === false) throw new ConflictException(`ADA ne reprend pas la demande #${numero} : ${detail.raison ?? 'son auteur n’a pas le droit d’écrire dans le projet'}`);
+  private async launchTask(task: Task): Promise<void> {
+    this.checkAvailable();
+    await this.checkCurrentName(task.token, task.repository);
+    await this.scheduler.launch(task);
+  }
+
+  /**
+   * The detail of a request about to be handed to the agent. A request launched before its
+   * state lived in ADA (ADR-0011) is frozen from the live issue on the agent's first pass:
+   * if its author has no write access to the project, it is not handed over.
+   */
+  private async trustedDetail(token: string, repository: string, number: number): Promise<StoryDetail> {
+    const detail = await this.stories.detail(token, repository, number);
+    if (detail.reliable === false) throw new ConflictException(`ADA ne reprend pas la demande #${number} : ${detail.reason ?? 'son auteur n’a pas le droit d’écrire dans le projet'}`);
     return detail;
   }
 
   /**
-   * Demande en cours ou bloquée sans agent actif. Plan déjà validé (dernière phase : réalisation)
-   * → on reprend la réalisation ; sinon → nouvelle analyse.
+   * Request in progress or blocked without an active agent. Plan already approved (last phase:
+   * implementation) → the implementation resumes; otherwise → new analysis.
    */
-  async relancer(jeton: string, login: string, depot: string, numero: number): Promise<void> {
-    await this.verifierLancable(jeton, depot);
-    const detail = await this.detailFiable(jeton, depot, numero);
-    if (detail.statut !== 'en-cours' && detail.statut !== 'besoin-dev') {
+  async relaunch(token: string, login: string, repository: string, number: number): Promise<void> {
+    await this.checkLaunchable(token, repository);
+    const detail = await this.trustedDetail(token, repository, number);
+    if (detail.status !== 'in-progress' && detail.status !== 'needs-developer') {
       throw new ConflictException('Cette demande n’a pas besoin d’être relancée');
     }
-    await this.stories.changerStatut(jeton, depot, numero, 'en-cours');
-    const precedente = await this.journal.lire(depot, numero);
-    if (precedente.phase === 'conversation') {
-      await this.journal.noter(depot, numero, 'Reprend la conversation');
-      await this.converser(jeton, login, depot, numero);
-    } else if (precedente.phase === 'realisation') {
-      await this.journal.noter(depot, numero, 'Reprend la réalisation');
-      await this.realiser(jeton, login, depot, numero);
+    await this.stories.changeStatus(token, repository, number, 'in-progress');
+    const previous = await this.activityLog.read(repository, number);
+    if (previous.phase === 'conversation') {
+      await this.activityLog.record(repository, number, 'Reprend la conversation');
+      await this.converse(token, login, repository, number);
+    } else if (previous.phase === 'implementation') {
+      await this.activityLog.record(repository, number, 'Reprend la réalisation');
+      await this.implement(token, login, repository, number);
     } else {
-      await this.analyser(jeton, depot, numero, login);
+      await this.analyze(token, repository, number, login);
     }
   }
 
-  /** Analyse : questions ou plan, publiés dans l'issue ; aucune modification du code. */
-  analyser(jeton: string, depot: string, numero: number, login = ''): Promise<void> {
-    return this.lancerTache({ phase: 'analyse', jeton, login, depot, numero });
+  /** Analysis: questions or plan, published in the issue; no change to the code. */
+  analyze(token: string, repository: string, number: number, login = ''): Promise<void> {
+    return this.launchTask({ phase: 'analysis', token, login, repository, number });
   }
 
-  /** Reprise d'un projet existant (#37) : analyse, puis PR de reprise et améliorations proposées. */
-  analyserReprise(jeton: string, depot: string, numero: number, login: string, reprise: { modele: string | null; dsfr: boolean }): Promise<void> {
-    return this.lancerTache({ phase: 'reprise', jeton, login, depot, numero, reprise });
+  /** Adoption of an existing project (#37): analysis, then adoption PR and proposed improvements. */
+  analyzeAdoption(token: string, repository: string, number: number, login: string, adoption: { template: string | null; dsfr: boolean }): Promise<void> {
+    return this.launchTask({ phase: 'adoption', token, login, repository, number, adoption });
   }
 
-  /** Le PO demande de revoir le plan, ou répond aux questions : nouvelle analyse. */
-  async reprendreAnalyse(jeton: string, depot: string, numero: number, texte: string): Promise<void> {
-    await this.verifierLancable(jeton, depot);
-    const detail = await this.detailFiable(jeton, depot, numero);
-    // Un autre découpage peut aussi être demandé (#36).
-    if (detail.statut !== 'questions' && detail.statut !== 'plan-a-valider' && detail.statut !== 'decoupage') {
+  /** The PO asks to revise the plan, or answers the questions: new analysis. */
+  async resumeAnalysis(token: string, repository: string, number: number, text: string): Promise<void> {
+    await this.checkLaunchable(token, repository);
+    const detail = await this.trustedDetail(token, repository, number);
+    // Another breakdown can also be requested (#36).
+    if (detail.status !== 'questions' && detail.status !== 'plan-to-approve' && detail.status !== 'breakdown') {
       throw new ConflictException('ADA n’attend pas de réponse sur cette demande');
     }
-    await this.stories.repondre(jeton, depot, numero, texte);
-    await this.stories.changerStatut(jeton, depot, numero, 'en-cours');
-    await this.analyser(jeton, depot, numero);
+    await this.stories.reply(token, repository, number, text);
+    await this.stories.changeStatus(token, repository, number, 'in-progress');
+    await this.analyze(token, repository, number);
   }
 
-  /** Le PO valide le plan : réalisation sur une branche, puis branche poussée et PR ouverte. */
-  async validerPlan(jeton: string, login: string, depot: string, numero: number): Promise<void> {
-    await this.verifierLancable(jeton, depot);
-    const detail = await this.detailFiable(jeton, depot, numero);
-    if (detail.statut !== 'plan-a-valider') throw new ConflictException('Aucun plan n’attend votre validation');
-    await this.stories.repondre(jeton, depot, numero, `✅ Plan validé par ${login}.`);
-    await this.stories.changerStatut(jeton, depot, numero, 'en-cours');
-    await this.realiser(jeton, login, depot, numero);
+  /** The PO approves the plan: implementation on a branch, then branch pushed and PR opened. */
+  async approvePlan(token: string, login: string, repository: string, number: number): Promise<void> {
+    await this.checkLaunchable(token, repository);
+    const detail = await this.trustedDetail(token, repository, number);
+    if (detail.status !== 'plan-to-approve') throw new ConflictException('Aucun plan n’attend votre validation');
+    await this.stories.reply(token, repository, number, `✅ Plan validé par ${login}.`);
+    await this.stories.changeStatus(token, repository, number, 'in-progress');
+    await this.implement(token, login, repository, number);
   }
 
-  private realiser(jeton: string, login: string, depot: string, numero: number): Promise<void> {
-    return this.lancerTache({ phase: 'realisation', jeton, login, depot, numero });
+  private implement(token: string, login: string, repository: string, number: number): Promise<void> {
+    return this.launchTask({ phase: 'implementation', token, login, repository, number });
   }
 
-  /** Conversation : ADA répond au dernier message du PO, en agissant tout de suite sur sa branche. */
-  converser(jeton: string, login: string, depot: string, numero: number): Promise<void> {
-    return this.lancerTache({ phase: 'conversation', jeton, login, depot, numero });
+  /** Conversation: ADA answers the PO's last message, acting right away on its branch. */
+  converse(token: string, login: string, repository: string, number: number): Promise<void> {
+    return this.launchTask({ phase: 'conversation', token, login, repository, number });
   }
 
-  /** Le PO écrit dans la conversation : ADA reprend la main. */
-  async reprendreConversation(jeton: string, login: string, depot: string, numero: number, texte: unknown): Promise<void> {
-    await this.verifierLancable(jeton, depot);
-    const verification = verifierMessage(texte, false);
-    if (!verification.ok) throw new BadRequestException(verification.erreur);
-    const detail = await this.stories.detail(jeton, depot, numero);
-    if (detail.type !== 'conversation' || detail.statut !== 'echange') throw new ConflictException('ADA n’attend pas de message dans cette conversation');
-    await this.stories.repondre(jeton, depot, numero, verification.texte);
-    await this.stories.changerStatut(jeton, depot, numero, 'en-cours');
-    await this.converser(jeton, login, depot, numero);
+  /** The PO writes in the conversation: ADA takes over again. */
+  async resumeConversation(token: string, login: string, repository: string, number: number, text: unknown): Promise<void> {
+    await this.checkLaunchable(token, repository);
+    const verification = checkMessage(text, false);
+    if (!verification.ok) throw new BadRequestException(verification.error);
+    const detail = await this.stories.detail(token, repository, number);
+    if (detail.type !== 'conversation' || detail.status !== 'exchange') throw new ConflictException('ADA n’attend pas de message dans cette conversation');
+    await this.stories.reply(token, repository, number, verification.text);
+    await this.stories.changeStatus(token, repository, number, 'in-progress');
+    await this.converse(token, login, repository, number);
   }
 
   /**
-   * « C'est bon » : ADA lance les contrôles complets (une seule fois), puis propose les changements
-   * au projet (PR), ou ferme la conversation s'il n'y en a aucun. Tâche de l'agent, en arrière-plan.
+   * “All good”: ADA runs the full checks (only once), then proposes the changes
+   * to the project (PR), or closes the conversation if there are none. Agent task, in the background.
    */
-  async terminerConversation(jeton: string, login: string, depot: string, numero: number): Promise<void> {
-    await this.verifierLancable(jeton, depot);
-    const detail = await this.stories.detail(jeton, depot, numero);
-    if (detail.type !== 'conversation' || detail.statut !== 'echange') throw new ConflictException('Cette conversation ne peut pas être terminée maintenant');
-    await this.stories.repondre(jeton, depot, numero, `✅ C’est bon : ${login} demande de proposer ces changements au projet.`);
-    await this.stories.changerStatut(jeton, depot, numero, 'en-cours');
-    await this.lancerTache({ phase: 'conversation', jeton, login, depot, numero, finaliser: true });
+  async finishConversation(token: string, login: string, repository: string, number: number): Promise<void> {
+    await this.checkLaunchable(token, repository);
+    const detail = await this.stories.detail(token, repository, number);
+    if (detail.type !== 'conversation' || detail.status !== 'exchange') throw new ConflictException('Cette conversation ne peut pas être terminée maintenant');
+    await this.stories.reply(token, repository, number, `✅ C’est bon : ${login} demande de proposer ces changements au projet.`);
+    await this.stories.changeStatus(token, repository, number, 'in-progress');
+    await this.launchTask({ phase: 'conversation', token, login, repository, number, finalize: true });
   }
 
-  /** Le PO arrête la conversation : rien n'arrive sur le projet (la branche reste sur GitHub). */
-  async arreterConversation(jeton: string, login: string, depot: string, numero: number): Promise<void> {
-    if ((await this.verrouActif(depot)) || (await this.enFile(depot))) throw new ConflictException('ADA travaille encore : attendez sa réponse');
-    const detail = await this.stories.detail(jeton, depot, numero);
-    if (detail.type !== 'conversation' || detail.statut === 'livree') throw new ConflictException('Cette conversation est déjà terminée');
-    await this.stories.fermerSansSuite(jeton, depot, numero, `💬 Conversation arrêtée par ${login} : rien n’est ajouté au projet.`);
+  /** The PO stops the conversation: nothing reaches the project (the branch stays on GitHub). */
+  async stopConversation(token: string, login: string, repository: string, number: number): Promise<void> {
+    if ((await this.activeLock(repository)) || (await this.queued(repository))) throw new ConflictException('ADA travaille encore : attendez sa réponse');
+    const detail = await this.stories.detail(token, repository, number);
+    if (detail.type !== 'conversation' || detail.status === 'delivered') throw new ConflictException('Cette conversation est déjà terminée');
+    await this.stories.closeAsNotPlanned(token, repository, number, `💬 Conversation arrêtée par ${login} : rien n’est ajouté au projet.`);
   }
 }

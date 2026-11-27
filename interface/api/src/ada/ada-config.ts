@@ -1,82 +1,83 @@
 import { z } from 'zod';
+import { fromLegacyAdaJson } from './legacy-ada-json.js';
 
 /**
- * Description d'un modèle de projet (fichier `ada.json` à la racine du dépôt) : son type, comment
- * le lancer dans l'aperçu, quels fichiers personnaliser, quels contrôles exiger. ADA s'adapte ainsi
- * à n'importe quelle stack sans supposer « front + API NestJS + PostgreSQL ».
+ * Description of a project template (`ada.json` file at the root of the repository): its type, how
+ * to start it in the preview, which files to customize, which checks to require. ADA thus adapts
+ * to any stack without assuming “front + NestJS API + PostgreSQL”.
  */
-export const TYPES_PROJET = [
+export const PROJECT_TYPES = [
   'service',
-  'formulaire',
-  'tableau-de-bord',
-  'gestion',
+  'form',
+  'dashboard',
+  'management',
   'site',
   'documentation',
-  'carte',
+  'map',
   'mobile',
-  'formation',
+  'training',
   'extension',
-  'composant',
+  'component',
   'api',
-  'traitement',
-  'maquette',
+  'processing',
+  'mockup',
 ] as const;
-export type TypeProjet = (typeof TYPES_PROJET)[number];
+export type ProjectType = (typeof PROJECT_TYPES)[number];
 
 /**
- * `ada.json` vient du dépôt du PO, que l'agent (ou un dépôt repris) peut modifier : ses valeurs
- * finissent dans `compose.yml` et dans des scripts shell. Les champs qui y entrent comme
- * structure (image, dossiers) sont donc limités à une forme sûre : aucune espace ni retour à la
- * ligne, aucun « .. », aucun chemin absolu.
+ * `ada.json` comes from the PO's repository, which the agent (or an adopted repository) can modify:
+ * its values end up in `compose.yml` and in shell scripts. The fields that enter them as
+ * structure (image, folders) are therefore limited to a safe shape: no space or line break,
+ * no “..”, no absolute path.
  */
 const IMAGE = /^[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)*(:[A-Za-z0-9][A-Za-z0-9._-]{0,127})?$/;
-const DOSSIER = /^(\.|(\.\/)?[A-Za-z0-9_][A-Za-z0-9._-]*(\/[A-Za-z0-9_][A-Za-z0-9._-]*)*)$/;
-const dossier = z.string().max(200).regex(DOSSIER, 'un dossier du projet (api, front, . …), sans « .. » ni chemin absolu');
+const FOLDER = /^(\.|(\.\/)?[A-Za-z0-9_][A-Za-z0-9._-]*(\/[A-Za-z0-9_][A-Za-z0-9._-]*)*)$/;
+const folder = z.string().max(200).regex(FOLDER, 'un dossier du projet (api, front, . …), sans « .. » ni chemin absolu');
 
 const schema = z.object({
-  type: z.enum(TYPES_PROJET),
-  /** Fichiers contenant les marqueurs __NOM_PROJET__, __BASELINE__… à remplacer à la création. */
-  personnaliser: z.array(z.string()).default([]),
-  /** Noms des jobs de CI exigés avant fusion (protection de main, bouton « Valider et fusionner »). */
-  controlesRequis: z.array(z.string()).min(1),
-  /** Commandes du contrôle final, exécutées dans le conteneur de l'aperçu (une par partie du projet). */
-  controles: z.array(z.string()).min(1),
+  type: z.enum(PROJECT_TYPES),
+  /** Files containing the markers __NOM_PROJET__, __BASELINE__… to replace at creation. */
+  customize: z.array(z.string()).default([]),
+  /** Names of the CI jobs required before merging (protection of main, “Approve and merge” button). */
+  requiredChecks: z.array(z.string()).min(1),
+  /** Commands of the final check, run in the preview container (one per part of the project). */
+  checks: z.array(z.string()).min(1),
   /**
-   * Apparence : DSFR (projets de l'État créés par ADA), ou celle du projet (projet repris qui ne
-   * l'utilise pas) ; l'assistant n'introduit alors pas le DSFR.
+   * Appearance: DSFR (State projects created by ADA), or the project's own (adopted project that
+   * does not use it); the assistant then does not introduce the DSFR.
    */
   dsfr: z.boolean().default(true),
-  /** Modèle déployable : dossier du chart Helm, ajouté au projet seulement si le PO le demande. */
-  deploiement: z.object({ chart: z.string().min(1) }).nullable().default(null),
-  apercu: z.object({
+  /** Deployable template: folder of the Helm chart, added to the project only if the PO asks for it. */
+  deployment: z.object({ chart: z.string().min(1) }).nullable().default(null),
+  preview: z.object({
     image: z.string().max(200).regex(IMAGE, 'une image Docker (nom:version), sans espace ni retour à la ligne').default('node:24-bookworm'),
-    /** Base de données de l'aperçu : PostgreSQL, ou aucune. */
-    base: z.enum(['postgres']).nullable().default(null),
-    /** Dossiers où lancer « npm install » (avec nouvelles tentatives), « . » pour la racine. */
-    npm: z.array(dossier).default([]),
+    /** Database of the preview: PostgreSQL, or none. */
+    database: z.enum(['postgres']).nullable().default(null),
+    /** Folders where “npm install” runs (with retries), “.” for the root. */
+    npm: z.array(folder).default([]),
     /**
-     * Dossiers contenant un requirements.txt (Python) : installés dans un environnement virtuel
-     * (/opt/venv, conservé dans un volume), avec nouvelles tentatives.
+     * Folders containing a requirements.txt (Python): installed in a virtual environment
+     * (/opt/venv, kept in a volume), with retries.
      */
-    pip: z.array(dossier).default([]),
-    /** Commandes préalables (migrations, pip install…). */
-    avant: z.array(z.string()).default([]),
-    /** Commandes lancées en arrière-plan (ex. l'API). */
-    arrierePlan: z.array(z.string()).default([]),
-    /** Commande principale, au premier plan, qui sert la page affichée dans l'aperçu. */
-    principal: z.string(),
+    pip: z.array(folder).default([]),
+    /** Preliminary commands (migrations, pip install…). */
+    before: z.array(z.string()).default([]),
+    /** Commands started in the background (e.g. the API). */
+    background: z.array(z.string()).default([]),
+    /** Main command, in the foreground, which serves the page displayed in the preview. */
+    main: z.string(),
     port: z.number().int().positive().default(5173),
   }),
 });
 
 export type AdaConfig = z.output<typeof schema>;
 
-/** Comportement des projets créés avant ada.json (modèle Vue + NestJS + PostgreSQL). */
-export const ADA_PAR_DEFAUT: AdaConfig = {
+/** Behaviour of the projects created before ada.json (Vue + NestJS + PostgreSQL template). */
+export const DEFAULT_ADA: AdaConfig = {
   type: 'service',
   dsfr: true,
-  deploiement: null,
-  personnaliser: [
+  deployment: null,
+  customize: [
     'PROJET.md',
     'README.md',
     'AGENTS.md',
@@ -89,7 +90,7 @@ export const ADA_PAR_DEFAUT: AdaConfig = {
     'front/src/views/HomeView.vue',
     'front/src/views/__tests__/HomeView.spec.ts',
   ],
-  controlesRequis: [
+  requiredChecks: [
     'Anti-fuite (gitleaks) / Scan git history for leaked secrets',
     'Commits (Conventional Commits) / Lint commit messages',
     'Workflows (zizmor) / Audit workflows with zizmor',
@@ -97,28 +98,28 @@ export const ADA_PAR_DEFAUT: AdaConfig = {
     'API (lint, tests, compilation)',
     'Front (lint, types, tests dont accessibilité, compilation)',
   ],
-  controles: [
+  checks: [
     'cd /app/api && npm run lint && npm test && npm run test:e2e && npm run build',
     'cd /app/front && npx oxlint . && npx eslint . && npm run type-check && npm run test:unit -- --run && npm run build-only',
   ],
-  apercu: {
+  preview: {
     image: 'node:24-bookworm',
-    base: 'postgres',
+    database: 'postgres',
     pip: [],
     npm: ['api', 'front'],
-    avant: ['cd /app/api && if [ -d prisma/migrations ]; then npx prisma migrate deploy; fi'],
-    arrierePlan: ['cd /app/api && npm run start:dev'],
-    principal: 'cd /app/front && npx vite --host 0.0.0.0 --port 5173 --strictPort',
+    before: ['cd /app/api && if [ -d prisma/migrations ]; then npx prisma migrate deploy; fi'],
+    background: ['cd /app/api && npm run start:dev'],
+    main: 'cd /app/front && npx vite --host 0.0.0.0 --port 5173 --strictPort',
     port: 5173,
   },
 };
 
-/** Lit un ada.json ; absent → comportement par défaut ; invalide → erreur explicite. */
-export function lireAdaConfig(contenu: string | null): AdaConfig {
-  if (contenu === null) return ADA_PAR_DEFAUT;
-  const resultat = schema.safeParse(JSON.parse(contenu));
-  if (!resultat.success) {
-    throw new Error(`ada.json invalide : ${resultat.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join(' ; ')}`);
+/** Reads an ada.json; missing → default behaviour; invalid → explicit error. */
+export function readAdaConfig(content: string | null): AdaConfig {
+  if (content === null) return DEFAULT_ADA;
+  const result = schema.safeParse(fromLegacyAdaJson(JSON.parse(content)));
+  if (!result.success) {
+    throw new Error(`ada.json invalide : ${result.error.issues.map((issue) => `${issue.path.join('.')} ${issue.message}`).join(' ; ')}`);
   }
-  return resultat.data;
+  return result.data;
 }

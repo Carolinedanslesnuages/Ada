@@ -12,8 +12,8 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  // Le DSFR contient des media queries réservées à Internet Explorer (min-width:0\0)
-  // que le minificateur refuse : on les ignore.
+  // The DSFR contains media queries reserved for Internet Explorer (min-width:0\0)
+  // that the minifier refuses: they are ignored.
   css: {
     lightningcss: { errorRecovery: true },
   },

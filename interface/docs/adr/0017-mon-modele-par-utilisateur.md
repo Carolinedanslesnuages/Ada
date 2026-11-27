@@ -6,7 +6,7 @@
 - **Sujet** : modèle de langage de l'agent, par utilisateur
 
 ## Contexte
-ADA lançait un seul agent, réglé par l'administrateur (`AGENT_COMMANDE`, `AGENT_MODELE`). Les
+ADA lançait un seul agent, réglé par l'administrateur (`AGENT_COMMAND`, `AGENT_MODEL`). Les
 utilisateurs n'ont pas tous accès au même modèle : un prestataire utilise un modèle du marché, un
 agent d'une administration une passerelle interne. Demander à l'administrateur de régler chaque
 poste ne passe pas à l'échelle, et lui confier la clé de chacun est un risque.

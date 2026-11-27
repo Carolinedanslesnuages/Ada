@@ -1,17 +1,17 @@
 import 'express-session';
 
-export interface UtilisateurConnecte {
+export interface SignedInUser {
   login: string;
-  nom: string | null;
+  name: string | null;
   avatar: string;
 }
 
 declare module 'express-session' {
   interface SessionData {
-    jeton?: string;
-    jetonExpireLe?: number;
-    jetonRafraichissement?: string;
-    utilisateur?: UtilisateurConnecte;
-    etatOAuth?: string;
+    token?: string;
+    tokenExpiresAt?: number;
+    refreshToken?: string;
+    user?: SignedInUser;
+    oauthState?: string;
   }
 }

@@ -1,20 +1,21 @@
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { withLegacyEnv } from './legacy/legacy-env.js';
 
-/** Skills livrées avec ADA (chemins relatifs à interface/api) ; le banc d'essai lit la même liste. */
-export const SKILLS_LIVREES_AVEC_ADA = [
+/** Skills shipped with ADA (paths relative to interface/api); the test bench reads the same list. */
+export const SKILLS_SHIPPED_WITH_ADA = [
   '../../skills/externes/dsfr-skill/skills/dsfr-skill',
   '../../skills/externes/agent-skills/skills/dev/bug-investigate',
   '../../skills/externes/agent-skills/skills/repo/repo-perimetre',
   '../../skills/externes/agent-skills/skills/dev/controle-qualite-code',
-  // Conventions de la Fabrique numérique (dnum-mi/transversal-doc) utiles à l'écriture du code ;
-  // la stack, la CI et le déploiement sont fixés par le modèle du projet, pas par l'agent.
+  // Conventions of the Fabrique numérique (dnum-mi/transversal-doc) useful for writing code;
+  // the stack, the CI and the deployment are set by the project template, not by the agent.
   '../../skills/externes/transversal-doc/.agents/skills/fabnum-code-style',
   '../../skills/externes/transversal-doc/.agents/skills/fabnum-client',
   '../../skills/externes/transversal-doc/.agents/skills/fabnum-server',
   '../../skills/externes/transversal-doc/.agents/skills/fabnum-rest-api',
   '../../skills/externes/transversal-doc/.agents/skills/fabnum-project-docs',
-  // DINUM (etalab-ia/skills) : sécurité (guides de l'ANSSI) et auto-évaluation RGAA.
+  // DINUM (etalab-ia/skills): security (ANSSI guides) and RGAA self-assessment.
   '../../skills/externes/etalab-skills/skills/securite-developpement',
   '../../skills/externes/etalab-skills/skills/rgaa',
 ].join(',');
@@ -22,102 +23,102 @@ export const SKILLS_LIVREES_AVEC_ADA = [
 const schema = z.object({
   NODE_ENV: z.string().default('development'),
   PORT: z.coerce.number().default(3100),
-  /** URL publique de l'interface (front), utilisée pour les redirections OAuth. */
-  URL_INTERFACE: z.string().url().default('http://localhost:5180'),
-  /** Compte personnel ou organisation GitHub qui possède les dépôts des POC. */
-  GITHUB_PROPRIETAIRE: z.string().min(1),
+  /** Public URL of the interface (front), used for the OAuth redirects. */
+  INTERFACE_URL: z.string().url().default('http://localhost:5180'),
+  /** Personal account or GitHub organization that owns the repositories of the POCs. */
+  GITHUB_OWNER: z.string().min(1),
   GITHUB_CLIENT_ID: z.string().min(1),
   GITHUB_CLIENT_SECRET: z.string().min(1),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET : 32 caractères minimum'),
   /**
-   * Comptes GitHub autorisés à se connecter, séparés par des virgules.
-   * Vide : seul GITHUB_PROPRIETAIRE (cas d'un compte personnel). Obligatoire pour une organisation.
+   * GitHub accounts allowed to sign in, separated by commas.
+   * Empty: only GITHUB_OWNER (case of a personal account). Required for an organization.
    */
-  LOGINS_AUTORISES: z
+  ALLOWED_LOGINS: z
     .string()
     .default('')
     .transform((v) => v.split(',').map((l) => l.trim().toLowerCase()).filter(Boolean)),
-  /** Dossier des modèles de projet (défaut : `catalogue/` à la racine du dépôt d'ADA). */
-  CATALOGUE: z.string().default(''),
-  /** Dossier des skills `po-` livrées dans chaque projet créé (défaut : `skills/po/` à la racine du dépôt d'ADA). */
-  SKILLS_PO: z.string().default(''),
+  /** Folder of the project templates (default: `catalogue/` at the root of ADA's repository). */
+  CATALOG: z.string().default(''),
+  /** Folder of the `po-` skills shipped in every created project (default: `skills/po/` at the root of ADA's repository). */
+  PO_SKILLS: z.string().default(''),
   /**
-   * Commande de l'agent de code (mode non interactif, sortie stream-json). Vide : agent désactivé.
-   * Démo : l'exécutable Claude Code. Remplaçable par un autre agent (voir src/agent/agent.ts).
-   * Un chemin relatif (« ./… », « ../… ») est lu depuis interface/api : l'agent livré avec ADA se règle
-   * donc sans chemin propre à un poste (AGENT_COMMANDE=./agent-openai/runner.mjs).
+   * Command of the coding agent (non-interactive mode, stream-json output). Empty: agent disabled.
+   * Demo: the Claude Code executable. Replaceable by another agent (see src/agent/agent.ts).
+   * A relative path (“./…”, “../…”) is read from interface/api: the agent shipped with ADA is thus
+   * configured without a machine-specific path (AGENT_COMMAND=./agent-openai/runner.mjs).
    */
-  AGENT_COMMANDE: z
+  AGENT_COMMAND: z
     .string()
     .default('')
-    .transform((commande) => (/^\.{1,2}\//.test(commande) ? resolve(process.cwd(), commande) : commande)),
+    .transform((command) => (/^\.{1,2}\//.test(command) ? resolve(process.cwd(), command) : command)),
   /**
-   * Agent lancé quand l'utilisateur a renseigné son propre modèle (page « Mon modèle ») : celui, livré avec ADA,
-   * qui parle à une passerelle compatible OpenAI. Chemin relatif lu depuis interface/api, comme AGENT_COMMANDE.
+   * Agent launched when the user filled in their own model (“My model” page): the one, shipped with ADA,
+   * that talks to an OpenAI-compatible gateway. Relative path read from interface/api, like AGENT_COMMAND.
    */
-  AGENT_COMMANDE_OPENAI: z
+  AGENT_COMMAND_OPENAI: z
     .string()
     .default('./agent-openai/runner.mjs')
-    .transform((commande) => (/^\.{1,2}\//.test(commande) ? resolve(process.cwd(), commande) : commande)),
-  /** Modèles personnels des utilisateurs (adresse, clé chiffrée, nom) : un fichier chiffré par utilisateur, hors git. */
-  DOSSIER_MODELES: z.string().default('../sessions/modeles-utilisateur'),
+    .transform((command) => (/^\.{1,2}\//.test(command) ? resolve(process.cwd(), command) : command)),
+  /** Personal models of the users (address, encrypted key, name): one encrypted file per user, outside git. */
+  USER_MODELS_DIR: z.string().default('../sessions/modeles-utilisateur'),
   /**
-   * Agents qui travaillent en même temps sur toute la machine (un par projet au plus). Les
-   * suivants attendent leur tour dans une file : chaque agent mobilise un conteneur et un processeur.
+   * Agents working at the same time on the whole machine (one per project at most). The
+   * following ones wait for their turn in a queue: each agent uses a container and a CPU.
    */
-  AGENT_MAX_SIMULTANES: z.coerce.number().int().min(1).default(3),
+  AGENT_MAX_CONCURRENT: z.coerce.number().int().min(1).default(3),
   /**
-   * Modèle de l'agent (option --model) : un alias (« sonnet », « opus », « haiku ») ou un nom
-   * complet. Vide : le modèle par défaut du compte de l'agent.
+   * Model of the agent (--model option): an alias (“sonnet”, “opus”, “haiku”) or a full
+   * name. Empty: the default model of the agent's account.
    */
-  AGENT_MODELE: z.string().trim().default(''),
+  AGENT_MODEL: z.string().trim().default(''),
   /**
-   * Skills mises à disposition de l'assistant (chemins de dossiers contenant un SKILL.md,
-   * séparés par des virgules) : reliées dans le projet avant chaque exécution, jamais commitées.
-   * Par défaut, celles que livre ADA : les dépôts DINUM (dsfr-skill) et IA-Generative (agent-skills)
-   * sont des sous-modules git de `skills/externes/` (chemins relatifs à interface/api). Vide
-   * explicitement (AGENT_SKILLS=) : aucune skill.
+   * Skills made available to the assistant (paths of folders containing a SKILL.md,
+   * separated by commas): linked into the project before each run, never committed.
+   * By default, those ADA ships: the DINUM (dsfr-skill) and IA-Generative (agent-skills) repositories
+   * are git submodules of `skills/externes/` (paths relative to interface/api). Explicitly
+   * empty (AGENT_SKILLS=): no skill.
    */
   AGENT_SKILLS: z
     .string()
-    .default(SKILLS_LIVREES_AVEC_ADA)
-    .transform((v) => v.split(',').map((chemin) => chemin.trim()).filter(Boolean)),
-  /** Index du référentiel RGAA (DINUM) joint à chaque consigne de l'assistant. */
+    .default(SKILLS_SHIPPED_WITH_ADA)
+    .transform((v) => v.split(',').map((filePath) => filePath.trim()).filter(Boolean)),
+  /** Index of the RGAA reference (DINUM) attached to every instruction of the assistant. */
   RGAA_INDEX: z.string().default('../../skills/po/po-story/references/rgaa-4.1.2/README.md'),
-  /** Sessions chiffrées sur disque (hors git) : un redémarrage ne déconnecte personne. */
-  DOSSIER_SESSIONS: z.string().default('../sessions'),
-  /** Registre des projets créés ou repris par ADA (fichier, hors git) : les indicateurs comptent
-   * aussi les projets archivés ou supprimés depuis, que GitHub ne connaît plus. */
-  DOSSIER_REGISTRE: z.string().default('../registre'),
-  /** Dossier de travail des aperçus (clones et conteneurs), hors de tout dépôt git. */
-  DOSSIER_APERCUS: z.string().default('../apercus'),
+  /** Encrypted sessions on disk (outside git): a restart signs nobody out. */
+  SESSIONS_DIR: z.string().default('../sessions'),
+  /** Registry of the projects created or adopted by ADA (file, outside git): the indicators also count
+   * the projects archived or deleted since, which GitHub no longer knows. */
+  REGISTRY_DIR: z.string().default('../registre'),
+  /** Working folder of the previews (clones and containers), outside any git repository. */
+  PREVIEWS_DIR: z.string().default('../apercus'),
   /**
-   * Adresse publique des liens de démonstration, `{projet}` et `{port}` remplacés. En ligne :
-   * un proxy (domaine générique) renvoie vers le port de chaque démo, ex.
-   * https://{projet}.demo.ada.gouv.fr. Par défaut : la machine d'ADA.
+   * Public address of the demo links, `{projet}` and `{port}` replaced. Online:
+   * a proxy (wildcard domain) forwards to the port of each demo, e.g.
+   * https://{projet}.demo.ada.gouv.fr. By default: ADA's machine.
    */
-  URL_DEMO: z.string().default('http://localhost:{port}'),
-  TOPIC_ATELIER: z.string().default('ada'),
+  DEMO_URL: z.string().default('http://localhost:{port}'),
+  WORKSHOP_TOPIC: z.string().default('ada'),
 });
 
 export type Config = z.infer<typeof schema>;
 
-export function lireConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const resultat = schema.safeParse(env);
-  if (!resultat.success) {
-    const details = resultat.error.issues
+export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const result = schema.safeParse(withLegacyEnv(env));
+  if (!result.success) {
+    const details = result.error.issues
       .map((i) => `  - ${i.path.join('.')} : ${i.message}`)
       .join('\n');
     throw new Error(`Configuration incomplète (voir api/.env.example) :\n${details}`);
   }
-  return resultat.data;
+  return result.data;
 }
 
 export const CONFIG = Symbol('CONFIG');
 
-export function loginAutorise(config: Config, login: string): boolean {
-  const liste = config.LOGINS_AUTORISES.length
-    ? config.LOGINS_AUTORISES
-    : [config.GITHUB_PROPRIETAIRE.toLowerCase()];
-  return liste.includes(login.toLowerCase());
+export function isLoginAllowed(config: Config, login: string): boolean {
+  const list = config.ALLOWED_LOGINS.length
+    ? config.ALLOWED_LOGINS
+    : [config.GITHUB_OWNER.toLowerCase()];
+  return list.includes(login.toLowerCase());
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { lireRecapitulatif, peutPublier, versionDepuisTitre } from './versions.js';
+import { readSummary, canPublish, versionFromTitle } from './versions.js';
 
-const CORPS = `:robot: I have created a release *beep* *boop*
+const BODY = `:robot: I have created a release *beep* *boop*
 ---
 
 
@@ -21,33 +21,33 @@ const CORPS = `:robot: I have created a release *beep* *boop*
 ---
 This PR was generated with [Release Please](https://github.com/googleapis/release-please).`;
 
-describe('Récapitulatif d’une version', () => {
-  it('lit le numéro de version proposé', () => {
-    expect(versionDepuisTitre('chore(main): release 0.2.0')).toBe('0.2.0');
-    expect(versionDepuisTitre('autre chose')).toBeNull();
+describe('Summary of a version', () => {
+  it('reads the proposed version number', () => {
+    expect(versionFromTitle('chore(main): release 0.2.0')).toBe('0.2.0');
+    expect(versionFromTitle('autre chose')).toBeNull();
   });
 
-  it('présente les nouveautés et les corrections en clair, avec la demande livrée', () => {
-    expect(lireRecapitulatif('chore(main): release 0.2.0', CORPS)).toEqual({
+  it('presents the features and the fixes in plain words, with the delivered request', () => {
+    expect(readSummary('chore(main): release 0.2.0', BODY)).toEqual({
       version: '0.2.0',
-      nouveautes: [
-        { texte: 'AJOUTER LE NOM DU SERVICE', demande: 2 },
-        { texte: 'Page d\'accueil', demande: 1 },
+      features: [
+        { text: 'AJOUTER LE NOM DU SERVICE', workRequest: 2 },
+        { text: 'Page d\'accueil', workRequest: 1 },
       ],
-      corrections: [{ texte: 'accueil: la date s’affiche en français', demande: null }],
-      autres: [],
+      fixes: [{ text: 'accueil: la date s’affiche en français', workRequest: null }],
+      others: [],
     });
   });
 });
 
-describe('Peut-on publier ?', () => {
-  it('oui si la PR ne touche que les fichiers de version', () => {
-    expect(peutPublier(['.release-please-manifest.json', 'CHANGELOG.md', 'version.txt'])).toEqual({ publiable: true, raison: null });
+describe('Can it be published?', () => {
+  it('yes if the PR only touches the version files', () => {
+    expect(canPublish(['.release-please-manifest.json', 'CHANGELOG.md', 'version.txt'])).toEqual({ publishable: true, reason: null });
   });
 
-  it('non si elle touche du code : un développeur doit regarder', () => {
-    const resultat = peutPublier(['CHANGELOG.md', 'front/src/App.vue']);
-    expect(resultat.publiable).toBe(false);
-    expect(resultat.raison).toContain('front/src/App.vue');
+  it('no if it touches code: a developer must look', () => {
+    const result = canPublish(['CHANGELOG.md', 'front/src/App.vue']);
+    expect(result.publishable).toBe(false);
+    expect(result.reason).toContain('front/src/App.vue');
   });
 });

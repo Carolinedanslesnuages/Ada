@@ -3,307 +3,307 @@ import { BadRequestException } from '@nestjs/common';
 import { z } from 'zod';
 
 /**
- * Les stories et problèmes sont écrits par le PO dans GitHub (formulaires d'issue
- * user-story.yml et bug.yml des projets). L'atelier les lit, vérifie qu'ils sont prêts,
- * et les lance un par un.
+ * Stories and bugs are written by the PO in GitHub (issue forms
+ * user-story.yml and bug.yml of the projects). The workshop reads them, checks that they are ready,
+ * and launches them one by one.
  */
-export const CRITERES_MAX = 4;
-export const LABEL_STORY = 'user-story';
-export const LABEL_BUG = 'bug';
-/** Demande libre (« mode sauvage ») : un prompt du PO, hors story, enregistré comme issue. */
-export const LABEL_LIBRE = 'mode-libre';
-const MARQUEUR_LIBRE = '<!-- ada:mode-libre -->';
+export const MAX_CRITERIA = 4;
+export const STORY_LABEL = 'user-story';
+export const BUG_LABEL = 'bug';
+/** Free request (“wild mode”): a prompt from the PO, outside a story, saved as an issue. */
+export const FREE_LABEL = 'mode-libre';
+const FREE_MARKER = '<!-- ada:mode-libre -->';
 /**
- * Conversation (« vrai prompt ») : le PO parle librement à ADA, qui agit tout de suite sur une
- * branche à part ; rien n'arrive sur le projet avant que le PO dise « c'est bon » (PR).
+ * Conversation (“real prompt”): the PO speaks freely to ADA, which acts right away on a
+ * separate branch; nothing reaches the project before the PO says “all good” (PR).
  */
-export const LABEL_CONVERSATION = 'mode-conversation';
-const MARQUEUR_CONVERSATION = '<!-- ada:conversation -->';
-const SECTION_CONVERSATION = 'conversation avec ada';
-export const PREFIXE_CONVERSATION = 'Conversation : ';
-/** Un message de conversation : de « oui » à un long cahier des charges. */
-export const MESSAGE_MAX = 8000;
-/** Commentaire qui marque le lancement d'une demande par ADA. */
-export const MARQUEUR_LANCEMENT = '▶️ Lancée depuis ADA';
+export const CONVERSATION_LABEL = 'mode-conversation';
+const CONVERSATION_MARKER = '<!-- ada:conversation -->';
+const CONVERSATION_SECTION = 'conversation avec ada';
+export const CONVERSATION_PREFIX = 'Conversation : ';
+/** A conversation message: from “yes” to a long specification. */
+export const MAX_MESSAGE_LENGTH = 8000;
+/** Comment that marks the launch of a request by ADA. */
+export const LAUNCH_MARKER = '▶️ Lancée depuis ADA';
 
-export const PROMPT_MIN = 10;
-export const PROMPT_MAX = 1000;
+export const MIN_PROMPT_LENGTH = 10;
+export const MAX_PROMPT_LENGTH = 1000;
 
-export const STATUTS = {
-  'en-cours': 'story:en-cours',
+export const STATUSES = {
+  'in-progress': 'story:en-cours',
   questions: 'story:questions',
-  'plan-a-valider': 'story:plan-a-valider',
-  'en-verification': 'story:en-verification',
-  'besoin-dev': 'story:besoin-dev',
-  /** L'assistant a proposé un découpage : le PO choisit les stories à créer (#36). */
-  decoupage: 'story:decoupage-a-valider',
-  /** Demande découpée : ses stories se réalisent une par une ; elle se ferme quand toutes sont livrées. */
+  'plan-to-approve': 'story:plan-a-valider',
+  'in-review': 'story:en-verification',
+  'needs-developer': 'story:besoin-dev',
+  /** The assistant proposed a breakdown: the PO chooses the stories to create (#36). */
+  breakdown: 'story:decoupage-a-valider',
+  /** Broken-down request: its stories are implemented one by one; it closes when all are delivered. */
   parent: 'story:parent',
-  /** Rien à construire pour l'instant (elle attend une autre story) : gardée ouverte, à relancer plus tard. */
-  attente: 'story:en-attente',
-  /** Conversation : ADA a répondu, c'est au PO d'écrire (ou de dire « c'est bon »). */
-  echange: 'story:conversation',
+  /** Nothing to build for now (it waits for another story): kept open, to relaunch later. */
+  waiting: 'story:en-attente',
+  /** Conversation: ADA answered, it is the PO's turn to write (or to say “all good”). */
+  exchange: 'story:conversation',
 } as const;
 
-export type Statut = 'nouvelle' | keyof typeof STATUTS | 'livree';
-export type TypeDemande = 'story' | 'bug' | 'libre' | 'conversation';
+export type Status = 'new' | keyof typeof STATUSES | 'delivered';
+export type WorkRequestType = 'story' | 'bug' | 'free' | 'conversation';
 
-/** Statuts qui occupent le projet : tant qu'une demande y est, on n'en lance pas d'autre. */
-export const STATUTS_ACTIFS: Statut[] = ['en-cours', 'questions', 'plan-a-valider', 'en-verification', 'besoin-dev', 'decoupage', 'echange'];
+/** Statuses that keep the project busy: while a request has one, no other is launched. */
+export const ACTIVE_STATUSES: Status[] = ['in-progress', 'questions', 'plan-to-approve', 'in-review', 'needs-developer', 'breakdown', 'exchange'];
 
-export interface ContenuStory {
+export interface StoryContent {
   role: string;
-  besoin: string;
-  benefice: string;
-  criteres: string[];
+  need: string;
+  benefit: string;
+  criteria: string[];
 }
 
-export interface ContenuBug {
-  constate: string;
-  attendu: string;
-  etapes: string;
-  ecran: string;
+export interface BugContent {
+  observed: string;
+  expected: string;
+  steps: string;
+  screen: string;
 }
 
-/** Sections « ### Titre » d'une issue créée avec un formulaire GitHub. */
-function sectionsFormulaire(corps: string): Map<string, string> {
+/** “### Title” sections of an issue created with a GitHub form. */
+function formSections(body: string): Map<string, string> {
   const sections = new Map<string, string>();
-  for (const morceau of corps.split(/^### /m).slice(1)) {
-    const [titre, ...reste] = morceau.split('\n');
-    const valeur = reste.join('\n').trim();
-    sections.set((titre ?? '').trim().toLowerCase(), valeur === '_No response_' ? '' : valeur);
+  for (const piece of body.split(/^### /m).slice(1)) {
+    const [title, ...rest] = piece.split('\n');
+    const value = rest.join('\n').trim();
+    sections.set((title ?? '').trim().toLowerCase(), value === '_No response_' ? '' : value);
   }
   return sections;
 }
 
-const listeCriteres = (texte: string) =>
-  texte
+const criteriaList = (text: string) =>
+  text
     .split('\n')
     .map((l) => l.replace(/^\s*(- \[[ x]\]|[-*]|\d+[.)])\s*/, '').trim())
     .filter(Boolean);
 
-export function lireStory(corps: string): ContenuStory | null {
-  const f = sectionsFormulaire(corps);
+export function readStory(body: string): StoryContent | null {
+  const f = formSections(body);
   if (!f.has('en tant que')) return null;
-  const critere = [...f.keys()].find((k) => k.startsWith('critères') || k.startsWith('criteres'));
+  const criterion = [...f.keys()].find((k) => k.startsWith('critères') || k.startsWith('criteres'));
   return {
     role: f.get('en tant que') ?? '',
-    besoin: f.get('je veux') ?? '',
-    benefice: f.get('afin de') ?? '',
-    criteres: critere ? listeCriteres(f.get(critere) ?? '') : [],
+    need: f.get('je veux') ?? '',
+    benefit: f.get('afin de') ?? '',
+    criteria: criterion ? criteriaList(f.get(criterion) ?? '') : [],
   };
 }
 
-/** Corps de l'issue créée pour un prompt : lisible sur GitHub, relisible par ADA. */
-export function formaterPrompt(texte: string): string {
-  return ['### Demande libre (mode sauvage, hors story)', '', texte.trim(), '', MARQUEUR_LIBRE].join('\n');
+/** Body of the issue created for a prompt: readable on GitHub, readable back by ADA. */
+export function formatPrompt(text: string): string {
+  return ['### Demande libre (mode sauvage, hors story)', '', text.trim(), '', FREE_MARKER].join('\n');
 }
 
-/** Corps de l'issue d'une conversation : le premier message du PO. */
-export function formaterConversation(texte: string): string {
-  return ['### Conversation avec ADA', '', texte.trim(), '', MARQUEUR_CONVERSATION].join('\n');
+/** Body of the issue of a conversation: the PO's first message. */
+export function formatConversation(text: string): string {
+  return ['### Conversation avec ADA', '', text.trim(), '', CONVERSATION_MARKER].join('\n');
 }
 
-export function lireConversation(corps: string): string | null {
-  if (!corps.includes(MARQUEUR_CONVERSATION)) return null;
-  return sectionsFormulaire(corps).get(SECTION_CONVERSATION)?.replace(MARQUEUR_CONVERSATION, '').trim() ?? null;
+export function readConversation(body: string): string | null {
+  if (!body.includes(CONVERSATION_MARKER)) return null;
+  return formSections(body).get(CONVERSATION_SECTION)?.replace(CONVERSATION_MARKER, '').trim() ?? null;
 }
 
-export function titreConversation(texte: string): string {
-  return `${PREFIXE_CONVERSATION}${resumerPrompt(texte)}`;
+export function conversationTitle(text: string): string {
+  return `${CONVERSATION_PREFIX}${summarizePrompt(text)}`;
 }
 
-/** Message de conversation : le premier dit de quoi on parle (une phrase) ; les suivants, même « oui ». */
-export function verifierMessage(texte: unknown, premier: boolean): { ok: true; texte: string } | { ok: false; erreur: string } {
-  const propre = typeof texte === 'string' ? texte.trim() : '';
-  if (premier && propre.length < PROMPT_MIN) return { ok: false, erreur: 'Dites à ADA ce que vous voulez faire, en une phrase au moins' };
-  if (!propre) return { ok: false, erreur: 'Écrivez votre message à ADA' };
-  if (propre.length > MESSAGE_MAX) return { ok: false, erreur: `${MESSAGE_MAX} caractères au maximum par message : envoyez la suite dans un autre message` };
-  return { ok: true, texte: propre };
+/** Conversation message: the first one says what it is about (one sentence); the following ones, even “yes”. */
+export function checkMessage(text: unknown, first: boolean): { ok: true; text: string } | { ok: false; error: string } {
+  const clean = typeof text === 'string' ? text.trim() : '';
+  if (first && clean.length < MIN_PROMPT_LENGTH) return { ok: false, error: 'Dites à ADA ce que vous voulez faire, en une phrase au moins' };
+  if (!clean) return { ok: false, error: 'Écrivez votre message à ADA' };
+  if (clean.length > MAX_MESSAGE_LENGTH) return { ok: false, error: `${MAX_MESSAGE_LENGTH} caractères au maximum par message : envoyez la suite dans un autre message` };
+  return { ok: true, text: clean };
 }
 
-export function lirePrompt(corps: string): string | null {
-  if (!corps.includes(MARQUEUR_LIBRE)) return null;
-  return sectionsFormulaire(corps).get('demande libre (mode sauvage, hors story)')?.replace(MARQUEUR_LIBRE, '').trim() ?? null;
+export function readPrompt(body: string): string | null {
+  if (!body.includes(FREE_MARKER)) return null;
+  return formSections(body).get('demande libre (mode sauvage, hors story)')?.replace(FREE_MARKER, '').trim() ?? null;
 }
 
-/** Titre de l'issue : le début du prompt, coupé proprement. */
-export const PREFIXE_LIBRE = 'Demande libre : ';
-const TITRE_LIBRE_MAX = 72;
+/** Title of the issue: the beginning of the prompt, cut cleanly. */
+export const FREE_PREFIX = 'Demande libre : ';
+const MAX_FREE_TITLE_LENGTH = 72;
 
 /**
- * Titre court d'un prompt : sa première proposition (jusqu'au premier « . », « ! », « ? », « ; »
- * ou « : »), coupée entre deux mots si elle reste trop longue. Il devient le titre de l'issue puis,
- * sans le préfixe, celui de la PR et la ligne des notes de version.
+ * Short title of a prompt: its first clause (up to the first “.”, “!”, “?”, “;”
+ * or “:”), cut between two words if it is still too long. It becomes the title of the issue then,
+ * without the prefix, that of the PR and the line of the release notes.
  */
-export function resumerPrompt(texte: string, max = TITRE_LIBRE_MAX): string {
-  const ligne = texte.trim().split('\n')[0]!.replace(/\s+/g, ' ');
-  const proposition = (ligne.split(/(?<=[.!?;])\s|\s:\s|\s?:\s/)[0] ?? ligne).replace(/[.;:]$/, '').trim() || ligne;
+export function summarizePrompt(text: string, max = MAX_FREE_TITLE_LENGTH): string {
+  const line = text.trim().split('\n')[0]!.replace(/\s+/g, ' ');
+  const proposition = (line.split(/(?<=[.!?;])\s|\s:\s|\s?:\s/)[0] ?? line).replace(/[.;:]$/, '').trim() || line;
   if (proposition.length <= max) return proposition;
-  const coupe = proposition.slice(0, max - 1);
-  const dernierEspace = coupe.lastIndexOf(' ');
-  return `${(dernierEspace > max / 2 ? coupe.slice(0, dernierEspace) : coupe).trimEnd()}…`;
+  const cut = proposition.slice(0, max - 1);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${(lastSpace > max / 2 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
 }
 
-export function titrePrompt(texte: string): string {
-  return `${PREFIXE_LIBRE}${resumerPrompt(texte)}`;
+export function promptTitle(text: string): string {
+  return `${FREE_PREFIX}${summarizePrompt(text)}`;
 }
 
-export function verifierPrompt(texte: unknown): { ok: true; texte: string } | { ok: false; erreur: string } {
-  const propre = typeof texte === 'string' ? texte.trim() : '';
-  if (propre.length < PROMPT_MIN) return { ok: false, erreur: 'Décrivez votre demande en une phrase au moins' };
-  if (propre.length > PROMPT_MAX) {
-    return { ok: false, erreur: `${PROMPT_MAX} caractères au maximum : pour une demande plus importante, écrivez des stories` };
+export function checkPrompt(text: unknown): { ok: true; text: string } | { ok: false; error: string } {
+  const clean = typeof text === 'string' ? text.trim() : '';
+  if (clean.length < MIN_PROMPT_LENGTH) return { ok: false, error: 'Décrivez votre demande en une phrase au moins' };
+  if (clean.length > MAX_PROMPT_LENGTH) {
+    return { ok: false, error: `${MAX_PROMPT_LENGTH} caractères au maximum : pour une demande plus importante, écrivez des stories` };
   }
-  return { ok: true, texte: propre };
+  return { ok: true, text: clean };
 }
 
-export function lireBug(corps: string): ContenuBug | null {
-  const f = sectionsFormulaire(corps);
+export function readBug(body: string): BugContent | null {
+  const f = formSections(body);
   if (!f.has('ce qui se passe')) return null;
   return {
-    constate: f.get('ce qui se passe') ?? '',
-    attendu: f.get('ce qui devrait se passer') ?? '',
-    etapes: f.get('comment le reproduire') ?? '',
-    ecran: f.get('écran ou adresse concerné') ?? '',
+    observed: f.get('ce qui se passe') ?? '',
+    expected: f.get('ce qui devrait se passer') ?? '',
+    steps: f.get('comment le reproduire') ?? '',
+    screen: f.get('écran ou adresse concerné') ?? '',
   };
 }
 
-const rempli = (min: number, message: string) => z.string().trim().min(min, message);
+const filled = (min: number, message: string) => z.string().trim().min(min, message);
 
 const schemaStory = z.object({
-  role: rempli(3, 'Le champ « En tant que » est vide'),
-  besoin: rempli(5, 'Le champ « Je veux » est vide'),
-  benefice: rempli(5, 'Le champ « Afin de » est vide'),
-  criteres: z
+  role: filled(3, 'Le champ « En tant que » est vide'),
+  need: filled(5, 'Le champ « Je veux » est vide'),
+  benefit: filled(5, 'Le champ « Afin de » est vide'),
+  criteria: z
     .array(z.string())
     .min(1, 'Aucun critère d’acceptation')
-    .max(CRITERES_MAX, `Plus de ${CRITERES_MAX} critères : découpez-la en plusieurs stories sur GitHub`),
+    .max(MAX_CRITERIA, `Plus de ${MAX_CRITERIA} critères : découpez-la en plusieurs stories sur GitHub`),
 });
 
 const schemaBug = z.object({
-  constate: rempli(5, 'Le champ « Ce qui se passe » est vide'),
-  attendu: rempli(5, 'Le champ « Ce qui devrait se passer » est vide'),
-  etapes: rempli(5, 'Le champ « Comment le reproduire » est vide'),
+  observed: filled(5, 'Le champ « Ce qui se passe » est vide'),
+  expected: filled(5, 'Le champ « Ce qui devrait se passer » est vide'),
+  steps: filled(5, 'Le champ « Comment le reproduire » est vide'),
 });
 
-/** Une demande ne se lance que si elle est complète et assez petite. */
-export function verifierPrete(
-  type: TypeDemande,
-  story: ContenuStory | null,
-  bug: ContenuBug | null,
+/** A request is launched only if it is complete and small enough. */
+export function checkReady(
+  type: WorkRequestType,
+  story: StoryContent | null,
+  bug: BugContent | null,
   prompt: string | null = null,
-): { prete: true } | { prete: false; raison: string } {
-  if (type === 'conversation') return { prete: true };
-  if (type === 'libre') {
-    const r = verifierPrompt(prompt);
-    return r.ok ? { prete: true } : { prete: false, raison: r.erreur };
+): { ready: true } | { ready: false; reason: string } {
+  if (type === 'conversation') return { ready: true };
+  if (type === 'free') {
+    const r = checkPrompt(prompt);
+    return r.ok ? { ready: true } : { ready: false, reason: r.error };
   }
   if (type === 'story') {
-    if (!story) return { prete: false, raison: 'Story écrite hors du formulaire « User story » de GitHub' };
+    if (!story) return { ready: false, reason: 'Story écrite hors du formulaire « User story » de GitHub' };
     const r = schemaStory.safeParse(story);
-    return r.success ? { prete: true } : { prete: false, raison: r.error.issues[0]!.message };
+    return r.success ? { ready: true } : { ready: false, reason: r.error.issues[0]!.message };
   }
-  if (!bug) return { prete: false, raison: 'Problème écrit hors du formulaire « Signaler un problème » de GitHub' };
+  if (!bug) return { ready: false, reason: 'Problème écrit hors du formulaire « Signaler un problème » de GitHub' };
   const r = schemaBug.safeParse(bug);
-  return r.success ? { prete: true } : { prete: false, raison: r.error.issues[0]!.message };
+  return r.success ? { ready: true } : { ready: false, reason: r.error.issues[0]!.message };
 }
 
-export function statutDepuis(etat: 'open' | 'closed', labels: string[]): Statut {
-  if (etat === 'closed') return 'livree';
-  const trouve = (Object.keys(STATUTS) as (keyof typeof STATUTS)[]).find((s) => labels.includes(STATUTS[s]));
-  return trouve ?? 'nouvelle';
+export function statusFrom(state: 'open' | 'closed', labels: string[]): Status {
+  if (state === 'closed') return 'delivered';
+  const found = (Object.keys(STATUSES) as (keyof typeof STATUSES)[]).find((s) => labels.includes(STATUSES[s]));
+  return found ?? 'new';
 }
 
 /**
- * Story ou problème ? D'abord le label ; sinon le contenu du formulaire (le formulaire GitHub
- * ne pose son label que si celui-ci existe déjà dans le dépôt). null : ni l'un ni l'autre.
+ * Story or bug? First the label; otherwise the content of the form (the GitHub form
+ * only sets its label if it already exists in the repository). null: neither.
  */
-export function typeDepuis(labels: string[], corps = ''): TypeDemande | null {
-  if (labels.includes(LABEL_CONVERSATION) || corps.includes(MARQUEUR_CONVERSATION)) return 'conversation';
-  if (labels.includes(LABEL_LIBRE) || corps.includes(MARQUEUR_LIBRE)) return 'libre';
-  if (labels.includes(LABEL_BUG)) return 'bug';
-  if (labels.includes(LABEL_STORY)) return 'story';
-  if (lireStory(corps)) return 'story';
-  if (lireBug(corps)) return 'bug';
+export function typeFrom(labels: string[], body = ''): WorkRequestType | null {
+  if (labels.includes(CONVERSATION_LABEL) || body.includes(CONVERSATION_MARKER)) return 'conversation';
+  if (labels.includes(FREE_LABEL) || body.includes(FREE_MARKER)) return 'free';
+  if (labels.includes(BUG_LABEL)) return 'bug';
+  if (labels.includes(STORY_LABEL)) return 'story';
+  if (readStory(body)) return 'story';
+  if (readBug(body)) return 'bug';
   return null;
 }
 
-/* ---------- Découpage d'une demande en stories (#36) ---------- */
+/* ---------- Breakdown of a request into stories (#36) ---------- */
 
-/** Story proposée par l'assistant quand une demande est trop grosse. */
-export interface StoryProposee {
-  titre: string;
+/** Story proposed by the assistant when a request is too big. */
+export interface ProposedStory {
+  title: string;
   role: string;
-  besoin: string;
-  benefice: string;
-  criteres: string[];
-  /** Story déjà dans le projet que celle-ci recoupe : ADA la signale, le PO ne la publie pas par erreur. */
-  doublonDe?: number;
+  need: string;
+  benefit: string;
+  criteria: string[];
+  /** Story already in the project that this one overlaps: ADA reports it, the PO does not publish it by mistake. */
+  duplicateOf?: number;
 }
 
-export const MARQUEUR_DECOUPAGE = 'ada:decoupage';
-const DONNEES_DECOUPAGE = /<!-- ada:decoupage (\S+) -->/;
-const SECTION_PARENT = '### Demande parent';
-const SECTION_DECOUPAGE = '### Découpage';
-/** Story proposée en conversation : d'où elle vient, sans en faire une enfant de la conversation. */
-const SECTION_ORIGINE = '### Origine';
+export const BREAKDOWN_MARKER = 'ada:decoupage';
+const BREAKDOWN_DATA = /<!-- ada:decoupage (\S+) -->/;
+const PARENT_SECTION = '### Demande parent';
+const BREAKDOWN_SECTION = '### Découpage';
+/** Story proposed in conversation: where it comes from, without making it a child of the conversation. */
+const ORIGIN_SECTION = '### Origine';
 
-const texteCourt = (valeur: unknown, maximum: number) => (typeof valeur === 'string' ? valeur.trim().slice(0, maximum) : '');
+const shortText = (value: unknown, maximum: number) => (typeof value === 'string' ? value.trim().slice(0, maximum) : '');
 
 /**
- * Ne garde que des stories complètes : de `minimum` à 8, chacune 1 à CRITERES_MAX critères. Un
- * découpage en propose au moins deux ; en conversation, une seule story pour plus tard suffit.
+ * Keeps only complete stories: from `minimum` to 8, each with 1 to MAX_CRITERIA criteria. A
+ * breakdown proposes at least two; in conversation, a single story for later is enough.
  */
-export function nettoyerStoriesProposees(brut: unknown, minimum = 2): StoryProposee[] {
-  if (!Array.isArray(brut)) return [];
-  const stories = brut
+export function cleanProposedStories(raw: unknown, minimum = 2): ProposedStory[] {
+  if (!Array.isArray(raw)) return [];
+  const stories = raw
     .map((element) => (element ?? {}) as Record<string, unknown>)
     .map((element) => ({
-      titre: texteCourt(element.titre, 120),
-      role: texteCourt(element.role, 200),
-      besoin: texteCourt(element.besoin, 600),
-      benefice: texteCourt(element.benefice, 600),
-      criteres: (Array.isArray(element.criteres) ? element.criteres : [])
-        .map((critere) => texteCourt(critere, 300))
+      title: shortText(element.title, 120),
+      role: shortText(element.role, 200),
+      need: shortText(element.need, 600),
+      benefit: shortText(element.benefit, 600),
+      criteria: (Array.isArray(element.criteria) ? element.criteria : [])
+        .map((criterion) => shortText(criterion, 300))
         .filter(Boolean)
-        .slice(0, CRITERES_MAX),
-      ...(Number.isInteger(element.doublonDe) && (element.doublonDe as number) > 0 ? { doublonDe: element.doublonDe as number } : {}),
+        .slice(0, MAX_CRITERIA),
+      ...(Number.isInteger(element.duplicateOf) && (element.duplicateOf as number) > 0 ? { duplicateOf: element.duplicateOf as number } : {}),
     }))
-    .filter((story) => story.titre && story.role && story.besoin && story.benefice && story.criteres.length > 0)
+    .filter((story) => story.title && story.role && story.need && story.benefit && story.criteria.length > 0)
     .slice(0, 8);
   return stories.length >= minimum ? stories : [];
 }
 
-/** Commentaire « Découpage proposé » : lisible sur GitHub, et relisible par ADA (données cachées). */
-export function texteDecoupage(explication: string, stories: StoryProposee[]): string {
-  const lisible = stories
+/** “Découpage proposé” comment: readable on GitHub, and readable back by ADA (hidden data). */
+export function breakdownText(explanation: string, stories: ProposedStory[]): string {
+  const readable = stories
     .map(
-      (story, rang) =>
-        `${rang + 1}. **${story.titre}**${story.doublonDe ? ` _(recoupe #${story.doublonDe}, déjà dans le projet)_` : ''} — en tant que ${story.role}, je veux ${story.besoin}, afin de ${story.benefice}.\n` +
-        story.criteres.map((critere) => `   - ${critere}`).join('\n'),
+      (story, rank) =>
+        `${rank + 1}. **${story.title}**${story.duplicateOf ? ` _(recoupe #${story.duplicateOf}, déjà dans le projet)_` : ''} — en tant que ${story.role}, je veux ${story.need}, afin de ${story.benefit}.\n` +
+        story.criteria.map((criterion) => `   - ${criterion}`).join('\n'),
     )
     .join('\n');
-  const donnees = Buffer.from(JSON.stringify(stories), 'utf8').toString('base64');
-  return `${explication}\n\n**Stories proposées** (à choisir dans ADA) :\n${lisible}\n\n<!-- ${MARQUEUR_DECOUPAGE} ${donnees} -->`;
+  const data = Buffer.from(JSON.stringify(stories), 'utf8').toString('base64');
+  return `${explanation}\n\n**Stories proposées** (à choisir dans ADA) :\n${readable}\n\n<!-- ${BREAKDOWN_MARKER} ${data} -->`;
 }
 
-export function lireDecoupage(texte: string): StoryProposee[] {
-  const donnees = DONNEES_DECOUPAGE.exec(texte)?.[1];
-  if (!donnees) return [];
+export function readBreakdown(text: string): ProposedStory[] {
+  const data = BREAKDOWN_DATA.exec(text)?.[1];
+  if (!data) return [];
   try {
-    return nettoyerStoriesProposees(JSON.parse(Buffer.from(donnees, 'base64').toString('utf8')), 1); // relu tel qu'ADA l'a écrit
+    return cleanProposedStories(JSON.parse(Buffer.from(data, 'base64').toString('utf8')), 1); // read back as ADA wrote it
   } catch {
     return [];
   }
 }
 
 /**
- * Corps d'une story créée par ADA : celui du formulaire de story, plus le lien vers la demande parent
- * (découpage). Proposée pendant une conversation : son origine seulement, sans lien parent (la
- * conversation continue, elle n'attend pas ces stories pour se terminer).
+ * Body of a story created by ADA: that of the story form, plus the link to the parent request
+ * (breakdown). Proposed during a conversation: its origin only, without a parent link (the
+ * conversation goes on, it does not wait for these stories to end).
  */
-export function formaterStory(story: StoryProposee, parent: number, origine: 'decoupage' | 'conversation' = 'decoupage'): string {
+export function formatStory(story: ProposedStory, parent: number, origin: 'breakdown' | 'conversation' = 'breakdown'): string {
   return [
     '### En tant que',
     '',
@@ -311,73 +311,73 @@ export function formaterStory(story: StoryProposee, parent: number, origine: 'de
     '',
     '### Je veux',
     '',
-    story.besoin,
+    story.need,
     '',
     '### Afin de',
     '',
-    story.benefice,
+    story.benefit,
     '',
     "### Critères d'acceptation",
     '',
-    ...story.criteres.map((critere) => `- ${critere}`),
+    ...story.criteria.map((criterion) => `- ${criterion}`),
     '',
-    ...(origine === 'conversation'
-      ? [SECTION_ORIGINE, '', `#${parent} — story proposée par ADA pendant la conversation, publiée depuis ADA.`]
-      : [SECTION_PARENT, '', `#${parent} — story créée depuis ADA, à partir du découpage qu’elle a proposé.`]),
+    ...(origin === 'conversation'
+      ? [ORIGIN_SECTION, '', `#${parent} — story proposée par ADA pendant la conversation, publiée depuis ADA.`]
+      : [PARENT_SECTION, '', `#${parent} — story créée depuis ADA, à partir du découpage qu’elle a proposé.`]),
   ].join('\n');
 }
 
-/** Numéro de la demande parent d'une story créée par découpage ; null sinon. */
-export function lireParent(corps: string): number | null {
-  const section = corps.split(SECTION_PARENT)[1];
-  const numero = section ? /#(\d+)/.exec(section)?.[1] : undefined;
-  return numero ? Number(numero) : null;
+/** Number of the parent request of a story created by a breakdown; null otherwise. */
+export function readParent(body: string): number | null {
+  const section = body.split(PARENT_SECTION)[1];
+  const number = section ? /#(\d+)/.exec(section)?.[1] : undefined;
+  return number ? Number(number) : null;
 }
 
-/** Ajoute au corps de la demande parent la liste de ses stories, en cases à cocher. */
-export function ajouterDecoupage(corps: string, enfants: { numero: number; titre: string }[]): string {
-  const liste = enfants.map((enfant) => `- [ ] #${enfant.numero} ${enfant.titre}`).join('\n');
-  return `${corps.trimEnd()}\n\n${SECTION_DECOUPAGE}\n\nDemande découpée en ${enfants.length} stories, réalisées une par une. Chaque case se coche quand la story est livrée.\n\n${liste}\n`;
+/** Adds to the body of the parent request the list of its stories, as checkboxes. */
+export function addBreakdown(body: string, children: { number: number; title: string }[]): string {
+  const list = children.map((child) => `- [ ] #${child.number} ${child.title}`).join('\n');
+  return `${body.trimEnd()}\n\n${BREAKDOWN_SECTION}\n\nDemande découpée en ${children.length} stories, réalisées une par une. Chaque case se coche quand la story est livrée.\n\n${list}\n`;
 }
 
-/** Coche la story livrée dans le corps du parent ; dit si toutes ses stories le sont. */
-export function cocherEnfant(corps: string, numero: number): { corps: string; toutesLivrees: boolean } {
-  const coche = corps.replace(new RegExp(`^- \\[ \\] #${numero}(?=\\s)`, 'm'), `- [x] #${numero}`);
-  const section = coche.split(SECTION_DECOUPAGE)[1] ?? '';
-  return { corps: coche, toutesLivrees: /^- \[x\] #\d+/m.test(section) && !/^- \[ \] #\d+/m.test(section) };
+/** Ticks the delivered story in the body of the parent; says whether all its stories are. */
+export function checkChild(body: string, number: number): { body: string; allDelivered: boolean } {
+  const checked = body.replace(new RegExp(`^- \\[ \\] #${number}(?=\\s)`, 'm'), `- [x] #${number}`);
+  const section = checked.split(BREAKDOWN_SECTION)[1] ?? '';
+  return { body: checked, allDelivered: /^- \[x\] #\d+/m.test(section) && !/^- \[ \] #\d+/m.test(section) };
 }
 
 /**
- * Stories à publier, relues par le PO : 1 à 8, chacune complète (titre, rôle, besoin, bénéfice,
- * 1 à CRITERES_MAX critères). Sinon une erreur qui dit laquelle corriger.
+ * Stories to publish, reviewed by the PO: 1 to 8, each complete (title, role, need, benefit,
+ * 1 to MAX_CRITERIA criteria). Otherwise an error that says which one to fix.
  */
-export function validerStoriesAPublier(brut: unknown): StoryProposee[] {
-  if (!Array.isArray(brut) || brut.length === 0) throw new BadRequestException('Cochez au moins une story à publier');
-  if (brut.length > 8) throw new BadRequestException('8 stories au plus à la fois');
-  return brut.map((element, rang) => {
-    const saisie = (element ?? {}) as Record<string, unknown>;
-    const story: StoryProposee = {
-      titre: texteCourt(saisie.titre, 120),
-      role: texteCourt(saisie.role, 200),
-      besoin: texteCourt(saisie.besoin, 600),
-      benefice: texteCourt(saisie.benefice, 600),
-      criteres: (Array.isArray(saisie.criteres) ? saisie.criteres : []).map((critere) => texteCourt(critere, 300)).filter(Boolean),
+export function validateStoriesToPublish(raw: unknown): ProposedStory[] {
+  if (!Array.isArray(raw) || raw.length === 0) throw new BadRequestException('Cochez au moins une story à publier');
+  if (raw.length > 8) throw new BadRequestException('8 stories au plus à la fois');
+  return raw.map((element, rank) => {
+    const input = (element ?? {}) as Record<string, unknown>;
+    const story: ProposedStory = {
+      title: shortText(input.title, 120),
+      role: shortText(input.role, 200),
+      need: shortText(input.need, 600),
+      benefit: shortText(input.benefit, 600),
+      criteria: (Array.isArray(input.criteria) ? input.criteria : []).map((criterion) => shortText(criterion, 300)).filter(Boolean),
     };
-    const manque = [!story.titre && 'le titre', !story.role && '« en tant que »', !story.besoin && '« je veux »', !story.benefice && '« afin de »'].filter(Boolean);
-    if (manque.length) throw new BadRequestException(`Story ${rang + 1} : complétez ${manque.join(', ')}`);
-    if (story.criteres.length < 1 || story.criteres.length > CRITERES_MAX) {
-      throw new BadRequestException(`Story ${rang + 1} : de 1 à ${CRITERES_MAX} critères d’acceptation`);
+    const missing = [!story.title && 'le titre', !story.role && '« en tant que »', !story.need && '« je veux »', !story.benefit && '« afin de »'].filter(Boolean);
+    if (missing.length) throw new BadRequestException(`Story ${rank + 1} : complétez ${missing.join(', ')}`);
+    if (story.criteria.length < 1 || story.criteria.length > MAX_CRITERIA) {
+      throw new BadRequestException(`Story ${rank + 1} : de 1 à ${MAX_CRITERIA} critères d’acceptation`);
     }
     return story;
   });
 }
 
 /**
- * Empreinte d'une demande telle que le PO la voit (titre et corps de l'issue). L'écran la renvoie
- * au lancement : si l'issue a été modifiée sur GitHub entre-temps, ADA refuse de lancer une
- * version que le PO n'a pas lue.
+ * Fingerprint of a request as the PO sees it (title and body of the issue). The screen sends it back
+ * at launch: if the issue was modified on GitHub in the meantime, ADA refuses to launch a
+ * version the PO has not read.
  */
-export function empreinteDemande(titre: string, corps: string | null | undefined): string {
-  return createHash('sha256').update(`${titre}\n${corps ?? ''}`).digest('hex').slice(0, 32);
+export function workRequestFingerprint(title: string, body: string | null | undefined): string {
+  return createHash('sha256').update(`${title}\n${body ?? ''}`).digest('hex').slice(0, 32);
 }
 

@@ -19,7 +19,7 @@ code : l'accès à l'interface doit être restreint.
 
 ## Décision
 **Option retenue : A.** Webhook inactif tant que l'interface tourne en local. Liste blanche
-`LOGINS_AUTORISES` vérifiée au retour de GitHub (par défaut : le seul propriétaire).
+`ALLOWED_LOGINS` vérifiée au retour de GitHub (par défaut : le seul propriétaire).
 
 ## Conséquences
 - **Positives** : traçabilité, moindre privilège, pas de secret manipulé par le PO.

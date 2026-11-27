@@ -78,10 +78,10 @@ jobs:
       # Front construit, servi comme pour une personne non connectée (l'API répond 401).
       - name: Front servi sans session
         run: |
-          node interface/front/scripts/servir-sans-session.mjs 4173 > /dev/null 2>&1 &
+          node interface/front/scripts/serve-without-session.mjs 4173 > /dev/null 2>&1 &
           for _ in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ > /dev/null && exit 0; sleep 1; done
           exit 1
       - uses: Carolinedanslesnuages/emmanuelle@dd6ac2e0319b7f8b13c61d1af6b2c810dee0f485 # v1.1.0
         with:
           url: http://127.0.0.1:4173
-          pages: "/connexion"
+          pages: "/sign-in"

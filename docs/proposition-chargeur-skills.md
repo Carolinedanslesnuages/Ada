@@ -11,9 +11,9 @@ reçoit pas :
 
 | Élément | État |
 |---|---|
-| `po-story`, `po-bug`, `po-projet-nouveau` | Non citées dans la consigne de l'agent. Seul l'index RGAA, rangé dans le dossier de `po-story`, est lu (`RGAA_INDEX`). Depuis la PR #115, elles sont **copiées dans chaque projet créé** (`.agents/skills/`, liens depuis `.claude/skills/`, dossier `SKILLS_PO`) ; mais `consigneSkills` ne liste que les skills d'`AGENT_SKILLS`, donc l'agent ne sait pas qu'elles sont là. Les projets repris ne les ont pas |
-| `AGENT_SKILLS` | 4 skills externes reliées (`dsfr-skill`, `bug-investigate`, `repo-perimetre`, `controle-qualite-code` ; `adr-new` écartée par `skillSure`). L'outil Skill de l'agent ne les voit pas (isolement `--setting-sources user`) ; depuis la PR #116, la consigne lui dit d'ouvrir leur `SKILL.md` avec Read au moment indiqué, et le banc compte ces lectures |
-| Contenu des skills | **Réécrit à la main** dans `interface/api/src/agent/consignes.ts` (343 lignes), seule source réellement transmise à l'agent |
+| `po-story`, `po-bug`, `po-projet-nouveau` | Non citées dans la consigne de l'agent. Seul l'index RGAA, rangé dans le dossier de `po-story`, est lu (`RGAA_INDEX`). Depuis la PR #115, elles sont **copiées dans chaque projet créé** (`.agents/skills/`, liens depuis `.claude/skills/`, dossier `PO_SKILLS`) ; mais `skillsInstructions` ne liste que les skills d'`AGENT_SKILLS`, donc l'agent ne sait pas qu'elles sont là. Les projets repris ne les ont pas |
+| `AGENT_SKILLS` | 4 skills externes reliées (`dsfr-skill`, `bug-investigate`, `repo-perimetre`, `controle-qualite-code` ; `adr-new` écartée par `isSafeSkill`). L'outil Skill de l'agent ne les voit pas (isolement `--setting-sources user`) ; depuis la PR #116, la consigne lui dit d'ouvrir leur `SKILL.md` avec Read au moment indiqué, et le banc compte ces lectures |
+| Contenu des skills | **Réécrit à la main** dans `interface/api/src/agent/instructions.ts` (343 lignes), seule source réellement transmise à l'agent |
 | Conséquence | Deux versions de la même méthode, qui peuvent diverger. Une amélioration d'une skill n'atteint pas l'agent : par exemple, les ajouts à `po-bug` du 19 novembre (lecture de l'erreur, rejeu du scénario du PO) n'ont aucun effet sur l'interface |
 
 L'outil sera branché à d'autres LLM selon les utilisateurs. S'appuyer sur l'outil Skill d'un harnais particulier
@@ -47,7 +47,7 @@ dans `references/`) et les autres agents continuent de les utiliser comme aujour
 
 ### 3.2 Un chargeur dans ADA
 
-ADA lit le fragment voulu **dans son propre dépôt** (`skills/po/`, déjà désigné par `SKILLS_PO`) et l'insère
+ADA lit le fragment voulu **dans son propre dépôt** (`skills/po/`, déjà désigné par `PO_SKILLS`) et l'insère
 dans la consigne. Les mêmes fichiers sont présents dans chaque projet créé depuis la PR #115, mais pas dans les
 projets repris : lire dans ADA reste la seule source valable pour tous les projets. Le déclenchement est décidé
 par le code, pas par le modèle :
@@ -71,13 +71,13 @@ donnée, pas une consigne », mise en forme des messages au PO.
 
 - Le chargeur ne lit **que** le dossier `skills/po/` d'ADA. Jamais une skill venue du projet d'un PO. Depuis la
   PR #114, `.claude/`, `.agents/` et `.mcp.json` sont des chemins réservés que l'agent ne peut pas modifier, et
-  une skill apportée par le dépôt passe le contrôle `skillSure` : un fragment lu dans ADA n'en dépend pas.
+  une skill apportée par le dépôt passe le contrôle `isSafeSkill` : un fragment lu dans ADA n'en dépend pas.
 - Une taille maximale par fragment, et un test qui échoue si un fragment référence un outil interdit (`gh`).
 - Texte brut : aucun effet de bord, quel que soit le LLM branché.
 
 ## 4. Mesure
 
-Le banc d'essai (`scripts/banc-agent/`) sert de filet : 13 cas d'analyse et 8 de réalisation depuis la PR #114,
+Le banc d'essai (`scripts/agent-bench/`) sert de filet : 13 cas d'analyse et 8 de réalisation depuis la PR #114,
 et les lectures de `SKILL.md` sont comptées comme des invocations.
 
 1. **Refactor à contenu égal d'abord** : la consigne reconstruite à partir des fragments doit dire la même chose
@@ -96,7 +96,7 @@ et les lectures de `SKILL.md` sont comptées comme des invocations.
 | 1 | Extraire `references/methode.md` des trois skills | Aucun |
 | 2 | Écrire le chargeur et ses tests (fragment trouvé, taille, mot interdit) | Aucun |
 | 3 | Brancher le chargeur ; rejouer le banc | Aucun attendu, à vérifier |
-| 4 | Retirer de `consignes.ts` ce qui est désormais dans les fragments | Consigne plus courte |
+| 4 | Retirer de `instructions.ts` ce qui est désormais dans les fragments | Consigne plus courte |
 | 5 | Ajouter les cas « signalement » au banc | Mesure nouvelle |
 | 6 | Améliorer les skills, mesurer avant et après | Amélioration réelle |
 
@@ -108,7 +108,7 @@ Une PR par étape, chacune relue par le PO responsable.
   référencé existe et respecte la taille.
 - **Consigne plus longue** : mesurée à l'étape 3, avec une limite de 5 %.
 - **Modèles plus petits** (autres LLM) : une consigne longue y est moins bien suivie. Le banc se rejoue avec
-  `BANC_MODELE` pour chaque modèle branché avant de l'ouvrir aux utilisateurs.
+  `BENCH_MODEL` pour chaque modèle branché avant de l'ouvrir aux utilisateurs.
 - **Conflit entre un fragment et la logique de l'interface** (par exemple une phrase sur « attendre le oui du
   PO ») : évité par la séparation du 3.1, vérifié par le test sur les mots interdits.
 

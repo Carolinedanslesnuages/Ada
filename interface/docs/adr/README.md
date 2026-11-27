@@ -23,3 +23,4 @@
 | [0019](0019-ci-par-les-workflows-de-la-fabnum.md) | Les contrôles d'ADA et de ses projets passent d'abord par les outils de la Fabnum | Accepted | 2026-11-27 |
 | [0020](0020-skills-fabnum-pour-l-agent.md) | L'agent reçoit les conventions de la Fabnum et les skills de sécurité et RGAA de la DINUM | Accepted | 2026-11-27 |
 | [0021](0021-images-separees-vue-fastapi.md) | Le modèle `vue-fastapi` se déploie comme les projets de l'organisation | Accepted | 2026-11-27 |
+| [0022](0022-code-en-anglais.md) | Le code d'ADA est en anglais ; seuls les textes affichés restent en français | Accepted | 2026-11-27 |

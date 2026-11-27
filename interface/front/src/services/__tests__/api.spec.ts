@@ -1,25 +1,25 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { api, ErreurApi } from '../api'
+import { api, ApiError } from '../api'
 
-const repondre = (status: number, corps: string) =>
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(corps, { status }))
+const reply = (status: number, body: string) =>
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(body, { status }))
 
-describe('Client de l’API d’ADA', () => {
+describe('ADA API client', () => {
   afterEach(() => vi.restoreAllMocks())
 
-  it.each([502, 503, 504])('explique simplement une indisponibilité (%i), sans code brut', async (status) => {
-    repondre(status, '<html>Bad Gateway</html>')
-    const erreur = await api.envoyer('/projets/poc/versions/publier', {}).catch((e: unknown) => e)
-    expect(erreur).toBeInstanceOf(ErreurApi)
-    expect((erreur as ErreurApi).message).toMatch(/ADA redémarre un instant/)
-    expect((erreur as ErreurApi).message).not.toMatch(/50\d/)
+  it.each([502, 503, 504])('explains an unavailability simply (%i), without raw code', async (status) => {
+    reply(status, '<html>Bad Gateway</html>')
+    const error = await api.send('/projects/poc/versions/publish', {}).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).message).toMatch(/ADA redémarre un instant/)
+    expect((error as ApiError).message).not.toMatch(/50\d/)
   })
 
-  it('garde le message métier de l’API et les erreurs de validation', async () => {
-    repondre(409, JSON.stringify({ message: 'Aucune nouvelle version à publier' }))
-    await expect(api.envoyer('/x', {})).rejects.toThrow('Aucune nouvelle version à publier')
-    repondre(400, JSON.stringify({ message: { erreurs: { nom: 'Nom pris' } } }))
-    const erreur = (await api.envoyer('/x', {}).catch((e: unknown) => e)) as ErreurApi
-    expect(erreur.erreurs).toEqual({ nom: 'Nom pris' })
+  it('keeps the business message of the API and the validation errors', async () => {
+    reply(409, JSON.stringify({ message: 'Aucune nouvelle version à publier' }))
+    await expect(api.send('/x', {})).rejects.toThrow('Aucune nouvelle version à publier')
+    reply(400, JSON.stringify({ message: { errors: { name: 'Nom pris' } } }))
+    const error = (await api.send('/x', {}).catch((e: unknown) => e)) as ApiError
+    expect(error.errors).toEqual({ name: 'Nom pris' })
   })
 })

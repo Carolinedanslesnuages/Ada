@@ -40,7 +40,7 @@ Cursor, Copilot, Gemini CLI. ADA relie à chaque projet les skills de
 (`dsfr-skill`) pour que son agent puisse les lire, et ajoute 3 skills qui lui sont propres (voir
 ci-dessous), écrites selon les mêmes conventions qu'agent-skills. Ces 3 skills guident un agent
 piloté par une personne, dans ADA ou dans un projet créé par elle ; l'agent de l'interface suit,
-lui, des consignes écrites dans le code (`interface/api/src/agent/consignes.ts`).
+lui, des consignes écrites dans le code (`interface/api/src/agent/instructions.ts`).
 
 > 🤖 Vous êtes un agent de codage ? Lisez [`AGENTS.md`](AGENTS.md).
 
@@ -98,7 +98,7 @@ node scripts/verifier-skills.mjs
 node scripts/skills-index.mjs --check
 ```
 Après un changement de consigne de l'agent, de modèle ou de skill : banc d'essai,
-[scripts/banc-agent/README.md](scripts/banc-agent/README.md) (il consomme des appels à l'agent : pas dans la CI).
+[scripts/agent-bench/README.md](scripts/agent-bench/README.md) (il consomme des appels à l'agent : pas dans la CI).
 
 ## Sources
 

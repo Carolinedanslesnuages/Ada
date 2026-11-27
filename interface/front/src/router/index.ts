@@ -6,36 +6,36 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'atelier',
-      component: () => import('../views/AtelierView.vue'),
-      meta: { connexionRequise: true },
+      name: 'workshop',
+      component: () => import('../views/WorkshopView.vue'),
+      meta: { signInRequired: true },
     },
     {
-      path: '/indicateurs',
-      name: 'indicateurs',
-      component: () => import('../views/IndicateursView.vue'),
-      meta: { connexionRequise: true },
+      path: '/indicators',
+      name: 'indicators',
+      component: () => import('../views/IndicatorsView.vue'),
+      meta: { signInRequired: true },
     },
     {
-      path: '/modele',
-      name: 'modele',
-      component: () => import('../views/ModeleView.vue'),
-      meta: { connexionRequise: true },
+      path: '/model',
+      name: 'model',
+      component: () => import('../views/ModelView.vue'),
+      meta: { signInRequired: true },
     },
-    { path: '/connexion', name: 'connexion', component: () => import('../views/ConnexionView.vue') },
+    { path: '/sign-in', name: 'sign-in', component: () => import('../views/SignInView.vue') },
   ],
 })
 
-router.beforeEach(async (vers) => {
+router.beforeEach(async (target) => {
   const session = useSessionStore()
-  if (!session.verifiee) await session.verifier()
-  if (vers.meta.connexionRequise && !session.connecte) return { name: 'connexion' }
-  if (vers.name === 'connexion' && session.connecte) return { name: 'atelier' }
+  if (!session.verified) await session.verify()
+  if (target.meta.signInRequired && !session.signedIn) return { name: 'sign-in' }
+  if (target.name === 'sign-in' && session.signedIn) return { name: 'workshop' }
 })
 
-router.afterEach((vers) => {
-  const titres: Record<string, string> = { connexion: 'Connexion — ADA', indicateurs: 'Indicateurs — ADA', modele: 'Mon modèle — ADA' }
-  document.title = titres[String(vers.name)] ?? 'ADA'
+router.afterEach((target) => {
+  const titles: Record<string, string> = { 'sign-in': 'Connexion — ADA', indicators: 'Indicateurs — ADA', model: 'Mon modèle — ADA' }
+  document.title = titles[String(target.name)] ?? 'ADA'
 })
 
 export default router

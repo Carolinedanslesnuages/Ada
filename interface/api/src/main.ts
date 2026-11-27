@@ -1,13 +1,13 @@
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import { lireConfig } from './config.js';
-import { configurerApp } from './configurer-app.js';
+import { readConfig } from './config.js';
+import { configureApp } from './configure-app.js';
 
 async function bootstrap() {
-  const config = lireConfig();
+  const config = readConfig();
   const app = await NestFactory.create(AppModule);
-  configurerApp(app, config);
+  configureApp(app, config);
   await app.listen(config.PORT);
 }
 await bootstrap();

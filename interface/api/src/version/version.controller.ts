@@ -1,8 +1,8 @@
 import { Controller, Get, Header } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
 
-/** Contrat repo-version-json (format Dockerflow) : le fichier de l'image, sinon « dev ». */
-export const VERSION_DEV = {
+/** repo-version-json contract (Dockerflow format): the file of the image, otherwise “dev”. */
+export const DEV_VERSION = {
   source: '',
   version: 'dev',
   commit: '',
@@ -20,7 +20,7 @@ export class VersionController {
     try {
       return JSON.parse(readFileSync(process.env.VERSION_JSON ?? '/app/version.json', 'utf8'));
     } catch {
-      return { ...VERSION_DEV };
+      return { ...DEV_VERSION };
     }
   }
 }

@@ -1,27 +1,27 @@
 import { Controller, Get, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
-import { ConnecteGuard } from '../auth/connecte.guard.js';
-import { ProjetGuard } from '../projets/projet.guard.js';
+import { SignedInGuard } from '../auth/signed-in.guard.js';
+import { ProjectGuard } from '../projects/project.guard.js';
 import { VerificationService } from './verification.service.js';
 
-@Controller('projets/:depot/stories/:numero')
-@UseGuards(ConnecteGuard, ProjetGuard)
+@Controller('projects/:repository/stories/:number')
+@UseGuards(SignedInGuard, ProjectGuard)
 export class VerificationController {
   constructor(private readonly verification: VerificationService) {}
 
   @Get('verification')
-  verifier(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
-    return this.verification.verifier(req.session.jeton!, depot, numero);
+  verify(@Req() req: Request, @Param('repository') repository: string, @Param('number', ParseIntPipe) number: number) {
+    return this.verification.verify(req.session.token!, repository, number);
   }
 
-  /** Contrôles que GitHub n'a pas lancés (facturation) : relancés une fois la cause réglée. */
-  @Post('controles/relancer')
-  relancerControles(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
-    return this.verification.relancerControles(req.session.jeton!, depot, numero);
+  /** Checks GitHub did not run (billing): rerun once the cause is fixed. */
+  @Post('checks/rerun')
+  rerunChecks(@Req() req: Request, @Param('repository') repository: string, @Param('number', ParseIntPipe) number: number) {
+    return this.verification.rerunChecks(req.session.token!, repository, number);
   }
 
-  @Post('fusionner')
-  fusionner(@Req() req: Request, @Param('depot') depot: string, @Param('numero', ParseIntPipe) numero: number) {
-    return this.verification.fusionner(req.session.jeton!, depot, numero);
+  @Post('merge')
+  merge(@Req() req: Request, @Param('repository') repository: string, @Param('number', ParseIntPipe) number: number) {
+    return this.verification.merge(req.session.token!, repository, number);
   }
 }

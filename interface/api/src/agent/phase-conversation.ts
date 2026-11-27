@@ -1,89 +1,89 @@
 /**
- * Phase de conversation (« vrai prompt ») : ADA répond au dernier message du PO en agissant tout
- * de suite sur sa branche ; à « c'est bon », contrôles complets puis PR.
+ * Conversation phase (“real prompt”): ADA answers the PO's last message by acting right
+ * away on its branch; at “all good”, full checks then PR.
  */
 import { randomUUID } from 'node:crypto';
-import { texteDecoupage } from '../stories/story.js';
-import { brancheDe, type Demande, type Tache } from './agent.js';
-import { consigneConversation, consigneSuiteConversation } from './consignes.js';
-import type { OutilsPhase } from './outils-phase.js';
-import { lireFinConversation, type FinConversation } from './reponses.js';
+import { breakdownText } from '../stories/story.js';
+import { branchOf, type WorkRequest, type Task } from './agent.js';
+import { conversationInstructions, conversationFollowUpInstructions } from './instructions.js';
+import type { PhaseTools } from './phase-tools.js';
+import { readConversationEnd, type ConversationEnd } from './responses.js';
 
-export async function phaseConversation(outils: OutilsPhase, { jeton, login, depot, numero, finaliser = false }: Tache): Promise<void> {
-  const demande = await outils.demande(jeton, depot, numero);
-  const branche = brancheDe(demande);
-  const { cwd } = await outils.preparerBranche(jeton, login, depot, branche);
-  const skills = await outils.equiperSkills(cwd);
-  await outils.noter(depot, numero, finaliser ? 'Lance les contrôles complets avant de proposer vos changements' : `Lit votre message (branche ${branche})`);
-  const { controles, dsfr } = await outils.apercu.lireConfig(cwd);
-  const indexRgaa = await outils.lireIndexRgaa();
-  const executerConversation = async (consigne: string, session: { id: string; reprendre: boolean }) =>
-    lireFinConversation(await outils.executer(depot, numero, 'conversation', consigne, cwd, skills.dossiers, session, login));
+export async function conversationPhase(tools: PhaseTools, { token, login, repository, number, finalize = false }: Task): Promise<void> {
+  const workRequest = await tools.workRequest(token, repository, number);
+  const branch = branchOf(workRequest);
+  const { cwd } = await tools.prepareBranch(token, login, repository, branch);
+  const skills = await tools.equipSkills(cwd);
+  await tools.record(repository, number, finalize ? 'Lance les contrôles complets avant de proposer vos changements' : `Lit votre message (branche ${branch})`);
+  const { checks, dsfr } = await tools.preview.readConfig(cwd);
+  const rgaaIndex = await tools.readRgaaIndex();
+  const runConversation = async (instructions: string, session: { id: string; resume: boolean }) =>
+    readConversationEnd(await tools.run(repository, number, 'conversation', instructions, cwd, skills.folders, session, login));
 
-  // Garder le fil : la session de l'agent est reprise d'un message à l'autre (il a déjà les règles
-  // et l'historique) ; sans session, ou si elle ne se reprend plus, on repart de la consigne complète.
-  const precedente = (await outils.lireActivite(depot, numero)).session ?? null;
-  const dernierMessage = [...demande.echanges].reverse().find((echange) => echange.auteur === 'po')?.texte;
-  let fin: FinConversation | null = null;
-  if (precedente && dernierMessage) {
-    fin = await executerConversation(consigneSuiteConversation(dernierMessage, controles, finaliser), { id: precedente, reprendre: true }).catch((e: unknown) => {
-      outils.log.warn(`Reprise de la session de ${depot}#${numero} impossible : ${(e as Error).message}`);
+  // Keeping the thread: the agent session is resumed from one message to the next (it already has the rules
+  // and the history); without a session, or if it can no longer be resumed, the full instructions are sent again.
+  const previous = (await tools.readActivity(repository, number)).session ?? null;
+  const lastMessage = [...workRequest.exchanges].reverse().find((exchange) => exchange.author === 'po')?.text;
+  let end: ConversationEnd | null = null;
+  if (previous && lastMessage) {
+    end = await runConversation(conversationFollowUpInstructions(lastMessage, checks, finalize), { id: previous, resume: true }).catch((e: unknown) => {
+      tools.log.warn(`Session of ${repository}#${number} could not be resumed: ${(e as Error).message}`);
       return null;
     });
   }
-  if (!fin) {
+  if (!end) {
     const session = randomUUID();
-    await outils.enregistrer(depot, numero, { session });
-    fin = await executerConversation(consigneConversation(demande, branche, indexRgaa, skills.noms, controles, dsfr, finaliser), { id: session, reprendre: false });
+    await tools.save(repository, number, { session });
+    end = await runConversation(conversationInstructions(workRequest, branch, rgaaIndex, skills.names, checks, dsfr, finalize), { id: session, resume: false });
   }
-  if (!fin) {
-    await outils.bloquer(jeton, depot, numero, 'ADA n’a pas réussi à répondre à votre message.');
+  if (!end) {
+    await tools.block(token, repository, number, 'ADA n’a pas réussi à répondre à votre message.');
     return;
   }
-  // Des commits pas encore sur GitHub : on pousse la branche (jamais main) et l'aperçu les montre.
-  if ((await outils.compterCommits(cwd, branche, '--not', '--remotes=origin')) > 0) {
-    if (await outils.toucheDossiersReserves(jeton, depot, numero, cwd, branche)) return;
-    await outils.pousser(jeton, depot, numero, cwd, branche);
-    await outils.relancerApercu(depot, numero);
+  // Commits not yet on GitHub: the branch is pushed (never main) and the preview shows them.
+  if ((await tools.countCommits(cwd, branch, '--not', '--remotes=origin')) > 0) {
+    if (await tools.touchesReservedFolders(token, repository, number, cwd, branch)) return;
+    await tools.push(token, repository, number, cwd, branch);
+    await tools.restartPreview(repository, number);
   }
-  if (!finaliser) {
-    // Stories pour plus tard : jointes au message, le PO les choisit et ADA les publie (même circuit qu'un découpage).
-    const message = fin.stories.length ? texteDecoupage(fin.reponse, fin.stories) : fin.reponse;
-    await outils.stories.commenterAssistant(jeton, depot, numero, 'ADA', message);
-    await outils.stories.changerStatut(jeton, depot, numero, 'echange');
-    await outils.noter(depot, numero, 'À vous : répondez à ADA');
+  if (!finalize) {
+    // Stories for later: attached to the message, the PO chooses them and ADA publishes them (same path as a breakdown).
+    const message = end.stories.length ? breakdownText(end.response, end.stories) : end.response;
+    await tools.stories.commentAsAssistant(token, repository, number, 'ADA', message);
+    await tools.stories.changeStatus(token, repository, number, 'exchange');
+    await tools.record(repository, number, 'À vous : répondez à ADA');
     return;
   }
-  await proposerChangements(outils, { jeton, login, depot, numero }, cwd, branche, demande, fin);
+  await proposeChanges(tools, { token, login, repository, number }, cwd, branch, workRequest, end);
 }
 
 /**
- * Fin de conversation (« c'est bon ») : contrôles complets passés → PR (circuit habituel :
- * vérification et fusion par le PO) ; aucun changement → conversation close ; contrôle en échec →
- * ADA le dit et la conversation reste ouverte.
+ * End of conversation (“all good”): full checks passed → PR (usual path:
+ * review and merge by the PO); no change → conversation closed; failed check →
+ * ADA says so and the conversation stays open.
  */
-async function proposerChangements(
-  outils: OutilsPhase,
-  { jeton, login, depot, numero }: Pick<Tache, 'jeton' | 'login' | 'depot' | 'numero'>,
+async function proposeChanges(
+  tools: PhaseTools,
+  { token, login, repository, number }: Pick<Task, 'token' | 'login' | 'repository' | 'number'>,
   cwd: string,
-  branche: string,
-  demande: Demande,
-  fin: FinConversation,
+  branch: string,
+  workRequest: WorkRequest,
+  end: ConversationEnd,
 ): Promise<void> {
-  const { stories } = outils;
-  if (!fin.pret) {
-    await stories.commenterAssistant(jeton, depot, numero, 'Pas encore prêt', `${fin.reponse}\n\nDites-moi comment continuer, ou demandez l’aide d’un développeur.`);
-    await stories.changerStatut(jeton, depot, numero, 'echange');
-    await outils.noter(depot, numero, 'Un contrôle ne passe pas : à vous');
+  const { stories } = tools;
+  if (!end.ready) {
+    await stories.commentAsAssistant(token, repository, number, 'Pas encore prêt', `${end.response}\n\nDites-moi comment continuer, ou demandez l’aide d’un développeur.`);
+    await stories.changeStatus(token, repository, number, 'exchange');
+    await tools.record(repository, number, 'Un contrôle ne passe pas : à vous');
     return;
   }
-  if ((await outils.compterCommits(cwd, `origin/main..${branche}`)) === 0) {
-    await stories.fermerSansSuite(jeton, depot, numero, `💬 Conversation terminée par ${login}, sans changement à proposer au projet.`);
+  if ((await tools.countCommits(cwd, `origin/main..${branch}`)) === 0) {
+    await stories.closeAsNotPlanned(token, repository, number, `💬 Conversation terminée par ${login}, sans changement à proposer au projet.`);
     return;
   }
-  const pr = await outils.ouvrirPullRequest(jeton, depot, cwd, branche, demande, fin.reponse);
-  await outils.enregistrer(depot, numero, { pullRequest: pr });
-  await stories.commenterAssistant(jeton, depot, numero, 'Changements proposés au projet', `${fin.reponse}\n\nLes contrôles automatiques tournent sur la pull request : ${pr}`);
-  await stories.changerStatut(jeton, depot, numero, 'en-verification');
-  await outils.noter(depot, numero, 'Terminé : à vous de vérifier');
+  const pr = await tools.openPullRequest(token, repository, cwd, branch, workRequest, end.response);
+  await tools.save(repository, number, { pullRequest: pr });
+  await stories.commentAsAssistant(token, repository, number, 'Changements proposés au projet', `${end.response}\n\nLes contrôles automatiques tournent sur la pull request : ${pr}`);
+  await stories.changeStatus(token, repository, number, 'in-review');
+  await tools.record(repository, number, 'Terminé : à vous de vérifier');
 }

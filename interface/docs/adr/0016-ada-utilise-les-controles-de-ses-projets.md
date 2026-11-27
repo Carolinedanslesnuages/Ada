@@ -18,7 +18,7 @@ gitleaks) et n'avait ni contrôle des dépendances ni contrôle d'accessibilité
 - **Olympe** : les skills `po-` passent le format Agent Skills, la sécurité (mode strict) et la
   qualité, en plus des invariants d'ADA (`verifier-skills.mjs`).
 - **Emmanuelle** : la page de connexion de l'interface, construite et servie comme pour une
-  personne non connectée (`scripts/servir-sans-session.mjs`, l'API répond 401).
+  personne non connectée (`scripts/serve-without-session.mjs`, l'API répond 401).
 - Toutes les actions sont épinglées à un SHA.
 
 ## Conséquences
