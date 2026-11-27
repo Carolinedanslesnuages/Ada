@@ -34,6 +34,23 @@ Objectif : __OBJECTIF__
   quand un composant existe. Un seul `h1` par page.
 - Tout critère d'acceptation se traduit par au moins un test (pytest côté API, Vitest côté front).
 
+## Déploiement
+- Deux images de production, comme dans les projets de l'organisation : `api/Dockerfile` (API
+  FastAPI, utilisateur sans privilèges) et `front/Dockerfile` (front construit, servi par nginx
+  sans privilèges, qui transmet `/api` à l'API : `front/nginx/default.conf.template`). La CI les
+  construit et les lance avec la base à chaque demande (« Image et chart »). Un nouveau dossier lu
+  par l'API à l'exécution doit être copié dans `api/Dockerfile`.
+- `docker-compose.yml` : la base seule pour développer (`make db`), ou tout le projet avec les
+  images de production (`make up`, http://localhost:8080).
+- `api/.env.example` : toute nouvelle variable d'environnement de l'API y est ajoutée, avec une
+  valeur fictive. `api/.env` n'est jamais commité.
+- `.gitlab-ci-dso.yml` : construction des images sur Cloud Pi Native quand le dépôt y est copié
+  en miroir. **Réservé aux développeurs et à l'équipe infra : ne pas le modifier.**
+- `charts/app/` (présent si le projet est déployé) : chart Helm générique. **Réservé aux
+  développeurs et à l'équipe infra : ne pas le modifier.** La base PostgreSQL est externe : son
+  adresse est lue dans un secret créé par l'équipe infra. Les valeurs d'un environnement
+  (registre, adresse) sont fournies hors du dépôt.
+
 ## Accessibilité (RGAA) — les bases, toujours
 
 Le service doit être utilisable par tous (RGAA 4, obligatoire dans l'administration). À chaque
@@ -71,15 +88,18 @@ accepté en connaissance de cause s'inscrit dans `.emmanuelle-reference.json`, j
 passer une PR : on le corrige.
 
 ## Commandes
-| Action | Commande |
-|---|---|
-| Environnement Python | `cd api && python3.13 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt` |
-| Base de données | `docker compose up -d` puis `cd api && alembic upgrade head` |
-| Lancer l'API | `cd api && uvicorn app.main:app --reload` (port 8000, documentation : `/api/docs`) |
-| Lancer le front | `cd front && npm run dev` (proxy `/api` vers le port 8000) |
-| Tests | `cd api && pytest && cd ../front && npm run test:unit -- --run` |
-| Lint | `cd api && ruff check . && ruff format --check . && cd ../front && npx oxlint . && npx eslint .` |
-| Types / compilation | `cd api && mypy app && cd ../front && npm run type-check && npm run build-only` |
+`make` liste les commandes ; chacune a son équivalent direct.
+
+| Action | Commande | Équivalent |
+|---|---|---|
+| Installer | `make install` | `cd api && python3.13 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`, `cp api/.env.example api/.env`, `cd front && npm ci` |
+| Base de données | `make migrate` | `docker compose up -d --wait db` puis `cd api && .venv/bin/alembic upgrade head` |
+| Lancer l'API | `make dev-api` | `cd api && .venv/bin/uvicorn app.main:app --reload` (port 8000, documentation : `/api/docs`) |
+| Lancer le front | `make dev-front` | `cd front && npm run dev` (proxy `/api` vers le port 8000) |
+| Tests | `make test` | `cd api && .venv/bin/pytest && cd ../front && npm run test:unit -- --run` |
+| Lint | `make lint` | `cd api && .venv/bin/ruff check . && .venv/bin/ruff format --check . && cd ../front && npx oxlint . && npx eslint .` |
+| Tous les contrôles | `make check` | lint, tests, puis `cd api && .venv/bin/mypy app && cd ../front && npm run type-check && npm run build-only` |
+| Tout lancer comme en production | `make up` (arrêt : `make down`) | `docker compose up -d --build --wait` : http://localhost:8080 |
 
 ## Messages de commit (release-please)
 Conventional Commits, versions SemVer calculées par release-please (jamais à la main) :

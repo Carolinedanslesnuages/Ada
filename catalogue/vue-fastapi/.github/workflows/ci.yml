@@ -56,6 +56,31 @@ jobs:
       - run: npm run test:unit -- --run
       - run: npm run build-only
 
+  image:
+    name: Image et chart (construction, helm lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Images de production (api/Dockerfile, front/Dockerfile), lancées avec la base
+        run: VERSION="$(cat version.txt)" COMMIT="$GITHUB_SHA" docker compose up -d --build --wait
+      - name: Le front répond et transmet /api à l'API
+        run: |
+          curl -sf http://localhost:8080/ > /dev/null
+          curl -sf http://localhost:8080/api
+      - name: Journaux des conteneurs (en cas d'échec)
+        if: failure()
+        run: docker compose logs
+      - name: Chart Helm (si le projet est déployé)
+        if: hashFiles('charts/app/Chart.yaml') != ''
+        run: |
+          curl -sSfL -o helm.tgz https://get.helm.sh/helm-v4.2.3-linux-amd64.tar.gz
+          echo "e9b88b4ee95b18c706839c28d3a0220e5bc470e9cd9262410c90793c45ff8b7c  helm.tgz" | sha256sum -c -
+          tar -xzf helm.tgz linux-amd64/helm
+          ./linux-amd64/helm lint --strict charts/app
+          ./linux-amd64/helm template verification charts/app --set ingress.enabled=true --set ingress.host=exemple.gouv.fr > /dev/null
+
   accessibilite:
     name: Accessibilité RGAA (pages construites)
     # Ubuntu 24.04 : le Playwright d'Emmanuelle ne prend pas encore en charge Ubuntu 26.04.
