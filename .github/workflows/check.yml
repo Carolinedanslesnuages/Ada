@@ -125,7 +125,7 @@ jobs:
           curl -sSfL -o "$RUNNER_TEMP/helm.tgz" https://get.helm.sh/helm-v4.2.3-linux-amd64.tar.gz
           echo "e9b88b4ee95b18c706839c28d3a0220e5bc470e9cd9262410c90793c45ff8b7c  $RUNNER_TEMP/helm.tgz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/helm.tgz" -C "$RUNNER_TEMP" linux-amd64/helm
-          cp -R charts/app "$RUNNER_TEMP/app"
+          cp -R helm "$RUNNER_TEMP/app"
           sed -i 's/__SLUG__/projet-essai/g; s/__NOM_PROJET__/Projet essai/g' "$RUNNER_TEMP/app/Chart.yaml" "$RUNNER_TEMP/app/values.yaml"
           "$RUNNER_TEMP/linux-amd64/helm" lint --strict "$RUNNER_TEMP/app"
           "$RUNNER_TEMP/linux-amd64/helm" template essai "$RUNNER_TEMP/app" --set ingress.enabled=true --set ingress.host=exemple.gouv.fr > /dev/null

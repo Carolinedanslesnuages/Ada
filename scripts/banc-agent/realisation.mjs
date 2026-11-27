@@ -120,7 +120,7 @@ async function une(nom, rang) {
     ['l’agent répond « ok »', resultat?.resultat === 'ok'],
     ['un commit a été fait', git('rev-parse', 'HEAD') !== depart],
     ['test d’accessibilité automatique (violationsAccessibilite)', /violationsAccessibilite/.test(contenuTests)],
-    ['aucun fichier réservé (.github, charts, .claude, .agents)', cheminsReserves(fichiers).length === 0],
+    ['aucun fichier réservé (.github, helm, charts, .claude, .agents)', cheminsReserves(fichiers).length === 0],
     ['contrôles du projet relancés par le banc : verts', controles.every((controle) => controle.ok)],
     ...(cas.verifs ? cas.verifs(diffCode) : []),
     ...(cas.verifsFichiers ? cas.verifsFichiers(fichiers) : []),

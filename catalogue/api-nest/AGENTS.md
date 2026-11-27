@@ -41,7 +41,7 @@ Objectif : __OBJECTIF__
   fictive. Le fichier `.env` n'est jamais commité.
 - `.gitlab-ci-dso.yml` : construction de l'image sur Cloud Pi Native quand le dépôt y est copié
   en miroir. **Réservé aux développeurs et à l'équipe infra : ne pas le modifier.**
-- `charts/app/` (présent si le projet est déployé) : chart Helm générique. **Réservé aux
+- `helm/` (présent si le projet est déployé) : chart Helm générique. **Réservé aux
   développeurs et à l'équipe infra : ne pas le modifier.** La base PostgreSQL est externe : son
   adresse est lue dans un secret créé par l'équipe infra. Les valeurs d'un environnement
   (registre, adresse) sont fournies hors du dépôt.

@@ -79,8 +79,8 @@ describe('Consignes données à l’agent', () => {
   });
 
   it('interdit toujours de modifier les workflows GitHub et le chart de déploiement, et le dit dans la consigne', () => {
-    expect(OUTILS_INTERDITS).toEqual(expect.arrayContaining(['Edit(./.github/**)', 'Write(./.github/**)', 'Edit(./charts/**)', 'Write(./charts/**)']));
-    expect(consigneRealisation(demande, 'story/1-x')).toContain('Ne modifie jamais les dossiers .github/ (CI, versions) et charts/ (déploiement)');
+    expect(OUTILS_INTERDITS).toEqual(expect.arrayContaining(['Edit(./.github/**)', 'Write(./.github/**)', 'Edit(./helm/**)', 'Write(./helm/**)', 'Edit(./charts/**)', 'Write(./charts/**)']));
+    expect(consigneRealisation(demande, 'story/1-x')).toContain('Ne modifie jamais les dossiers .github/ (CI, versions), helm/ et charts/ (déploiement)');
   });
 
   it('écarte une skill qui pré-autorise des outils ou exécute des commandes', () => {
@@ -214,8 +214,9 @@ describe('Supprimer ou renommer un fichier', () => {
     expect(consigneRealisation(demande, 'story/1-x')).toContain('« git rm <fichier> »');
   });
   it('repère les fichiers des dossiers réservés aux développeurs, et les réglages de l’agent lui-même', () => {
-    expect(cheminsReserves(['src/pages/Bientot.vue', '.github/workflows/ci.yml', 'charts/app/values.yaml', 'docs/github.md'])).toEqual([
+    expect(cheminsReserves(['src/pages/Bientot.vue', '.github/workflows/ci.yml', 'helm/values.yaml', 'charts/app/values.yaml', 'docs/github.md'])).toEqual([
       '.github/workflows/ci.yml',
+      'helm/values.yaml',
       'charts/app/values.yaml',
     ]);
     // Écrits depuis le conteneur (les interdits d'outils ne couvrent que l'édition directe), ils agiraient sur toutes les demandes suivantes.

@@ -25,7 +25,7 @@ export function outilsAutorises(phase: Phase, dossiersLisibles: string[] = []): 
     'Bash(git diff *)',
     'Bash(git add *)',
     // Supprimer ou renommer un fichier du projet (une page retirée, par exemple) : git refuse tout
-    // chemin hors du dépôt ; .github/ et charts/ restent protégés par cheminsReserves avant l'envoi.
+    // chemin hors du dépôt ; .github/, helm/ et charts/ restent protégés par cheminsReserves avant l'envoi.
     'Bash(git rm *)',
     'Bash(git mv *)',
     'Bash(git commit *)',
@@ -36,12 +36,14 @@ export function outilsAutorises(phase: Phase, dossiersLisibles: string[] = []): 
 
 /**
  * Interdits, quelle que soit la phase : ce qui est réservé aux développeurs (la CI et les versions
- * dans .github, le déploiement dans charts) et les réglages de l'agent lui-même. Une interdiction
+ * dans .github, le déploiement dans helm, ou charts pour les projets créés avant) et les réglages de l'agent lui-même. Une interdiction
  * l'emporte sur une autorisation.
  */
 export const OUTILS_INTERDITS = [
   'Edit(./.github/**)',
   'Write(./.github/**)',
+  'Edit(./helm/**)',
+  'Write(./helm/**)',
   'Edit(./charts/**)',
   'Write(./charts/**)',
   // Réglages et outils de l'agent : jamais modifiables par lui (les skills d'ADA y sont reliées).
@@ -75,7 +77,7 @@ export const OPTIONS_ISOLEMENT = ['--setting-sources', 'user', '--strict-mcp-con
  * couvrent que l'édition directe ; depuis le conteneur, l'agent écrit où il veut dans le dépôt
  * monté : un fichier d'instructions glissé dans une PR agirait sur toutes les demandes suivantes.
  */
-const DOSSIERS_RESERVES = ['.github/', 'charts/', '.claude/', '.agents/', '.mcp.json'];
+const DOSSIERS_RESERVES = ['.github/', 'helm/', 'charts/', '.claude/', '.agents/', '.mcp.json'];
 
 /** Fichiers modifiés, ajoutés ou supprimés dans un chemin réservé : la branche ne doit pas partir. */
 export function cheminsReserves(fichiers: string[]): string[] {

@@ -10,4 +10,4 @@ tests
 .git
 .github
 docs
-charts
+helm
