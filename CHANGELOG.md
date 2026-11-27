@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.6.0](https://github.com/Carolinedanslesnuages/Ada/compare/v0.5.0...v0.6.0) (2026-11-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **interface:** les routes de l'API et les adresses des pages changent (/api/projets → /api/projects, /connexion → /sign-in, /indicateurs → /indicators, /modele → /model). Les noms des dossiers et fichiers sur le disque et ceux des ressources Docker ne changent pas.
+
+### Features
+
+* **agent:** conventions de la Fabnum et skills de sécurité et RGAA de la DINUM ([#140](https://github.com/Carolinedanslesnuages/Ada/issues/140)) ([37c1da2](https://github.com/Carolinedanslesnuages/Ada/commit/37c1da2852ece717526d9c22a606ad131b4daf9d))
+* **agent:** outils tolérants pour les modèles plus petits, et commit par ADA si l'agent l'oublie ([#155](https://github.com/Carolinedanslesnuages/Ada/issues/155)) ([0ff5bde](https://github.com/Carolinedanslesnuages/Ada/commit/0ff5bde7e2ff952e3cc4b1e35979405afdf14b34))
+* **agent:** relancer en découpage une demande vaste qui reçoit des questions ([#137](https://github.com/Carolinedanslesnuages/Ada/issues/137)) ([4178be7](https://github.com/Carolinedanslesnuages/Ada/commit/4178be7ebcb0b0e190e1e81572dcaa9eae234781))
+* **banc:** réessais patients face aux limites de débit, cas texte-long et vision-donnees ([#136](https://github.com/Carolinedanslesnuages/Ada/issues/136)) ([55ae9c0](https://github.com/Carolinedanslesnuages/Ada/commit/55ae9c0e96a1c2e9ee34917909e8c6d5a3dc9292))
+* **catalogue:** contrôles par les workflows communs de la Fabnum (fabnum-cicd) ([#139](https://github.com/Carolinedanslesnuages/Ada/issues/139)) ([8c00b4f](https://github.com/Carolinedanslesnuages/Ada/commit/8c00b4f562781f22acc30cf9f7f47b954560f8c1))
+* **catalogue:** le modèle vue-fastapi se lance et se déploie comme les projets de l'organisation ([#146](https://github.com/Carolinedanslesnuages/Ada/issues/146)) ([22ab623](https://github.com/Carolinedanslesnuages/Ada/commit/22ab62324b5eb6eb173cc18143ef69e08c445a8c))
+* **catalogue:** le modèle vue-nest-dsfr se lance et se déploie comme les projets de l'organisation ([#147](https://github.com/Carolinedanslesnuages/Ada/issues/147)) ([910e4d9](https://github.com/Carolinedanslesnuages/Ada/commit/910e4d94da99e169af0bac8f3601f15d83d33d21))
+* **catalogue:** tableau-de-bord, api-nest et api-fastapi se déploient comme les autres projets ([#149](https://github.com/Carolinedanslesnuages/Ada/issues/149)) ([8f8896f](https://github.com/Carolinedanslesnuages/Ada/commit/8f8896fcfe18f2b4719a34802c450e25fa7765b2))
+* **catalogue:** vue-fastapi avec pnpm, uv et la configuration ESLint de la Fabnum ([#154](https://github.com/Carolinedanslesnuages/Ada/issues/154)) ([bc4398e](https://github.com/Carolinedanslesnuages/Ada/commit/bc4398ef514f952d6317e0b0385720e234d9c80f))
+
+
+### Bug Fixes
+
+* **agent:** rejeter une réponse reprise telle quelle d'un fichier du projet ([#151](https://github.com/Carolinedanslesnuages/Ada/issues/151)) ([ee073bc](https://github.com/Carolinedanslesnuages/Ada/commit/ee073bc2820fa0e836a1a7710f412e89a415746c))
+* **agent:** un fichier du projet ne donne jamais d'ordre à l'agent ([#138](https://github.com/Carolinedanslesnuages/Ada/issues/138)) ([0cf529e](https://github.com/Carolinedanslesnuages/Ada/commit/0cf529ee9024ce2e86af6917b92a15575acebc8b))
+* **banc:** compter les lectures de skill faites par le lien du projet ([#153](https://github.com/Carolinedanslesnuages/Ada/issues/153)) ([eec692f](https://github.com/Carolinedanslesnuages/Ada/commit/eec692f2547ff7c57cd94709e41b76308f79c401))
+* **banc:** le banc d'essai lit la liste des skills livrées dans l'API compilée ([#141](https://github.com/Carolinedanslesnuages/Ada/issues/141)) ([ed5b72a](https://github.com/Carolinedanslesnuages/Ada/commit/ed5b72af847d29bef3beb61a3e649348f5da3c3c))
+* **catalogue:** déploiement conforme aux conventions de la Fabnum (helm/, OpenShift, étapes) ([#150](https://github.com/Carolinedanslesnuages/Ada/issues/150)) ([34b4c67](https://github.com/Carolinedanslesnuages/Ada/commit/34b4c674e525a9aa3d3a6b4e48c57cd154c29e97))
+* **deps:** dépendances vulnérables retirées ou corrigées (undici, tmp, minimatch, vite, esbuild) ([#142](https://github.com/Carolinedanslesnuages/Ada/issues/142)) ([44c41ab](https://github.com/Carolinedanslesnuages/Ada/commit/44c41ab7e61f6a4b15bb97a31b7ac3ba3fedcb90))
+* limite de débit sur les pages servies par les modèles Express et slug sans expression lente ([#145](https://github.com/Carolinedanslesnuages/Ada/issues/145)) ([2c84b9a](https://github.com/Carolinedanslesnuages/Ada/commit/2c84b9a23e1efea393a19d211f3d6519378b9384))
+* lire la réponse JSON de l'agent même indentée ([#134](https://github.com/Carolinedanslesnuages/Ada/issues/134)) ([c00715b](https://github.com/Carolinedanslesnuages/Ada/commit/c00715b92ed8337b3907ebe30e5a2ec99c688600))
+
+
+### Code Refactoring
+
+* **interface:** code de l'interface en anglais, anciens formats toujours lus ([#152](https://github.com/Carolinedanslesnuages/Ada/issues/152)) ([f367c00](https://github.com/Carolinedanslesnuages/Ada/commit/f367c006614de26759b323391cc38daea26cb257))
+
 ## [0.5.0](https://github.com/Carolinedanslesnuages/Ada/compare/v0.4.0...v0.5.0) (2026-11-25)
 
 
