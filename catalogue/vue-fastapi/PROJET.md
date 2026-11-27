@@ -8,9 +8,11 @@
 ## Lancer le projet
 | Action | Commande |
 |---|---|
-| Base de données | `docker compose up -d` puis `cd api && alembic upgrade head` |
-| Lancer l'API | `cd api && uvicorn app.main:app --reload` |
-| Lancer le front | `cd front && npm run dev` |
+| Installer (une fois) | `make install` |
+| Base de données | `make migrate` |
+| Lancer l'API | `make dev-api` |
+| Lancer le front | `make dev-front` |
+| Tout lancer comme en production | `make up` (http://localhost:8080) |
 
 ## Stories réalisées
 _(aucune pour l'instant)_

@@ -87,7 +87,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        modele: [vue-node, formulaire]
+        # images : « unique » (l'API sert le front) ou « separees » (une image par partie, lancées
+        # avec la base par docker compose).
+        include:
+          - { modele: vue-node, images: unique }
+          - { modele: formulaire, images: unique }
+          - { modele: vue-fastapi, images: separees }
     defaults:
       run:
         working-directory: catalogue/${{ matrix.modele }}
@@ -96,12 +101,21 @@ jobs:
         with:
           persist-credentials: false
       - name: Image de production
+        if: matrix.images == 'unique'
         run: docker build -t modele .
       - name: L'image démarre et répond
+        if: matrix.images == 'unique'
         run: |
           docker run -d --name modele -p 8080:8080 modele
           for _ in $(seq 1 30); do curl -sf http://localhost:8080/api && exit 0; sleep 1; done
           docker logs modele; exit 1
+      - name: Images de production, lancées avec la base (docker compose, personnalisé comme à la création d'un projet)
+        if: matrix.images == 'separees'
+        run: |
+          sed -i 's/__SLUG__/projet-essai/g' docker-compose.yml
+          docker compose up -d --build --wait || { docker compose logs; exit 1; }
+          curl -sf http://localhost:8080/ > /dev/null
+          curl -sf http://localhost:8080/api
       - name: Chart Helm, personnalisé comme à la création d'un projet
         run: |
           curl -sSfL -o "$RUNNER_TEMP/helm.tgz" https://get.helm.sh/helm-v4.2.3-linux-amd64.tar.gz
